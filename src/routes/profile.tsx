@@ -1,7 +1,19 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { Settings, Bookmark, Users, Briefcase } from "lucide-react";
+import { Settings, Bookmark, Users, Briefcase, Plus, Calendar, Tag, Trash2 } from "lucide-react";
+import { useState } from "react";
 import { circles, events } from "@/data/mock";
 import { PageHeader } from "@/components/PageHeader";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+  DialogFooter,
+  DialogClose,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
 
 export const Route = createFileRoute("/profile")({
   head: () => ({
