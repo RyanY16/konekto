@@ -57,6 +57,8 @@ export function AppShell() {
               );
             })}
           </nav>
+            <ThemeToggle />
+          </div>
         </div>
       </header>
 
