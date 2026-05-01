@@ -40,6 +40,13 @@ export const Route = createRootRoute({
         content: "Find your circles. Everything you need as a student in Japan.",
       },
       { property: "og:type", content: "website" },
+      { name: "twitter:title", content: "Konekto — Your campus, connected." },
+      { name: "description", content: "Konekto is an all-in-one web hub for university students in Japan, connecting them to circles, events, deals, careers, and life resources." },
+      { property: "og:description", content: "Konekto is an all-in-one web hub for university students in Japan, connecting them to circles, events, deals, careers, and life resources." },
+      { name: "twitter:description", content: "Konekto is an all-in-one web hub for university students in Japan, connecting them to circles, events, deals, careers, and life resources." },
+      { property: "og:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/5c96c6de-8ad2-49b2-8048-2d254b4e44bc/id-preview-fb6dcaf7--e4f7c4ac-92cf-4b4b-8478-ab1f1094910a.lovable.app-1777597583274.png" },
+      { name: "twitter:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/5c96c6de-8ad2-49b2-8048-2d254b4e44bc/id-preview-fb6dcaf7--e4f7c4ac-92cf-4b4b-8478-ab1f1094910a.lovable.app-1777597583274.png" },
+      { name: "twitter:card", content: "summary_large_image" },
     ],
     links: [
       { rel: "stylesheet", href: appCss },
