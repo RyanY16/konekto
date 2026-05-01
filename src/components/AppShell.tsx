@@ -2,6 +2,8 @@ import { Link, Outlet, useRouterState } from "@tanstack/react-router";
 import { Home, Users, Calendar, Tag, Briefcase, MapPin, User } from "lucide-react";
 import type { ComponentType } from "react";
 import { ThemeToggle } from "./ThemeToggle";
+import AuthProvider, { useAuth } from "@/components/AuthProvider";
+import SignInDialog from "@/components/SignInDialog";
 
 type NavItem = { to: string; label: string; icon: ComponentType<{ className?: string }> };
 
@@ -31,7 +33,8 @@ export function AppShell() {
   const isActive = (to: string) => (to === "/" ? pathname === "/" : pathname.startsWith(to));
 
   return (
-    <div className="min-h-screen bg-background">
+    <AuthProvider>
+      <div className="min-h-screen bg-background">
       {/* Top bar (mobile + desktop) */}
       <header className="sticky top-0 z-40 border-b border-border bg-background/80 backdrop-blur-md">
         <div className="mx-auto max-w-7xl px-4 h-14 flex items-center justify-between">
@@ -58,6 +61,9 @@ export function AppShell() {
             })}
           </nav>
             <ThemeToggle />
+            <div className="ml-3 flex items-center gap-2">
+              <AuthControls />
+            </div>
           </div>
         </div>
       </header>
@@ -88,5 +94,22 @@ export function AppShell() {
         </div>
       </nav>
     </div>
+    </AuthProvider>
   );
+}
+
+function AuthControls() {
+  try {
+    const { user, loading, signOut } = useAuth();
+    if (loading) return <div className="h-8 w-8 rounded bg-muted" />;
+    if (!user) return <SignInDialog />;
+
+    return (
+      <div className="flex items-center gap-2">
+        <button className="text-sm text-muted-foreground" onClick={() => signOut()}>Sign out</button>
+      </div>
+    );
+  } catch (err) {
+    return null;
+  }
 }

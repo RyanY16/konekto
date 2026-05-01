@@ -1,9 +1,23 @@
-import { createFileRoute } from "@tanstack/react-router";
-import { useState } from "react";
+import { createFileRoute, Link } from "@tanstack/react-router";
+import { useState, useEffect } from "react";
 import { Search } from "lucide-react";
-import { circles } from "@/data/mock";
 import { PageHeader } from "@/components/PageHeader";
 import { SaveButton } from "@/components/SaveButton";
+import AddCircleDialog from "@/components/AddCircleDialog";
+import { getCircles, getCircleHandle, getProfilesByIds } from "@/data/backend";
+import type { Circle } from "@/data/mock";
+
+function relativeTime(iso: string | undefined): string | null {
+  if (!iso) return null;
+  const diff = Date.now() - new Date(iso).getTime();
+  const days = Math.floor(diff / 86_400_000);
+  if (days === 0) return "Updated today";
+  if (days === 1) return "Updated yesterday";
+  if (days < 30) return `Updated ${days}d ago`;
+  const months = Math.floor(days / 30);
+  if (months < 12) return `Updated ${months}mo ago`;
+  return `Updated ${Math.floor(months / 12)}y ago`;
+}
 
 export const Route = createFileRoute("/circles")({
   head: () => ({
@@ -22,11 +36,25 @@ export const Route = createFileRoute("/circles")({
 const categories = ["All", "Tech", "Music", "Career", "Outdoors", "Arts"];
 
 function CirclesPage() {
+  const [allCircles, setAllCircles] = useState<Circle[]>([]);
+  const [ownerMap, setOwnerMap] = useState<Record<string, string>>({});
   const [cat, setCat] = useState("All");
   const [englishOnly, setEnglishOnly] = useState(false);
   const [q, setQ] = useState("");
 
-  const filtered = circles.filter((c) => {
+  useEffect(() => {
+    getCircles().then(async (cs) => {
+      setAllCircles(cs);
+      const ids = [...new Set(cs.map((c) => c.ownerId).filter(Boolean) as string[])];
+      if (ids.length === 0) return;
+      const profiles = await getProfilesByIds(ids);
+      const map: Record<string, string> = {};
+      profiles.forEach((p) => { map[p.id] = p.username ?? p.displayName; });
+      setOwnerMap(map);
+    });
+  }, []);
+
+  const filtered = allCircles.filter((c) => {
     if (cat !== "All" && c.category !== cat) return false;
     if (englishOnly && !c.englishFriendly) return false;
     if (q && !c.name.toLowerCase().includes(q.toLowerCase())) return false;
@@ -35,11 +63,16 @@ function CirclesPage() {
 
   return (
     <div>
-      <PageHeader
-        eyebrow="Circles"
-        title="Find your circles."
-        subtitle="From hackathons to hiking clubs — discover the communities that fit you."
-      />
+      <div className="flex items-start justify-between mb-0">
+        <PageHeader
+          eyebrow="Circles"
+          title="Find your circles."
+          subtitle="From hackathons to hiking clubs — discover the communities that fit you."
+        />
+        <div className="mt-1 shrink-0">
+          <AddCircleDialog />
+        </div>
+      </div>
 
       {/* Filters */}
       <div className="mb-6 space-y-3">
@@ -83,7 +116,13 @@ function CirclesPage() {
         {filtered.map((c) => (
           <article key={c.id} className="card-base card-hover p-5 flex flex-col">
             <div className="flex items-start justify-between">
-              <div className="text-4xl">{c.emoji}</div>
+              <div className="w-10 h-10 flex items-center justify-center shrink-0">
+                {(c as any).iconUrl ? (
+                  <img src={(c as any).iconUrl} alt={c.name} className="w-10 h-10 rounded-lg object-cover" />
+                ) : (
+                  <span className="text-4xl leading-none">{c.emoji}</span>
+                )}
+              </div>
               <SaveButton />
             </div>
             <h3 className="mt-3 font-semibold text-lg">{c.name}</h3>
@@ -97,13 +136,21 @@ function CirclesPage() {
               <span className="chip">⏱ {c.commitment}</span>
             </div>
             <div className="mt-4 pt-4 border-t border-border flex items-center justify-between">
-              <div className="flex gap-2 text-xs text-muted-foreground">
-                <span>💬 LINE</span>
-                <span>📷 IG</span>
+              <div className="flex flex-col gap-0.5 text-xs text-muted-foreground">
+                {c.ownerId && ownerMap[c.ownerId] && (
+                  <span>👑 Owned by @{ownerMap[c.ownerId]}</span>
+                )}
+                {relativeTime(c.updatedAt) && (
+                  <span>{relativeTime(c.updatedAt)}</span>
+                )}
               </div>
-              <button className="text-sm font-semibold text-primary hover:underline">
+              <Link
+                to="/circles/$circleHandle"
+                params={{ circleHandle: getCircleHandle(c) }}
+                className="text-sm font-semibold text-primary hover:underline shrink-0"
+              >
                 View →
-              </button>
+              </Link>
             </div>
           </article>
         ))}

@@ -1,0 +1,74 @@
+import { useRouter } from "@tanstack/react-router";
+import { Trash2 } from "lucide-react";
+import { useState, type MouseEvent } from "react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import { Button } from "@/components/ui/button";
+
+export function DeleteRecordButton({
+  label,
+  onDelete,
+  onDeleted,
+}: {
+  label: string;
+  onDelete: () => Promise<void>;
+  onDeleted?: () => void;
+}) {
+  const router = useRouter();
+  const [error, setError] = useState("");
+  const [deleting, setDeleting] = useState(false);
+
+  const handleDelete = async (event: MouseEvent) => {
+    event.preventDefault();
+    setDeleting(true);
+    setError("");
+
+    try {
+      await onDelete();
+      await router.invalidate();
+      onDeleted?.();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not delete this item.");
+    } finally {
+      setDeleting(false);
+    }
+  };
+
+  return (
+    <AlertDialog>
+      <AlertDialogTrigger asChild>
+        <Button variant="destructive" className="w-full gap-1.5">
+          <Trash2 className="h-4 w-4" /> Delete
+        </Button>
+      </AlertDialogTrigger>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Delete {label}?</AlertDialogTitle>
+          <AlertDialogDescription>
+            This removes the item from Supabase. You cannot undo this from the app.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        {error && <p className="text-sm text-destructive">{error}</p>}
+        <AlertDialogFooter>
+          <AlertDialogCancel disabled={deleting}>Cancel</AlertDialogCancel>
+          <AlertDialogAction
+            disabled={deleting}
+            onClick={handleDelete}
+            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+          >
+            {deleting ? "Deleting..." : "Delete"}
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+  );
+}

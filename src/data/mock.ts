@@ -4,11 +4,13 @@ export type Circle = {
   category: string;
   description: string;
   members: number;
-  activity: "Low" | "Medium" | "High";
+  activity: "Daily" | "Weekly" | "Monthly" | "Occasionally";
   englishFriendly: boolean;
   commitment: "Casual" | "Regular" | "Serious";
   emoji: string;
   tags: string[];
+  ownerId?: string;
+  updatedAt?: string;
 };
 
 export type EventItem = {
@@ -52,12 +54,12 @@ export type Guide = {
 };
 
 export const circles: Circle[] = [
-  { id: "c1", name: "Tokyo Tech Society", category: "Tech", description: "Hackathons, side projects, and AI study sessions every week.", members: 248, activity: "High", englishFriendly: true, commitment: "Regular", emoji: "💻", tags: ["coding", "ai", "international-friendly"] },
-  { id: "c2", name: "Waseda Jazz Club", category: "Music", description: "Weekly jam sessions in Takadanobaba. All levels welcome.", members: 86, activity: "Medium", englishFriendly: true, commitment: "Casual", emoji: "🎷", tags: ["music", "performance"] },
-  { id: "c3", name: "Keio Finance Circle", category: "Career", description: "Markets, IB prep, and case competitions.", members: 312, activity: "High", englishFriendly: false, commitment: "Serious", emoji: "📈", tags: ["finance", "shukatsu"] },
-  { id: "c4", name: "Kyoto Hiking Crew", category: "Outdoors", description: "Monthly hikes around Kansai mountains.", members: 142, activity: "Medium", englishFriendly: true, commitment: "Casual", emoji: "🥾", tags: ["outdoors", "travel"] },
-  { id: "c5", name: "International Film Society", category: "Arts", description: "Screenings & discussions in English and Japanese.", members: 97, activity: "Low", englishFriendly: true, commitment: "Casual", emoji: "🎬", tags: ["film", "international-friendly"] },
-  { id: "c6", name: "Todai Robotics", category: "Tech", description: "Build, compete, repeat. Robocon every spring.", members: 64, activity: "High", englishFriendly: false, commitment: "Serious", emoji: "🤖", tags: ["engineering", "competition"] },
+  { id: "c1", name: "Tokyo Tech Society", category: "Tech", description: "Hackathons, side projects, and AI study sessions every week.", members: 248, activity: "Weekly", englishFriendly: true, commitment: "Regular", emoji: "💻", tags: ["AI / Machine Learning", "Software Engineering"] },
+  { id: "c2", name: "Waseda Jazz Club", category: "Music", description: "Weekly jam sessions in Takadanobaba. All levels welcome.", members: 86, activity: "Weekly", englishFriendly: true, commitment: "Casual", emoji: "🎷", tags: ["Music"] },
+  { id: "c3", name: "Keio Finance Circle", category: "Career", description: "Markets, IB prep, and case competitions.", members: 312, activity: "Weekly", englishFriendly: false, commitment: "Serious", emoji: "📈", tags: ["Finance / Investment"] },
+  { id: "c4", name: "Kyoto Hiking Crew", category: "Outdoors", description: "Monthly hikes around Kansai mountains.", members: 142, activity: "Monthly", englishFriendly: true, commitment: "Casual", emoji: "🥾", tags: ["Hiking / Outdoors", "Travel"] },
+  { id: "c5", name: "International Film Society", category: "Arts", description: "Screenings & discussions in English and Japanese.", members: 97, activity: "Monthly", englishFriendly: true, commitment: "Casual", emoji: "🎬", tags: ["Film"] },
+  { id: "c6", name: "Todai Robotics", category: "Tech", description: "Build, compete, repeat. Robocon every spring.", members: 64, activity: "Weekly", englishFriendly: false, commitment: "Serious", emoji: "🤖", tags: ["Robotics"] },
 ];
 
 export const events: EventItem[] = [

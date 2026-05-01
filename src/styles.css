@@ -180,8 +180,8 @@
     color: var(--color-primary);
   }
   .chip-accent {
-    background-color: var(--color-accent-soft);
-    color: oklch(0.32 0.06 165);
+    background-color: var(--color-accent);
+    color: white;
   }
 }
 

@@ -9,17 +9,35 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as SignupRouteImport } from './routes/signup'
 import { Route as ProfileRouteImport } from './routes/profile'
+import { Route as LoginRouteImport } from './routes/login'
 import { Route as JapanLifeRouteImport } from './routes/japan-life'
 import { Route as EventsRouteImport } from './routes/events'
 import { Route as DealsRouteImport } from './routes/deals'
 import { Route as CirclesRouteImport } from './routes/circles'
 import { Route as CareersRouteImport } from './routes/careers'
+import { Route as AccountRouteImport } from './routes/account'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as JapanLifeGuideHandleRouteImport } from './routes/japan-life_.$guideHandle'
+import { Route as EventsEventHandleRouteImport } from './routes/events_.$eventHandle'
+import { Route as DealsDealHandleRouteImport } from './routes/deals_.$dealHandle'
+import { Route as CirclesCircleHandleRouteImport } from './routes/circles_.$circleHandle'
+import { Route as CareersJobHandleRouteImport } from './routes/careers_.$jobHandle'
 
+const SignupRoute = SignupRouteImport.update({
+  id: '/signup',
+  path: '/signup',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ProfileRoute = ProfileRouteImport.update({
   id: '/profile',
   path: '/profile',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LoginRoute = LoginRouteImport.update({
+  id: '/login',
+  path: '/login',
   getParentRoute: () => rootRouteImport,
 } as any)
 const JapanLifeRoute = JapanLifeRouteImport.update({
@@ -47,87 +65,187 @@ const CareersRoute = CareersRouteImport.update({
   path: '/careers',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AccountRoute = AccountRouteImport.update({
+  id: '/account',
+  path: '/account',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const JapanLifeGuideHandleRoute = JapanLifeGuideHandleRouteImport.update({
+  id: '/japan-life_/$guideHandle',
+  path: '/japan-life/$guideHandle',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const EventsEventHandleRoute = EventsEventHandleRouteImport.update({
+  id: '/events_/$eventHandle',
+  path: '/events/$eventHandle',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DealsDealHandleRoute = DealsDealHandleRouteImport.update({
+  id: '/deals_/$dealHandle',
+  path: '/deals/$dealHandle',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CirclesCircleHandleRoute = CirclesCircleHandleRouteImport.update({
+  id: '/circles_/$circleHandle',
+  path: '/circles/$circleHandle',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CareersJobHandleRoute = CareersJobHandleRouteImport.update({
+  id: '/careers_/$jobHandle',
+  path: '/careers/$jobHandle',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/account': typeof AccountRoute
   '/careers': typeof CareersRoute
   '/circles': typeof CirclesRoute
   '/deals': typeof DealsRoute
   '/events': typeof EventsRoute
   '/japan-life': typeof JapanLifeRoute
+  '/login': typeof LoginRoute
   '/profile': typeof ProfileRoute
+  '/signup': typeof SignupRoute
+  '/careers/$jobHandle': typeof CareersJobHandleRoute
+  '/circles/$circleHandle': typeof CirclesCircleHandleRoute
+  '/deals/$dealHandle': typeof DealsDealHandleRoute
+  '/events/$eventHandle': typeof EventsEventHandleRoute
+  '/japan-life/$guideHandle': typeof JapanLifeGuideHandleRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/account': typeof AccountRoute
   '/careers': typeof CareersRoute
   '/circles': typeof CirclesRoute
   '/deals': typeof DealsRoute
   '/events': typeof EventsRoute
   '/japan-life': typeof JapanLifeRoute
+  '/login': typeof LoginRoute
   '/profile': typeof ProfileRoute
+  '/signup': typeof SignupRoute
+  '/careers/$jobHandle': typeof CareersJobHandleRoute
+  '/circles/$circleHandle': typeof CirclesCircleHandleRoute
+  '/deals/$dealHandle': typeof DealsDealHandleRoute
+  '/events/$eventHandle': typeof EventsEventHandleRoute
+  '/japan-life/$guideHandle': typeof JapanLifeGuideHandleRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/account': typeof AccountRoute
   '/careers': typeof CareersRoute
   '/circles': typeof CirclesRoute
   '/deals': typeof DealsRoute
   '/events': typeof EventsRoute
   '/japan-life': typeof JapanLifeRoute
+  '/login': typeof LoginRoute
   '/profile': typeof ProfileRoute
+  '/signup': typeof SignupRoute
+  '/careers_/$jobHandle': typeof CareersJobHandleRoute
+  '/circles_/$circleHandle': typeof CirclesCircleHandleRoute
+  '/deals_/$dealHandle': typeof DealsDealHandleRoute
+  '/events_/$eventHandle': typeof EventsEventHandleRoute
+  '/japan-life_/$guideHandle': typeof JapanLifeGuideHandleRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/account'
     | '/careers'
     | '/circles'
     | '/deals'
     | '/events'
     | '/japan-life'
+    | '/login'
     | '/profile'
+    | '/signup'
+    | '/careers/$jobHandle'
+    | '/circles/$circleHandle'
+    | '/deals/$dealHandle'
+    | '/events/$eventHandle'
+    | '/japan-life/$guideHandle'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/account'
     | '/careers'
     | '/circles'
     | '/deals'
     | '/events'
     | '/japan-life'
+    | '/login'
     | '/profile'
+    | '/signup'
+    | '/careers/$jobHandle'
+    | '/circles/$circleHandle'
+    | '/deals/$dealHandle'
+    | '/events/$eventHandle'
+    | '/japan-life/$guideHandle'
   id:
     | '__root__'
     | '/'
+    | '/account'
     | '/careers'
     | '/circles'
     | '/deals'
     | '/events'
     | '/japan-life'
+    | '/login'
     | '/profile'
+    | '/signup'
+    | '/careers_/$jobHandle'
+    | '/circles_/$circleHandle'
+    | '/deals_/$dealHandle'
+    | '/events_/$eventHandle'
+    | '/japan-life_/$guideHandle'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AccountRoute: typeof AccountRoute
   CareersRoute: typeof CareersRoute
   CirclesRoute: typeof CirclesRoute
   DealsRoute: typeof DealsRoute
   EventsRoute: typeof EventsRoute
   JapanLifeRoute: typeof JapanLifeRoute
+  LoginRoute: typeof LoginRoute
   ProfileRoute: typeof ProfileRoute
+  SignupRoute: typeof SignupRoute
+  CareersJobHandleRoute: typeof CareersJobHandleRoute
+  CirclesCircleHandleRoute: typeof CirclesCircleHandleRoute
+  DealsDealHandleRoute: typeof DealsDealHandleRoute
+  EventsEventHandleRoute: typeof EventsEventHandleRoute
+  JapanLifeGuideHandleRoute: typeof JapanLifeGuideHandleRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/signup': {
+      id: '/signup'
+      path: '/signup'
+      fullPath: '/signup'
+      preLoaderRoute: typeof SignupRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/profile': {
       id: '/profile'
       path: '/profile'
       fullPath: '/profile'
       preLoaderRoute: typeof ProfileRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/login': {
+      id: '/login'
+      path: '/login'
+      fullPath: '/login'
+      preLoaderRoute: typeof LoginRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/japan-life': {
@@ -165,6 +283,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof CareersRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/account': {
+      id: '/account'
+      path: '/account'
+      fullPath: '/account'
+      preLoaderRoute: typeof AccountRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/': {
       id: '/'
       path: '/'
@@ -172,17 +297,60 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/japan-life_/$guideHandle': {
+      id: '/japan-life_/$guideHandle'
+      path: '/japan-life/$guideHandle'
+      fullPath: '/japan-life/$guideHandle'
+      preLoaderRoute: typeof JapanLifeGuideHandleRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/events_/$eventHandle': {
+      id: '/events_/$eventHandle'
+      path: '/events/$eventHandle'
+      fullPath: '/events/$eventHandle'
+      preLoaderRoute: typeof EventsEventHandleRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/deals_/$dealHandle': {
+      id: '/deals_/$dealHandle'
+      path: '/deals/$dealHandle'
+      fullPath: '/deals/$dealHandle'
+      preLoaderRoute: typeof DealsDealHandleRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/circles_/$circleHandle': {
+      id: '/circles_/$circleHandle'
+      path: '/circles/$circleHandle'
+      fullPath: '/circles/$circleHandle'
+      preLoaderRoute: typeof CirclesCircleHandleRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/careers_/$jobHandle': {
+      id: '/careers_/$jobHandle'
+      path: '/careers/$jobHandle'
+      fullPath: '/careers/$jobHandle'
+      preLoaderRoute: typeof CareersJobHandleRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AccountRoute: AccountRoute,
   CareersRoute: CareersRoute,
   CirclesRoute: CirclesRoute,
   DealsRoute: DealsRoute,
   EventsRoute: EventsRoute,
   JapanLifeRoute: JapanLifeRoute,
+  LoginRoute: LoginRoute,
   ProfileRoute: ProfileRoute,
+  SignupRoute: SignupRoute,
+  CareersJobHandleRoute: CareersJobHandleRoute,
+  CirclesCircleHandleRoute: CirclesCircleHandleRoute,
+  DealsDealHandleRoute: DealsDealHandleRoute,
+  EventsEventHandleRoute: EventsEventHandleRoute,
+  JapanLifeGuideHandleRoute: JapanLifeGuideHandleRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
