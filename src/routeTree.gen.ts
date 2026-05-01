@@ -9,8 +9,44 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as ProfileRouteImport } from './routes/profile'
+import { Route as JapanLifeRouteImport } from './routes/japan-life'
+import { Route as EventsRouteImport } from './routes/events'
+import { Route as DealsRouteImport } from './routes/deals'
+import { Route as CirclesRouteImport } from './routes/circles'
+import { Route as CareersRouteImport } from './routes/careers'
 import { Route as IndexRouteImport } from './routes/index'
 
+const ProfileRoute = ProfileRouteImport.update({
+  id: '/profile',
+  path: '/profile',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const JapanLifeRoute = JapanLifeRouteImport.update({
+  id: '/japan-life',
+  path: '/japan-life',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const EventsRoute = EventsRouteImport.update({
+  id: '/events',
+  path: '/events',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DealsRoute = DealsRouteImport.update({
+  id: '/deals',
+  path: '/deals',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CirclesRoute = CirclesRouteImport.update({
+  id: '/circles',
+  path: '/circles',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CareersRoute = CareersRouteImport.update({
+  id: '/careers',
+  path: '/careers',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
@@ -19,28 +55,116 @@ const IndexRoute = IndexRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/careers': typeof CareersRoute
+  '/circles': typeof CirclesRoute
+  '/deals': typeof DealsRoute
+  '/events': typeof EventsRoute
+  '/japan-life': typeof JapanLifeRoute
+  '/profile': typeof ProfileRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/careers': typeof CareersRoute
+  '/circles': typeof CirclesRoute
+  '/deals': typeof DealsRoute
+  '/events': typeof EventsRoute
+  '/japan-life': typeof JapanLifeRoute
+  '/profile': typeof ProfileRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/careers': typeof CareersRoute
+  '/circles': typeof CirclesRoute
+  '/deals': typeof DealsRoute
+  '/events': typeof EventsRoute
+  '/japan-life': typeof JapanLifeRoute
+  '/profile': typeof ProfileRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/'
+  fullPaths:
+    | '/'
+    | '/careers'
+    | '/circles'
+    | '/deals'
+    | '/events'
+    | '/japan-life'
+    | '/profile'
   fileRoutesByTo: FileRoutesByTo
-  to: '/'
-  id: '__root__' | '/'
+  to:
+    | '/'
+    | '/careers'
+    | '/circles'
+    | '/deals'
+    | '/events'
+    | '/japan-life'
+    | '/profile'
+  id:
+    | '__root__'
+    | '/'
+    | '/careers'
+    | '/circles'
+    | '/deals'
+    | '/events'
+    | '/japan-life'
+    | '/profile'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  CareersRoute: typeof CareersRoute
+  CirclesRoute: typeof CirclesRoute
+  DealsRoute: typeof DealsRoute
+  EventsRoute: typeof EventsRoute
+  JapanLifeRoute: typeof JapanLifeRoute
+  ProfileRoute: typeof ProfileRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/profile': {
+      id: '/profile'
+      path: '/profile'
+      fullPath: '/profile'
+      preLoaderRoute: typeof ProfileRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/japan-life': {
+      id: '/japan-life'
+      path: '/japan-life'
+      fullPath: '/japan-life'
+      preLoaderRoute: typeof JapanLifeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/events': {
+      id: '/events'
+      path: '/events'
+      fullPath: '/events'
+      preLoaderRoute: typeof EventsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/deals': {
+      id: '/deals'
+      path: '/deals'
+      fullPath: '/deals'
+      preLoaderRoute: typeof DealsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/circles': {
+      id: '/circles'
+      path: '/circles'
+      fullPath: '/circles'
+      preLoaderRoute: typeof CirclesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/careers': {
+      id: '/careers'
+      path: '/careers'
+      fullPath: '/careers'
+      preLoaderRoute: typeof CareersRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/': {
       id: '/'
       path: '/'
@@ -53,6 +177,12 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  CareersRoute: CareersRoute,
+  CirclesRoute: CirclesRoute,
+  DealsRoute: DealsRoute,
+  EventsRoute: EventsRoute,
+  JapanLifeRoute: JapanLifeRoute,
+  ProfileRoute: ProfileRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
