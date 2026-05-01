@@ -1,6 +1,7 @@
 import { Link, Outlet, useRouterState } from "@tanstack/react-router";
 import { Home, Users, Calendar, Tag, Briefcase, MapPin, User } from "lucide-react";
 import type { ComponentType } from "react";
+import { ThemeToggle } from "./ThemeToggle";
 
 type NavItem = { to: string; label: string; icon: ComponentType<{ className?: string }> };
 
@@ -35,6 +36,7 @@ export function AppShell() {
       <header className="sticky top-0 z-40 border-b border-border bg-background/80 backdrop-blur-md">
         <div className="mx-auto max-w-7xl px-4 h-14 flex items-center justify-between">
           <Logo />
+          <div className="flex items-center gap-1">
           <nav className="hidden md:flex items-center gap-1">
             {nav.map((item) => {
               const Icon = item.icon;
@@ -55,6 +57,8 @@ export function AppShell() {
               );
             })}
           </nav>
+            <ThemeToggle />
+          </div>
         </div>
       </header>
 
