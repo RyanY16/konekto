@@ -358,6 +358,14 @@ function ProfilePage() {
 
             <p className="text-sm text-muted-foreground">{user.email}</p>
 
+            <span className={`inline-flex items-center gap-1 self-start px-2 py-0.5 rounded-full text-xs font-semibold ${
+              user.role === "admin"
+                ? "bg-primary text-primary-foreground"
+                : "bg-muted text-muted-foreground"
+            }`}>
+              {user.role === "admin" ? "⚡ Admin" : "User"}
+            </span>
+
             {editing ? (
               <div className="space-y-2">
                 <UniversityPicker
