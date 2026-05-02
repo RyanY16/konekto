@@ -3,6 +3,7 @@ import { DeleteRecordButton } from "@/components/DeleteRecordButton";
 import { PageHeader } from "@/components/PageHeader";
 import { SocialLinks } from "@/components/SocialLinks";
 import { deleteEvent, getEventByHandle } from "@/data/backend";
+import { useAuth } from "@/components/AuthProvider";
 
 export const Route = createFileRoute("/events_/$eventHandle")({
   loader: ({ params }) => getEventByHandle(params.eventHandle),
@@ -11,6 +12,7 @@ export const Route = createFileRoute("/events_/$eventHandle")({
 
 function EventDetailPage() {
   const event = Route.useLoaderData();
+  const { isAdmin } = useAuth();
 
   if (!event) {
     return <NotFound name="event" to="/events" />;
@@ -33,7 +35,7 @@ function EventDetailPage() {
           ))}
         </div>
         <SocialLinks links={event.socialLinks} />
-        <DeleteRecordButton label={event.title} onDelete={() => deleteEvent(event.id)} />
+        {isAdmin && <DeleteRecordButton label={event.title} onDelete={() => deleteEvent(event.id)} />}
         <Link to="/events" className="text-sm font-semibold text-primary hover:underline">
           Back to events
         </Link>

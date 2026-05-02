@@ -3,6 +3,7 @@ import { DeleteRecordButton } from "@/components/DeleteRecordButton";
 import { PageHeader } from "@/components/PageHeader";
 import { SocialLinks } from "@/components/SocialLinks";
 import { deleteDeal, getDealByHandle } from "@/data/backend";
+import { useAuth } from "@/components/AuthProvider";
 
 export const Route = createFileRoute("/deals_/$dealHandle")({
   loader: ({ params }) => getDealByHandle(params.dealHandle),
@@ -11,6 +12,7 @@ export const Route = createFileRoute("/deals_/$dealHandle")({
 
 function DealDetailPage() {
   const deal = Route.useLoaderData();
+  const { isAdmin } = useAuth();
 
   if (!deal) {
     return <NotFound name="deal" to="/deals" />;
@@ -26,7 +28,7 @@ function DealDetailPage() {
           <Detail label="Discount" value={deal.discount} />
         </div>
         <SocialLinks links={deal.socialLinks} />
-        <DeleteRecordButton label={deal.title} onDelete={() => deleteDeal(deal.id)} />
+        {isAdmin && <DeleteRecordButton label={deal.title} onDelete={() => deleteDeal(deal.id)} />}
         <Link to="/deals" className="text-sm font-semibold text-primary hover:underline">
           Back to deals
         </Link>

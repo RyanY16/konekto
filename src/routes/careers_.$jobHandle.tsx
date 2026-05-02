@@ -3,6 +3,7 @@ import { DeleteRecordButton } from "@/components/DeleteRecordButton";
 import { PageHeader } from "@/components/PageHeader";
 import { SocialLinks } from "@/components/SocialLinks";
 import { deleteJob, getJobByHandle } from "@/data/backend";
+import { useAuth } from "@/components/AuthProvider";
 
 export const Route = createFileRoute("/careers_/$jobHandle")({
   loader: ({ params }) => getJobByHandle(params.jobHandle),
@@ -11,6 +12,7 @@ export const Route = createFileRoute("/careers_/$jobHandle")({
 
 function JobDetailPage() {
   const job = Route.useLoaderData();
+  const { isAdmin } = useAuth();
 
   if (!job) {
     return <NotFound name="role" to="/careers" />;
@@ -33,7 +35,7 @@ function JobDetailPage() {
           ))}
         </div>
         <SocialLinks links={job.socialLinks} />
-        <DeleteRecordButton label={job.role} onDelete={() => deleteJob(job.id)} />
+        {isAdmin && <DeleteRecordButton label={job.role} onDelete={() => deleteJob(job.id)} />}
         <Link to="/careers" className="text-sm font-semibold text-primary hover:underline">
           Back to careers
         </Link>

@@ -10,16 +10,36 @@ create table if not exists public.users (
   interests text[] not null default '{}',
   career_field text not null default '',
   goals text[] not null default '{}',
+  role text not null default 'user' check (role in ('user', 'admin')),
   updated_at timestamptz not null default now()
 );
 
+-- Helper: returns true if the calling user has role = 'admin'
+create or replace function public.is_admin()
+returns boolean
+language sql security definer stable
+as $$
+  select coalesce(
+    (select role = 'admin' from public.users where id = auth.uid()),
+    false
+  );
+$$;
+
 alter table public.users enable row level security;
 drop policy if exists "Users can read own profile" on public.users;
-create policy "Users can read own profile" on public.users for select using (auth.uid() = id);
+-- Users read their own profile; admins read any profile
+create policy "Users can read own profile" on public.users for select
+  using (auth.uid() = id or public.is_admin());
 drop policy if exists "Users can update own profile" on public.users;
-create policy "Users can update own profile" on public.users for update using (auth.uid() = id) with check (auth.uid() = id);
+-- Users update only their own profile; admins update any (but cannot change role via app)
+create policy "Users can update own profile" on public.users for update
+  using (auth.uid() = id or public.is_admin())
+  with check (auth.uid() = id or public.is_admin());
 drop policy if exists "Users can insert own profile" on public.users;
 create policy "Users can insert own profile" on public.users for insert with check (auth.uid() = id);
+
+-- Ensure the role column exists on existing deployments
+alter table public.users add column if not exists role text not null default 'user' check (role in ('user', 'admin'));
 
 create table if not exists public.circles (
   id text primary key,
@@ -110,45 +130,48 @@ create policy "Public read circles" on public.circles for select using (true);
 drop policy if exists "Public insert circles" on public.circles;
 create policy "Insert as owner" on public.circles for insert with check (auth.uid() = owner_id);
 drop policy if exists "Public update circles" on public.circles;
-create policy "Update by owner" on public.circles for update using (auth.uid() = owner_id) with check (auth.uid() = owner_id);
+create policy "Update by owner or admin" on public.circles for update
+  using (auth.uid() = owner_id or public.is_admin())
+  with check (auth.uid() = owner_id or public.is_admin());
 drop policy if exists "Public delete circles" on public.circles;
-create policy "Delete by owner" on public.circles for delete using (auth.uid() = owner_id);
+create policy "Delete by owner or admin" on public.circles for delete
+  using (auth.uid() = owner_id or public.is_admin());
 
 drop policy if exists "Public read events" on public.events;
 create policy "Public read events" on public.events for select using (true);
 drop policy if exists "Public insert events" on public.events;
-create policy "Public insert events" on public.events for insert with check (true);
+create policy "Admin insert events" on public.events for insert with check (public.is_admin());
 drop policy if exists "Public update events" on public.events;
-create policy "Public update events" on public.events for update using (true) with check (true);
+create policy "Admin update events" on public.events for update using (public.is_admin()) with check (public.is_admin());
 drop policy if exists "Public delete events" on public.events;
-create policy "Public delete events" on public.events for delete using (true);
+create policy "Admin delete events" on public.events for delete using (public.is_admin());
 
 drop policy if exists "Public read deals" on public.deals;
 create policy "Public read deals" on public.deals for select using (true);
 drop policy if exists "Public insert deals" on public.deals;
-create policy "Public insert deals" on public.deals for insert with check (true);
+create policy "Admin insert deals" on public.deals for insert with check (public.is_admin());
 drop policy if exists "Public update deals" on public.deals;
-create policy "Public update deals" on public.deals for update using (true) with check (true);
+create policy "Admin update deals" on public.deals for update using (public.is_admin()) with check (public.is_admin());
 drop policy if exists "Public delete deals" on public.deals;
-create policy "Public delete deals" on public.deals for delete using (true);
+create policy "Admin delete deals" on public.deals for delete using (public.is_admin());
 
 drop policy if exists "Public read jobs" on public.jobs;
 create policy "Public read jobs" on public.jobs for select using (true);
 drop policy if exists "Public insert jobs" on public.jobs;
-create policy "Public insert jobs" on public.jobs for insert with check (true);
+create policy "Admin insert jobs" on public.jobs for insert with check (public.is_admin());
 drop policy if exists "Public update jobs" on public.jobs;
-create policy "Public update jobs" on public.jobs for update using (true) with check (true);
+create policy "Admin update jobs" on public.jobs for update using (public.is_admin()) with check (public.is_admin());
 drop policy if exists "Public delete jobs" on public.jobs;
-create policy "Public delete jobs" on public.jobs for delete using (true);
+create policy "Admin delete jobs" on public.jobs for delete using (public.is_admin());
 
 drop policy if exists "Public read guides" on public.guides;
 create policy "Public read guides" on public.guides for select using (true);
 drop policy if exists "Public insert guides" on public.guides;
-create policy "Public insert guides" on public.guides for insert with check (true);
+create policy "Admin insert guides" on public.guides for insert with check (public.is_admin());
 drop policy if exists "Public update guides" on public.guides;
-create policy "Public update guides" on public.guides for update using (true) with check (true);
+create policy "Admin update guides" on public.guides for update using (public.is_admin()) with check (public.is_admin());
 drop policy if exists "Public delete guides" on public.guides;
-create policy "Public delete guides" on public.guides for delete using (true);
+create policy "Admin delete guides" on public.guides for delete using (public.is_admin());
 
 insert into public.circles (id, name, category, description, members, activity, english_friendly, commitment, emoji, tags) values
   ('c1', 'Tokyo Tech Society', 'Tech', 'Hackathons, side projects, and AI study sessions every week.', 248, 'High', true, 'Regular', '💻', array['coding', 'ai', 'international-friendly']),

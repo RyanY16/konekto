@@ -6,11 +6,13 @@ import { supabase, isSupabaseConfigured } from "@/lib/supabase";
 type User = {
   id: string;
   email?: string | null;
+  role: "user" | "admin";
 };
 
 type AuthContextValue = {
   user: User | null;
   loading: boolean;
+  isAdmin: boolean;
   signIn: (email: string, password: string) => Promise<void>;
   signUp: (email: string, password: string) => Promise<void>;
   signOut: () => Promise<void>;
@@ -30,18 +32,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     let mounted = true;
 
+    async function resolveUser(u: { id: string; email?: string | null } | null) {
+      if (!u) return null;
+      const { data: profile } = await supabase!.from("users").select("role").eq("id", u.id).single();
+      return { id: u.id, email: u.email, role: (profile?.role ?? "user") as "user" | "admin" };
+    }
+
     (async () => {
-      const {
-        data: { user: u },
-      } = await supabase.auth.getUser();
+      const { data: { user: u } } = await supabase.auth.getUser();
       if (!mounted) return;
-      setUser(u ? { id: u.id, email: u.email } : null);
+      setUser(await resolveUser(u));
       setLoading(false);
     })();
 
-    const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: sub } = supabase.auth.onAuthStateChange(async (_event, session) => {
       const u = session?.user ?? null;
-      setUser(u ? { id: u.id, email: u.email } : null);
+      setUser(await resolveUser(u));
     });
 
     return () => {
@@ -68,8 +74,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setUser(null);
   }
 
+  const isAdmin = user?.role === "admin";
+
   return (
-    <AuthContext.Provider value={{ user, loading, signIn, signUp, signOut }}>
+    <AuthContext.Provider value={{ user, loading, isAdmin, signIn, signUp, signOut }}>
       {children}
     </AuthContext.Provider>
   );

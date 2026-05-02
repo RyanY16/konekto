@@ -3,6 +3,7 @@ import { DeleteRecordButton } from "@/components/DeleteRecordButton";
 import { PageHeader } from "@/components/PageHeader";
 import { SocialLinks } from "@/components/SocialLinks";
 import { deleteGuide, getGuideByHandle } from "@/data/backend";
+import { useAuth } from "@/components/AuthProvider";
 
 export const Route = createFileRoute("/japan-life_/$guideHandle")({
   loader: ({ params }) => getGuideByHandle(params.guideHandle),
@@ -11,6 +12,7 @@ export const Route = createFileRoute("/japan-life_/$guideHandle")({
 
 function GuideDetailPage() {
   const guide = Route.useLoaderData();
+  const { isAdmin } = useAuth();
 
   if (!guide) {
     return <NotFound name="guide" to="/japan-life" />;
@@ -23,7 +25,7 @@ function GuideDetailPage() {
       <section className="card-base p-6 space-y-4">
         <p className="text-sm text-muted-foreground">{guide.excerpt}</p>
         <SocialLinks links={guide.socialLinks} />
-        <DeleteRecordButton label={guide.title} onDelete={() => deleteGuide(guide.id)} />
+        {isAdmin && <DeleteRecordButton label={guide.title} onDelete={() => deleteGuide(guide.id)} />}
         <Link to="/japan-life" className="text-sm font-semibold text-primary hover:underline">
           Back to Japan Life
         </Link>

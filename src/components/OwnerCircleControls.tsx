@@ -9,7 +9,7 @@ import { deleteCircle, updateCircle } from "@/data/backend";
 import { useRouter } from "@tanstack/react-router";
 
 export default function OwnerCircleControls({ circle }: { circle: any }) {
-  const { user } = useAuth();
+  const { user, isAdmin } = useAuth();
   const router = useRouter();
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -42,7 +42,7 @@ export default function OwnerCircleControls({ circle }: { circle: any }) {
     }
   }
 
-  if (!user) return null;
+  if (!user || (!isAdmin && user.id !== circle.owner_id)) return null;
 
   return (
     <div className="flex items-center gap-2">

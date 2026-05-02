@@ -16,6 +16,7 @@ export type Database = {
           interests: string[];
           career_field: string;
           goals: string[];
+          role: "user" | "admin";
           updated_at: string;
         };
         Insert: Omit<Database["public"]["Tables"]["users"]["Row"], "updated_at"> & {
