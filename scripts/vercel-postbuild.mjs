@@ -1,6 +1,7 @@
 import { mkdir, copyFile, writeFile, readdir, stat, rm } from "node:fs/promises";
-import { join, dirname, relative } from "node:path";
+import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
+import { build } from "esbuild";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const root = join(__dirname, "..");
@@ -30,10 +31,25 @@ const staticDir = join(out, "static");
 await copyDir(join(root, "dist", "client"), staticDir);
 console.log("✓ Copied dist/client → .vercel/output/static");
 
-// 2. Copy server bundle into the function directory
+// 2. Bundle the server and all its npm deps into a self-contained ESM bundle
 const funcDir = join(out, "functions", "index.func");
 await mkdir(funcDir, { recursive: true });
-await copyDir(join(root, "dist", "server"), funcDir);
+
+console.log("⏳ Bundling server with esbuild...");
+await build({
+  entryPoints: [join(root, "dist", "server", "server.js")],
+  bundle: true,
+  platform: "node",
+  target: "node22",
+  format: "esm",
+  splitting: true,
+  outdir: funcDir,
+  external: ["node:*"],
+  allowOverwrite: true,
+  minify: false,
+  logLevel: "warning",
+});
+console.log("✓ Bundled server → .vercel/output/functions/index.func/server.js");
 
 // 3. Write the Node.js handler that wraps the fetch handler
 const handlerCode = `
