@@ -14,6 +14,24 @@ create table if not exists public.users (
   updated_at timestamptz not null default now()
 );
 
+-- Auto-create a public.users row when someone signs up
+create or replace function public.handle_new_user()
+returns trigger
+language plpgsql security definer set search_path = public
+as $$
+begin
+  insert into public.users (id, role)
+  values (new.id, 'user')
+  on conflict (id) do nothing;
+  return new;
+end;
+$$;
+
+drop trigger if exists on_auth_user_created on auth.users;
+create trigger on_auth_user_created
+  after insert on auth.users
+  for each row execute procedure public.handle_new_user();
+
 -- Helper: returns true if the calling user has role = 'admin'
 create or replace function public.is_admin()
 returns boolean
