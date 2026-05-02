@@ -14,6 +14,9 @@ create table if not exists public.users (
   updated_at timestamptz not null default now()
 );
 
+-- Ensure role column exists before any functions reference it
+alter table public.users add column if not exists role text not null default 'user' check (role in ('user', 'admin'));
+
 -- Auto-create a public.users row when someone signs up
 create or replace function public.handle_new_user()
 returns trigger
@@ -55,9 +58,6 @@ create policy "Users can update own profile" on public.users for update
   with check (auth.uid() = id or public.is_admin());
 drop policy if exists "Users can insert own profile" on public.users;
 create policy "Users can insert own profile" on public.users for insert with check (auth.uid() = id);
-
--- Ensure the role column exists on existing deployments
-alter table public.users add column if not exists role text not null default 'user' check (role in ('user', 'admin'));
 
 create table if not exists public.circles (
   id text primary key,
