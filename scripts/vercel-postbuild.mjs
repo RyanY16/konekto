@@ -48,6 +48,10 @@ await build({
   allowOverwrite: true,
   minify: false,
   logLevel: "warning",
+  // CJS packages (react-dom) use dynamic require() — shim it for ESM output
+  banner: {
+    js: `import { createRequire } from "node:module"; const require = createRequire(import.meta.url);`,
+  },
 });
 console.log("✓ Bundled server → .vercel/output/functions/index.func/server.js");
 
