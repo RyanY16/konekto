@@ -31,7 +31,8 @@ const staticDir = join(out, "static");
 await copyDir(join(root, "dist", "client"), staticDir);
 console.log("✓ Copied dist/client → .vercel/output/static");
 
-// 2. Bundle the server and all its npm deps into a self-contained ESM bundle
+// 2. Bundle the server and all npm deps into a single self-contained CJS file.
+//    CJS avoids ESM/require interop issues and import.meta.url problems.
 const funcDir = join(out, "functions", "index.func");
 await mkdir(funcDir, { recursive: true });
 
@@ -41,29 +42,24 @@ await build({
   bundle: true,
   platform: "node",
   target: "node22",
-  format: "esm",
-  splitting: true,
-  outdir: funcDir,
+  format: "cjs",
+  outfile: join(funcDir, "server.cjs"),
   external: ["node:*"],
   allowOverwrite: true,
   minify: false,
   logLevel: "warning",
-  // CJS packages (react-dom) use dynamic require() — shim it for ESM output
-  banner: {
-    js: `import { createRequire } from "node:module"; const require = createRequire(import.meta.url);`,
-  },
 });
-console.log("✓ Bundled server → .vercel/output/functions/index.func/server.js");
+console.log("✓ Bundled server → .vercel/output/functions/index.func/server.cjs");
 
-// 3. Write the Node.js handler that wraps the fetch handler
+// 3. Write the CJS handler
 const handlerCode = `
-import { Readable } from "node:stream";
-import { default as app } from "./server.js";
+"use strict";
+const app = require("./server.cjs");
 
-export default async function handler(req, res) {
+module.exports = async function handler(req, res) {
   const proto = req.headers["x-forwarded-proto"] ?? "https";
   const host = req.headers["x-forwarded-host"] ?? req.headers.host ?? "localhost";
-  const url = new URL(req.url, \`\${proto}://\${host}\`);
+  const url = new URL(req.url, proto + "://" + host);
 
   const headers = new Headers();
   for (const [key, value] of Object.entries(req.headers)) {
@@ -81,26 +77,23 @@ export default async function handler(req, res) {
   }
 
   const request = new Request(url.toString(), { method: req.method, headers, body });
-  const response = await app.fetch(request);
+  const response = await app.default.fetch(request);
 
   res.statusCode = response.status;
   response.headers.forEach((value, key) => res.setHeader(key, value));
 
-  if (response.body) {
-    Readable.fromWeb(response.body).pipe(res);
-  } else {
-    res.end();
-  }
-}
+  const buf = Buffer.from(await response.arrayBuffer());
+  res.end(buf);
+};
 `;
 
-await writeFile(join(funcDir, "handler.mjs"), handlerCode.trimStart());
-console.log("✓ Wrote handler.mjs");
+await writeFile(join(funcDir, "handler.cjs"), handlerCode.trimStart());
+console.log("✓ Wrote handler.cjs");
 
 // 4. Write .vc-config.json
 const vcConfig = {
   runtime: "nodejs22.x",
-  handler: "handler.mjs",
+  handler: "handler.cjs",
   launcherType: "Nodejs",
 };
 await writeFile(join(funcDir, ".vc-config.json"), JSON.stringify(vcConfig, null, 2));
