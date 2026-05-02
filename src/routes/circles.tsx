@@ -5,6 +5,7 @@ import { PageHeader } from "@/components/PageHeader";
 import { SaveButton } from "@/components/SaveButton";
 import AddCircleDialog from "@/components/AddCircleDialog";
 import { getCircles, getCircleHandle, getProfilesByIds } from "@/data/backend";
+import { useAuth } from "@/components/AuthProvider";
 import type { Circle } from "@/data/mock";
 
 function relativeTime(iso: string | undefined): string | null {
@@ -36,6 +37,7 @@ export const Route = createFileRoute("/circles")({
 const categories = ["All", "Tech", "Music", "Career", "Outdoors", "Arts"];
 
 function CirclesPage() {
+  const { isAdmin } = useAuth();
   const [allCircles, setAllCircles] = useState<Circle[]>([]);
   const [ownerMap, setOwnerMap] = useState<Record<string, string>>({});
   const [cat, setCat] = useState("All");
@@ -70,7 +72,7 @@ function CirclesPage() {
           subtitle="From hackathons to hiking clubs — discover the communities that fit you."
         />
         <div className="mt-1 shrink-0">
-          <AddCircleDialog />
+          {isAdmin && <AddCircleDialog />}
         </div>
       </div>
 

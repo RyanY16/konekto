@@ -63,7 +63,7 @@ function toDraft(c: Circle, ownerUsername = ""): Draft {
 
 function CircleDetailPage() {
   const circle = Route.useLoaderData();
-  const { user } = useAuth();
+  const { user, isAdmin } = useAuth();
   const router = useRouter();
   const [editing, setEditing] = useState(false);
   const [ownerUsername, setOwnerUsername] = useState<string>("");
@@ -192,7 +192,7 @@ function CircleDetailPage() {
               <Button size="sm" onClick={save} disabled={saving}>{saving ? "Saving…" : "Save"}</Button>
               <Button size="sm" variant="outline" onClick={cancelEditing} disabled={saving}>Cancel</Button>
             </>
-          ) : user ? (
+          ) : isAdmin ? (
             <>
               <Button size="sm" onClick={startEditing}>Edit</Button>
               <DeleteRecordButton label={circle.name} onDelete={handleDelete} />
