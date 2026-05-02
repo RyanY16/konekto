@@ -65,10 +65,19 @@ export const Route = createRootRoute({
   notFoundComponent: NotFoundComponent,
 });
 
+const themeScript = `
+(function(){
+  var s=localStorage.getItem('konekto-theme');
+  var prefersDark=window.matchMedia('(prefers-color-scheme: dark)').matches;
+  if(s==='dark'||(s!=='light'&&prefersDark)){document.documentElement.classList.add('dark');}
+})();
+`.trim();
+
 function RootShell({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">
       <head>
+        <script dangerouslySetInnerHTML={{ __html: themeScript }} />
         <HeadContent />
       </head>
       <body>
