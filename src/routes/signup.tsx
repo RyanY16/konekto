@@ -1,171 +1,185 @@
-import { createFileRoute, useNavigate } from '@tanstack/react-router'
-import { useState } from 'react'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { TagPicker } from '@/components/TagPicker'
-import { TAGS } from '@/data/tags'
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { useState } from "react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { TagPicker } from "@/components/TagPicker";
+import { useAuth } from "@/components/AuthProvider";
+import { supabase, isSupabaseConfigured } from "@/lib/supabase";
 
-export const Route = createFileRoute('/signup')({
+export const Route = createFileRoute("/signup")({
+  head: () => ({ meta: [{ title: "Sign up — Konekto" }] }),
   component: SignUpPage,
-})
+});
 
 function SignUpPage() {
-  const navigate = useNavigate()
+  const navigate = useNavigate();
+  const { signUp } = useAuth();
 
-  const [step, setStep] = useState<1 | 2 | 3>(1)
-  const [fullName, setFullName] = useState('')
-  const [username, setUsername] = useState('')
-  const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
-  const [university, setUniversity] = useState('')
-  const [selectedInterests, setSelectedInterests] = useState<string[]>([])
-  const [error, setError] = useState('')
+  const [step, setStep] = useState<1 | 2 | 3>(1);
+  const [fullName, setFullName] = useState("");
+  const [username, setUsername] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [university, setUniversity] = useState("");
+  const [selectedInterests, setSelectedInterests] = useState<string[]>([]);
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [done, setDone] = useState(false);
 
   const handleNext = () => {
     if (step === 1) {
       if (!fullName.trim() || !username.trim() || !email.trim()) {
-        setError('Please fill in all fields')
-        return
+        setError("Please fill in all fields.");
+        return;
       }
-      setError('')
-      setStep(2)
+      setError("");
+      setStep(2);
     } else if (step === 2) {
-      if (!password.trim()) {
-        setError('Please enter a password')
-        return
+      if (password.length < 8) {
+        setError("Password must be at least 8 characters.");
+        return;
       }
-      setError('')
-      setStep(3)
+      setError("");
+      setStep(3);
     }
-  }
+  };
 
-  const handleBack = () => {
-    if (step > 1) {
-      setStep((step - 1) as 1 | 2 | 3)
-      setError('')
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError("");
+    setLoading(true);
+    try {
+      await signUp(email, password);
+
+      // Save extra profile data if Supabase is configured
+      if (isSupabaseConfigured && supabase) {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          await supabase.from("profiles").upsert({
+            id: user.id,
+            display_name: fullName,
+            username,
+            university,
+            interests: selectedInterests,
+          });
+        }
+      }
+
+      setDone(true);
+    } catch (err: any) {
+      setError(err?.message ?? "Something went wrong. Please try again.");
+    } finally {
+      setLoading(false);
     }
-  }
+  };
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
-    setError('')
-    // Redirect to circles after form submission
-    navigate({ to: '/circles' })
+  if (done) {
+    return (
+      <div className="min-h-[80vh] flex items-center justify-center p-4">
+        <div className="w-full max-w-sm text-center">
+          <div className="h-16 w-16 rounded-full bg-accent-soft flex items-center justify-center mx-auto mb-4 text-3xl">✉️</div>
+          <h1 className="text-2xl font-bold tracking-tight">Check your email</h1>
+          <p className="mt-2 text-sm text-muted-foreground">
+            We sent a confirmation link to <strong>{email}</strong>. Click it to activate your account.
+          </p>
+          <Button className="mt-6 w-full" onClick={() => navigate({ to: "/login" })}>
+            Go to login
+          </Button>
+        </div>
+      </div>
+    );
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background p-4">
-      <Card className="w-full max-w-md">
-        <CardHeader>
-          <CardTitle>Create Account</CardTitle>
-          <CardDescription>Step {step} of 3</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-6">
-            {step === 1 && (
-              <div className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="fullName">Full Name</Label>
-                  <Input
-                    id="fullName"
-                    value={fullName}
-                    onChange={(e) => setFullName(e.target.value)}
-                    placeholder="John Doe"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="username">Username</Label>
-                  <Input
-                    id="username"
-                    value={username}
-                    onChange={(e) => setUsername(e.target.value)}
-                    placeholder="johndoe"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="email">Email</Label>
-                  <Input
-                    id="email"
-                    type="email"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    placeholder="john@example.com"
-                  />
-                </div>
+    <div className="min-h-[80vh] flex items-center justify-center p-4">
+      <div className="w-full max-w-sm">
+        <div className="text-center mb-8">
+          <div className="h-12 w-12 rounded-2xl bg-primary flex items-center justify-center text-primary-foreground font-bold text-xl mx-auto mb-4">K</div>
+          <h1 className="text-2xl font-bold tracking-tight">Create your account</h1>
+          <p className="mt-1 text-sm text-muted-foreground">Step {step} of 3</p>
+        </div>
+
+        {/* Step indicators */}
+        <div className="flex gap-1.5 mb-6">
+          {[1, 2, 3].map((s) => (
+            <div
+              key={s}
+              className={`h-1 flex-1 rounded-full transition-colors ${s <= step ? "bg-primary" : "bg-muted"}`}
+            />
+          ))}
+        </div>
+
+        <form onSubmit={step < 3 ? (e) => { e.preventDefault(); handleNext(); } : handleSubmit} className="space-y-4">
+          {step === 1 && (
+            <>
+              <div className="space-y-1.5">
+                <Label htmlFor="fullName">Full name</Label>
+                <Input id="fullName" value={fullName} onChange={(e) => setFullName(e.target.value)} placeholder="Yuki Tanaka" autoFocus />
               </div>
-            )}
-
-            {step === 2 && (
-              <div className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="password">Password</Label>
-                  <Input
-                    id="password"
-                    type="password"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    placeholder="Enter a secure password"
-                  />
-                </div>
-                <p className="text-sm text-muted-foreground">Use at least 8 characters for security.</p>
+              <div className="space-y-1.5">
+                <Label htmlFor="username">Username</Label>
+                <Input id="username" value={username} onChange={(e) => setUsername(e.target.value)} placeholder="yukitanaka" />
               </div>
-            )}
-
-            {step === 3 && (
-              <div className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="university">University</Label>
-                  <Input
-                    id="university"
-                    value={university}
-                    onChange={(e) => setUniversity(e.target.value)}
-                    placeholder="e.g., Tokyo University"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>Select Interests</Label>
-                  <TagPicker
-                    value={selectedInterests}
-                    onChange={setSelectedInterests}
-                  />
-                </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="email">Email</Label>
+                <Input id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" autoComplete="email" />
               </div>
+            </>
+          )}
+
+          {step === 2 && (
+            <>
+              <div className="space-y-1.5">
+                <Label htmlFor="password">Password</Label>
+                <Input
+                  id="password"
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="At least 8 characters"
+                  autoComplete="new-password"
+                  autoFocus
+                />
+              </div>
+              <p className="text-xs text-muted-foreground">Use at least 8 characters.</p>
+            </>
+          )}
+
+          {step === 3 && (
+            <>
+              <div className="space-y-1.5">
+                <Label htmlFor="university">University</Label>
+                <Input id="university" value={university} onChange={(e) => setUniversity(e.target.value)} placeholder="e.g. Tokyo University" autoFocus />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Interests</Label>
+                <TagPicker value={selectedInterests} onChange={setSelectedInterests} />
+              </div>
+            </>
+          )}
+
+          {error && <p className="text-sm text-destructive">{error}</p>}
+
+          <div className="flex gap-2 pt-1">
+            {step > 1 && (
+              <Button type="button" variant="outline" onClick={() => { setStep((step - 1) as 1 | 2 | 3); setError(""); }}>
+                Back
+              </Button>
             )}
+            <Button type="submit" className="flex-1" disabled={loading}>
+              {step < 3 ? "Next" : loading ? "Creating account…" : "Create account"}
+            </Button>
+          </div>
+        </form>
 
-            {error && <div className="text-sm text-destructive">{error}</div>}
-
-            <div className="flex gap-2">
-              {step > 1 && (
-                <Button type="button" variant="outline" onClick={handleBack}>
-                  Back
-                </Button>
-              )}
-              {step < 3 ? (
-                <Button type="button" onClick={handleNext} className="flex-1">
-                  Next
-                </Button>
-              ) : (
-                <Button type="submit" className="flex-1">
-                  Create Account
-                </Button>
-              )}
-            </div>
-
-            <div className="text-center text-sm">
-              Already have an account?{' '}
-              <button
-                type="button"
-                className="text-primary underline"
-                onClick={() => navigate({ to: '/login' })}
-              >
-                Log in
-              </button>
-            </div>
-          </form>
-        </CardContent>
-      </Card>
+        <p className="mt-6 text-center text-sm text-muted-foreground">
+          Already have an account?{" "}
+          <Link to="/login" className="text-primary font-medium hover:underline">
+            Log in
+          </Link>
+        </p>
+      </div>
     </div>
-  )
+  );
 }

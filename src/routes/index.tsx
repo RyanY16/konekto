@@ -1,23 +1,106 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
-import { ArrowRight, Sparkles, TrendingUp, Calendar, Users } from "lucide-react";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { useAuth } from "@/components/AuthProvider";
+import {
+  Users, Calendar, Tag, Briefcase, MapPin, ArrowRight, Sparkles, TrendingUp,
+} from "lucide-react";
 import { circles, events, deals } from "@/data/mock";
 import { SaveButton } from "@/components/SaveButton";
 
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "Home — Konekto" },
-      {
-        name: "description",
-        content:
-          "Your personalized student dashboard: events, circles, deals and opportunities curated for life in Japan.",
-      },
+      { title: "Konekto — Your campus, connected." },
+      { name: "description", content: "Your personalized student hub for life in Japan." },
     ],
   }),
-  component: HomePage,
+  component: IndexPage,
 });
 
-function HomePage() {
+function IndexPage() {
+  const { user, loading } = useAuth();
+  if (loading) return null;
+  if (user) return <Dashboard />;
+  return <Landing />;
+}
+
+// ── Landing page ───────────────────────────────────────────────────────────────
+
+const features = [
+  { icon: Users,     title: "Circles",    desc: "Find student clubs and communities that match your interests." },
+  { icon: Calendar,  title: "Events",     desc: "Discover campus events, meetups, and cultural experiences." },
+  { icon: Tag,       title: "Deals",      desc: "Exclusive student discounts at shops, cafés, and services." },
+  { icon: Briefcase, title: "Careers",    desc: "Internships and job opportunities for international students." },
+  { icon: MapPin,    title: "Japan Life", desc: "Practical guides for navigating daily life in Japan." },
+];
+
+function Landing() {
+  return (
+    <div>
+      <div className="mx-auto max-w-6xl px-4">
+        {/* Hero */}
+        <section className="py-20 md:py-28 text-center">
+          <p className="inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-widest text-primary mb-4">
+            <Sparkles className="h-3.5 w-3.5" /> For students in Japan
+          </p>
+          <h1 className="text-4xl md:text-6xl font-bold tracking-tight text-foreground leading-tight">
+            Your campus,<br className="hidden sm:block" /> connected.
+          </h1>
+          <p className="mt-5 text-lg text-muted-foreground max-w-xl mx-auto">
+            Konekto is the all-in-one hub for university students in Japan — circles,
+            events, deals, careers, and life essentials in one place.
+          </p>
+          <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
+            <Link
+              to="/signup"
+              className="inline-flex items-center gap-2 rounded-full bg-primary px-6 py-3 text-sm font-semibold text-primary-foreground hover:bg-primary/90 transition-colors"
+            >
+              Get started free <ArrowRight className="h-4 w-4" />
+            </Link>
+            <Link
+              to="/login"
+              className="inline-flex items-center gap-2 rounded-full border border-border px-6 py-3 text-sm font-semibold hover:bg-muted transition-colors"
+            >
+              Log in
+            </Link>
+          </div>
+        </section>
+
+        {/* Feature grid */}
+        <section className="pb-20">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {features.map(({ icon: Icon, title, desc }) => (
+              <div key={title} className="rounded-2xl border border-border bg-card p-6 hover:shadow-md transition-shadow">
+                <div className="h-10 w-10 rounded-xl bg-primary-soft flex items-center justify-center mb-4">
+                  <Icon className="h-5 w-5 text-primary" />
+                </div>
+                <h3 className="font-semibold text-foreground">{title}</h3>
+                <p className="mt-1 text-sm text-muted-foreground">{desc}</p>
+              </div>
+            ))}
+            {/* CTA card */}
+            <div className="rounded-2xl bg-gradient-to-br from-primary to-primary/70 p-6 text-primary-foreground flex flex-col justify-between">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-widest opacity-80 mb-2">Ready?</p>
+                <h3 className="font-bold text-lg">Join Konekto today</h3>
+                <p className="mt-1 text-sm opacity-80">It's free for all students.</p>
+              </div>
+              <Link
+                to="/signup"
+                className="mt-6 inline-flex items-center gap-2 self-start rounded-full bg-white/20 hover:bg-white/30 px-4 py-2 text-sm font-semibold transition-colors"
+              >
+                Sign up <ArrowRight className="h-4 w-4" />
+              </Link>
+            </div>
+          </div>
+        </section>
+      </div>
+    </div>
+  );
+}
+
+// ── Dashboard (shown when logged in) ──────────────────────────────────────────
+
+function Dashboard() {
   const featured = events.slice(0, 3);
   const featuredCircles = circles.slice(0, 3);
   const trendingDeals = deals.slice(0, 3);
@@ -28,7 +111,7 @@ function HomePage() {
       <section className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-primary-soft via-background to-accent-soft p-6 md:p-10 border border-border">
         <div className="max-w-2xl">
           <p className="text-xs font-semibold uppercase tracking-wider text-primary mb-3">
-            <Sparkles className="inline h-3.5 w-3.5 mr-1" /> Hi Yuki — おかえり
+            <Sparkles className="inline h-3.5 w-3.5 mr-1" /> おかえり
           </p>
           <h1 className="text-3xl md:text-5xl font-bold tracking-tight text-foreground">
             Your campus,<br className="hidden md:block" /> connected.
@@ -53,12 +136,7 @@ function HomePage() {
         </div>
       </section>
 
-      {/* For you this week */}
-      <Section
-        title="For you this week"
-        subtitle="Picked based on your interests in tech, finance, and international community."
-        icon={<Sparkles className="h-5 w-5" />}
-      >
+      <Section title="For you this week" subtitle="Picked based on your interests." icon={<Sparkles className="h-5 w-5" />}>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           {featured.map((e) => (
             <article key={e.id} className="card-base card-hover p-5 flex flex-col">
@@ -71,15 +149,13 @@ function HomePage() {
               <p className="mt-1 text-sm text-muted-foreground">{e.date}</p>
               <p className="text-sm text-muted-foreground">📍 {e.location}</p>
               <p className="mt-3 text-xs text-muted-foreground">
-                <Users className="inline h-3.5 w-3.5 mr-1" />
-                {e.going} going
+                <Users className="inline h-3.5 w-3.5 mr-1" />{e.going} going
               </p>
             </article>
           ))}
         </div>
       </Section>
 
-      {/* Featured circles */}
       <Section title="Featured circles" icon={<Users className="h-5 w-5" />} link="/circles">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           {featuredCircles.map((c) => (
@@ -89,9 +165,7 @@ function HomePage() {
                 <SaveButton />
               </div>
               <h3 className="mt-3 font-semibold">{c.name}</h3>
-              <p className="text-xs text-muted-foreground">
-                {c.category} · {c.members} members
-              </p>
+              <p className="text-xs text-muted-foreground">{c.category} · {c.members} members</p>
               <p className="mt-2 text-sm text-muted-foreground line-clamp-2">{c.description}</p>
               <div className="mt-3 flex flex-wrap gap-1.5">
                 {c.englishFriendly && <span className="chip chip-accent">🌏 English-friendly</span>}
@@ -102,7 +176,6 @@ function HomePage() {
         </div>
       </Section>
 
-      {/* Trending deals */}
       <Section title="Trending deals" icon={<TrendingUp className="h-5 w-5" />} link="/deals">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           {trendingDeals.map((d) => (
@@ -118,61 +191,26 @@ function HomePage() {
           ))}
         </div>
       </Section>
-
-      {/* Upcoming events strip */}
-      <Section title="Upcoming events" icon={<Calendar className="h-5 w-5" />} link="/events">
-        <div className="space-y-2">
-          {events.slice(0, 4).map((e) => (
-            <Link
-              key={e.id}
-              to="/events"
-              className="card-base card-hover px-4 py-3 flex items-center gap-4"
-            >
-              <div className="text-2xl">{e.emoji}</div>
-              <div className="flex-1 min-w-0">
-                <p className="font-medium truncate">{e.title}</p>
-                <p className="text-xs text-muted-foreground">
-                  {e.date} · {e.location}
-                </p>
-              </div>
-              <span className="chip hidden sm:inline-flex">{e.category}</span>
-              <ArrowRight className="h-4 w-4 text-muted-foreground" />
-            </Link>
-          ))}
-        </div>
-      </Section>
     </div>
   );
 }
 
 function Section({
-  title,
-  subtitle,
-  icon,
-  link,
-  children,
+  title, subtitle, icon, link, children,
 }: {
-  title: string;
-  subtitle?: string;
-  icon?: React.ReactNode;
-  link?: string;
-  children: React.ReactNode;
+  title: string; subtitle?: string; icon?: React.ReactNode; link?: string; children: React.ReactNode;
 }) {
   return (
     <section>
       <div className="mb-4 flex items-end justify-between gap-4">
         <div>
           <h2 className="text-xl md:text-2xl font-bold tracking-tight flex items-center gap-2">
-            {icon}
-            {title}
+            {icon}{title}
           </h2>
           {subtitle && <p className="mt-1 text-sm text-muted-foreground">{subtitle}</p>}
         </div>
         {link && (
-          <Link
-            to={link}
-            className="text-sm font-medium text-primary hover:underline whitespace-nowrap"
-          >
+          <Link to={link} className="text-sm font-medium text-primary hover:underline whitespace-nowrap">
             See all →
           </Link>
         )}
