@@ -383,7 +383,7 @@ function ProfilePage() {
                 value={draft.bio ?? ""}
                 onChange={(e) => setDraft((d) => ({ ...d, bio: e.target.value }))}
                 placeholder="Write a short bio…"
-                rows={6}
+                rows={9}
                 className="w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring resize-none"
               />
             </div>
@@ -415,7 +415,7 @@ function ProfilePage() {
         {!editing && (
           <div className="mt-5 pt-5 border-t border-border">
             <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">About me</p>
-            <p className="text-sm text-muted-foreground">
+            <p className="text-sm text-muted-foreground whitespace-pre-wrap">
               {profile?.bio || <span className="italic">No bio yet — click Edit to add one.</span>}
             </p>
           </div>
