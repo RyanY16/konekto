@@ -109,7 +109,11 @@ const config = {
       continue: true,
     },
     { handle: "filesystem" },
-    { src: "/(.*)", dest: "/" },
+    {
+      src: "/(.*)",
+      dest: "/",
+      headers: { "cache-control": "no-store" },
+    },
   ],
 };
 await writeFile(join(out, "config.json"), JSON.stringify(config, null, 2));
