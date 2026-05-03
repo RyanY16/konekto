@@ -263,7 +263,7 @@ function ProfilePage() {
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [profileLoading, setProfileLoading] = useState(true);
   const [editing, setEditing] = useState(false);
-  const [draft, setDraft] = useState<Draft>({ degree: "Bachelors", yearNum: "1" });
+  const [draft, setDraft] = useState<Draft>({ degree: "Bachelors", yearNum: "1", nationality: "" });
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
   const [pendingAvatar, setPendingAvatar] = useState<File | null>(null);
   const [saving, setSaving] = useState(false);
@@ -663,7 +663,7 @@ function ProfilePage() {
       </section>
 
       {/* ── Interests / Career / Goals card ── */}
-      <section className="card-base p-6 mb-6 space-y-6">
+      {!editing && <section className="card-base p-6 mb-6 space-y-6">
         {/* Interests */}
         <div>
           <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3">Interests</p>
@@ -713,9 +713,10 @@ function ProfilePage() {
             <p className="text-sm text-muted-foreground italic">No goals added yet.</p>
           )}
         </div>
-      </section>
+      </section>}
 
       {/* ── Stats ── */}
+      {!editing && <>
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
         <Stat icon={<Bookmark />} label="Saved items" value="14" />
         <Stat icon={<Users />} label="Joined circles" value={`${joinedIds.size}`} />
@@ -820,6 +821,7 @@ function ProfilePage() {
           </Button>
         </div>
       </section>
+      </>}
     </div>
   );
 }

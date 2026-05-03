@@ -82,7 +82,7 @@ export function CropDialog({ file, onCrop, onCancel }: Props) {
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
+    <div className="fixed inset-0 z-[9999] flex items-start justify-center bg-black/70 p-4 pt-12 overflow-y-auto">
       <div className="bg-background rounded-2xl p-6 w-full max-w-sm space-y-4 shadow-xl">
         <div>
           <h3 className="font-semibold text-lg">Crop photo</h3>
@@ -106,7 +106,7 @@ export function CropDialog({ file, onCrop, onCancel }: Props) {
             ref={imgRef}
             src={src}
             draggable={false}
-            alt="crop preview"
+            alt=""
             style={{
               position: "absolute",
               left: "50%",
