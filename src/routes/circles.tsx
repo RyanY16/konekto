@@ -118,7 +118,14 @@ function CirclesPage() {
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         {filtered.map((c) => (
-          <article key={c.id} className="card-base card-hover p-5 flex flex-col">
+          <article key={c.id} className="card-base card-hover p-5 flex flex-col relative">
+            {/* Full-card tap target */}
+            <Link
+              to="/circles/$circleHandle"
+              params={{ circleHandle: getCircleHandle(c) }}
+              className="absolute inset-0 rounded-[inherit]"
+              aria-label={`View ${c.name}`}
+            />
             <div className="flex items-start justify-between">
               <div className="w-10 h-10 flex items-center justify-center shrink-0">
                 {(c as any).iconUrl ? (
@@ -160,13 +167,13 @@ function CirclesPage() {
               <span className="chip">⏱ {c.commitment}</span>
             </div>
 
-            <div className="mt-4 pt-4 border-t border-border flex items-center justify-between">
+            <div className="mt-4 pt-4 border-t border-border flex items-center justify-between relative z-10">
               <div className="flex flex-col gap-0.5 text-xs text-muted-foreground">
                 {c.ownerId && ownerMap[c.ownerId] && (
                   <Link
                     to="/users/$username"
                     params={{ username: ownerMap[c.ownerId] }}
-                    className="hover:underline"
+                    className="hover:underline relative z-10"
                     onClick={(e) => e.stopPropagation()}
                   >
                     👑 @{ownerMap[c.ownerId]}
@@ -176,13 +183,7 @@ function CirclesPage() {
                   <span>{relativeTime(c.updatedAt)}</span>
                 )}
               </div>
-              <Link
-                to="/circles/$circleHandle"
-                params={{ circleHandle: getCircleHandle(c) }}
-                className="text-sm font-semibold text-primary hover:underline shrink-0"
-              >
-                View →
-              </Link>
+              <span className="text-sm font-semibold text-primary shrink-0">View →</span>
             </div>
           </article>
         ))}
