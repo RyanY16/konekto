@@ -298,89 +298,10 @@ function ProfilePage() {
 
       {/* ── Profile identity card ── */}
       <section className="card-base p-6 mb-4">
-        <div className="flex flex-col sm:flex-row gap-5 items-start sm:items-center">
+
+        {/* Top bar: avatar + save/edit button */}
+        <div className="flex items-start justify-between gap-4 mb-6">
           <AvatarUploader src={avatarSrc} initials={initials} editing={editing} onUpload={handleAvatarFile} />
-
-          <div className="flex-1 min-w-0 space-y-2">
-            {editing ? (
-              <Input
-                value={draft.displayName ?? ""}
-                onChange={(e) => setDraft((d) => ({ ...d, displayName: e.target.value }))}
-                placeholder="Display name"
-                className="font-bold h-9"
-              />
-            ) : (
-              <h2 className="text-2xl font-bold">{profile?.displayName || "—"}</h2>
-            )}
-
-            {editing ? (
-              <div className="flex items-center gap-1">
-                <span className="text-sm text-muted-foreground">@</span>
-                <Input
-                  value={draft.username ?? ""}
-                  onChange={(e) => setDraft((d) => ({ ...d, username: e.target.value.replace(/[^a-zA-Z0-9_]/g, "").toLowerCase() }))}
-                  placeholder="username"
-                  className="h-7 text-sm w-40"
-                />
-              </div>
-            ) : profile?.username ? (
-              <p className="text-sm font-medium text-muted-foreground">@{profile.username}</p>
-            ) : null}
-
-            <p className="text-sm text-muted-foreground">{user.email}</p>
-
-            <span className={`inline-flex items-center gap-1 self-start px-2 py-0.5 rounded-full text-xs font-semibold ${
-              user.role === "admin"
-                ? "bg-primary text-primary-foreground"
-                : "bg-muted text-muted-foreground"
-            }`}>
-              {user.role === "admin" ? "⚡ Admin" : "User"}
-            </span>
-
-            {editing ? (
-              <div className="space-y-2">
-                <UniversityPicker
-                  value={draft.university ?? ""}
-                  onChange={(v) => setDraft((d) => ({ ...d, university: v }))}
-                />
-                <NationalityPicker
-                  value={draft.nationality ?? ""}
-                  onChange={(v) => setDraft((d) => ({ ...d, nationality: v }))}
-                />
-                <div className="flex gap-2 flex-wrap items-center">
-                  <select
-                    value={draft.degree}
-                    onChange={(e) => setDraft((d) => ({ ...d, degree: e.target.value as DegreeType, yearNum: "1" }))}
-                    className="h-8 rounded-md border border-input bg-transparent px-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-                  >
-                    {DEGREE_TYPES.map((d) => <option key={d} value={d}>{d}</option>)}
-                  </select>
-                  <span className="text-sm text-muted-foreground">Year</span>
-                  <input
-                    type="number" min={1} max={MAX_YEAR[draft.degree ?? "Bachelors"]}
-                    value={draft.yearNum ?? "1"}
-                    onChange={(e) => setDraft((d) => ({ ...d, yearNum: e.target.value }))}
-                    className="h-8 w-14 rounded-md border border-input bg-transparent px-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-                  />
-                </div>
-              </div>
-            ) : (
-              <div className="space-y-0.5">
-                <p className="text-sm text-muted-foreground">
-                  {[profile?.university, gradeLabel].filter(Boolean).join(" · ") || "No university info yet"}
-                </p>
-                {profile?.nationality && (() => {
-                  const nat = NATIONALITIES.find((n) => n.name === profile.nationality);
-                  return (
-                    <p className="text-sm text-muted-foreground">
-                      {nat?.flag} {profile.nationality}
-                    </p>
-                  );
-                })()}
-              </div>
-            )}
-          </div>
-
           {editing ? (
             <div className="flex gap-2 shrink-0">
               <Button size="sm" onClick={save} disabled={saving}>
@@ -400,24 +321,105 @@ function ProfilePage() {
           )}
         </div>
 
-        {/* Bio */}
-        <div className="mt-5 pt-5 border-t border-border">
-          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">About me</p>
-          {editing ? (
-            <textarea
-              value={draft.bio ?? ""}
-              onChange={(e) => setDraft((d) => ({ ...d, bio: e.target.value }))}
-              placeholder="Write a short bio…"
-              rows={3}
-              className="w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring resize-none"
-            />
-          ) : (
+        {/* Fields */}
+        {editing ? (
+          <div className="space-y-4">
+            <div className="space-y-1">
+              <p className="text-xs font-medium text-muted-foreground">Name</p>
+              <Input
+                value={draft.displayName ?? ""}
+                onChange={(e) => setDraft((d) => ({ ...d, displayName: e.target.value }))}
+                placeholder="Your display name"
+              />
+            </div>
+            <div className="space-y-1">
+              <p className="text-xs font-medium text-muted-foreground">Username</p>
+              <div className="relative">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground select-none pointer-events-none">@</span>
+                <Input
+                  value={draft.username ?? ""}
+                  onChange={(e) => setDraft((d) => ({ ...d, username: e.target.value.replace(/[^a-zA-Z0-9_]/g, "").toLowerCase() }))}
+                  placeholder="username"
+                  className="pl-7"
+                />
+              </div>
+            </div>
+            <div className="space-y-1">
+              <p className="text-xs font-medium text-muted-foreground">University</p>
+              <UniversityPicker
+                value={draft.university ?? ""}
+                onChange={(v) => setDraft((d) => ({ ...d, university: v }))}
+              />
+            </div>
+            <div className="space-y-1">
+              <p className="text-xs font-medium text-muted-foreground">Nationality</p>
+              <NationalityPicker
+                value={draft.nationality ?? ""}
+                onChange={(v) => setDraft((d) => ({ ...d, nationality: v }))}
+              />
+            </div>
+            <div className="space-y-1">
+              <p className="text-xs font-medium text-muted-foreground">Degree &amp; Year</p>
+              <div className="flex gap-2 flex-wrap items-center">
+                <select
+                  value={draft.degree}
+                  onChange={(e) => setDraft((d) => ({ ...d, degree: e.target.value as DegreeType, yearNum: "1" }))}
+                  className="h-9 rounded-md border border-input bg-transparent px-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                >
+                  {DEGREE_TYPES.map((d) => <option key={d} value={d}>{d}</option>)}
+                </select>
+                <span className="text-sm text-muted-foreground">Year</span>
+                <input
+                  type="number" min={1} max={MAX_YEAR[draft.degree ?? "Bachelors"]}
+                  value={draft.yearNum ?? "1"}
+                  onChange={(e) => setDraft((d) => ({ ...d, yearNum: e.target.value }))}
+                  className="h-9 w-16 rounded-md border border-input bg-transparent px-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                />
+              </div>
+            </div>
+            <div className="space-y-1">
+              <p className="text-xs font-medium text-muted-foreground">About me</p>
+              <textarea
+                value={draft.bio ?? ""}
+                onChange={(e) => setDraft((d) => ({ ...d, bio: e.target.value }))}
+                placeholder="Write a short bio…"
+                rows={6}
+                className="w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring resize-none"
+              />
+            </div>
+            {saveError && <p className="text-sm text-destructive">{saveError}</p>}
+          </div>
+        ) : (
+          <div className="space-y-1">
+            <h2 className="text-2xl font-bold">{profile?.displayName || "—"}</h2>
+            {profile?.username && <p className="text-sm font-medium text-muted-foreground">@{profile.username}</p>}
+            <p className="text-sm text-muted-foreground">{user.email}</p>
+            <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold ${
+              user.role === "admin" ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"
+            }`}>
+              {user.role === "admin" ? "⚡ Admin" : "User"}
+            </span>
+            <div className="pt-1 space-y-0.5">
+              <p className="text-sm text-muted-foreground">
+                {[profile?.university, gradeLabel].filter(Boolean).join(" · ") || "No university info yet"}
+              </p>
+              {profile?.nationality && (() => {
+                const nat = NATIONALITIES.find((n) => n.name === profile.nationality);
+                return <p className="text-sm text-muted-foreground">{nat?.flag} {profile.nationality}</p>;
+              })()}
+            </div>
+          </div>
+        )}
+
+        {/* Bio (view mode) */}
+        {!editing && (
+          <div className="mt-5 pt-5 border-t border-border">
+            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">About me</p>
             <p className="text-sm text-muted-foreground">
               {profile?.bio || <span className="italic">No bio yet — click Edit to add one.</span>}
             </p>
-          )}
-          {saveError && <p className="text-sm text-destructive mt-2">{saveError}</p>}
-        </div>
+          </div>
+        )}
 
         {/* Social links */}
         <div className="mt-5 pt-5 border-t border-border">
