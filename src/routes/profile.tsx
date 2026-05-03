@@ -1,5 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import React, { useState, useEffect, useRef, useCallback } from "react";
+import { Globe, Instagram, Linkedin, MessageCircle } from "lucide-react";
+import { tagClass } from "@/lib/tag-class";
 import { Bookmark, Users, Briefcase, Pencil, Check, X, LogOut, Camera } from "lucide-react";
 import { events } from "@/data/mock";
 import { PageHeader } from "@/components/PageHeader";
@@ -11,7 +13,7 @@ import {
   joinCircle, leaveCircle, getCircleHandle, type UserProfile,
 } from "@/data/backend";
 import type { Circle } from "@/data/mock";
-import { UNIVERSITIES } from "@/data/universities";
+import { UniversityPicker } from "@/components/UniversityPicker";
 import { CAREER_FIELDS, INTEREST_GROUPS, GOALS } from "@/data/profile-options";
 
 export const Route = createFileRoute("/profile")({
@@ -39,51 +41,6 @@ function formatYear(degree: string, num: string) {
 
 // ── University searchable combobox ────────────────────────────────────────────
 
-function UniversityPicker({ value, onChange }: { value: string; onChange: (v: string) => void }) {
-  const [query, setQuery] = useState(value);
-  const [open, setOpen] = useState(false);
-  const wrapRef = useRef<HTMLDivElement>(null);
-  const filtered = query.length > 0
-    ? UNIVERSITIES.filter((u) => u.toLowerCase().includes(query.toLowerCase())).slice(0, 8)
-    : [];
-
-  useEffect(() => { setQuery(value); }, [value]);
-  useEffect(() => {
-    const handler = (e: MouseEvent) => {
-      if (wrapRef.current && !wrapRef.current.contains(e.target as Node)) setOpen(false);
-    };
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
-  }, []);
-
-  return (
-    <div ref={wrapRef} className="relative w-full">
-      <Input
-        value={query}
-        onChange={(e) => { setQuery(e.target.value); setOpen(true); }}
-        onFocus={() => setOpen(true)}
-        placeholder="Search university…"
-        className="h-8 text-sm"
-        autoComplete="off"
-      />
-      {open && filtered.length > 0 && (
-        <ul className="absolute z-50 mt-1 w-full max-h-48 overflow-y-auto rounded-md border border-border bg-popover shadow-md text-sm">
-          {filtered.map((uni) => (
-            <li key={uni}>
-              <button
-                type="button"
-                className="w-full text-left px-3 py-1.5 hover:bg-muted truncate"
-                onMouseDown={(e) => { e.preventDefault(); onChange(uni); setQuery(uni); setOpen(false); }}
-              >
-                {uni}
-              </button>
-            </li>
-          ))}
-        </ul>
-      )}
-    </div>
-  );
-}
 
 // ── Multi-select chip picker (flat list) ─────────────────────────────────────
 
@@ -127,6 +84,16 @@ function ChipPicker({
 
 // ── Grouped interest picker ───────────────────────────────────────────────────
 
+const GROUP_COLOURS: Record<string, { idle: string; active: string }> = {
+  "Tech":                { idle: "border-blue-200 text-blue-600 hover:bg-blue-50 dark:border-blue-800 dark:text-blue-400 dark:hover:bg-blue-950",     active: "bg-blue-600 border-blue-600 text-white dark:bg-blue-500 dark:border-blue-500" },
+  "Business & Finance":  { idle: "border-amber-200 text-amber-600 hover:bg-amber-50 dark:border-amber-800 dark:text-amber-400 dark:hover:bg-amber-950", active: "bg-amber-500 border-amber-500 text-white" },
+  "Health & Wellness":   { idle: "border-teal-200 text-teal-600 hover:bg-teal-50 dark:border-teal-800 dark:text-teal-400 dark:hover:bg-teal-950",     active: "bg-teal-600 border-teal-600 text-white dark:bg-teal-500 dark:border-teal-500" },
+  "Arts & Culture":      { idle: "border-purple-200 text-purple-600 hover:bg-purple-50 dark:border-purple-800 dark:text-purple-400 dark:hover:bg-purple-950", active: "bg-purple-600 border-purple-600 text-white dark:bg-purple-500 dark:border-purple-500" },
+  "Social & Languages":  { idle: "border-green-200 text-green-600 hover:bg-green-50 dark:border-green-800 dark:text-green-400 dark:hover:bg-green-950", active: "bg-green-600 border-green-600 text-white dark:bg-green-500 dark:border-green-500" },
+  "Research & Academia": { idle: "border-cyan-200 text-cyan-600 hover:bg-cyan-50 dark:border-cyan-800 dark:text-cyan-400 dark:hover:bg-cyan-950",     active: "bg-cyan-600 border-cyan-600 text-white dark:bg-cyan-500 dark:border-cyan-500" },
+};
+const DEFAULT_COLOURS = { idle: "border-border text-muted-foreground hover:bg-muted", active: "bg-primary border-primary text-primary-foreground" };
+
 function InterestPicker({ value, onChange }: { value: string[]; onChange: (v: string[]) => void }) {
   const set = new Set(value);
   const toggle = (item: string) => {
@@ -136,7 +103,9 @@ function InterestPicker({ value, onChange }: { value: string[]; onChange: (v: st
   };
   return (
     <div className="space-y-4">
-      {INTEREST_GROUPS.map((group) => (
+      {INTEREST_GROUPS.map((group) => {
+        const colours = GROUP_COLOURS[group.label] ?? DEFAULT_COLOURS;
+        return (
         <div key={group.label}>
           <p className="text-xs font-semibold text-muted-foreground mb-1.5">{group.label}</p>
           <div className="flex flex-wrap gap-1.5">
@@ -147,11 +116,7 @@ function InterestPicker({ value, onChange }: { value: string[]; onChange: (v: st
                   key={item}
                   type="button"
                   onClick={() => toggle(item)}
-                  className={`px-3 py-1 rounded-full text-xs border transition-colors ${
-                    active
-                      ? "bg-primary text-primary-foreground border-primary"
-                      : "bg-transparent text-muted-foreground border-border hover:bg-muted hover:text-foreground"
-                  }`}
+                  className={`px-2.5 py-0.5 rounded-full text-xs border transition-colors ${active ? colours.active : colours.idle}`}
                 >
                   {item}
                 </button>
@@ -159,7 +124,8 @@ function InterestPicker({ value, onChange }: { value: string[]; onChange: (v: st
             })}
           </div>
         </div>
-      ))}
+        );
+      })}
     </div>
   );
 }
@@ -271,6 +237,7 @@ function ProfilePage() {
       interests: profile?.interests ?? [],
       careerField: profile?.careerField ?? "",
       goals: profile?.goals ?? [],
+      socialLinks: profile?.socialLinks ?? {},
     });
     setAvatarPreview(null);
     setPendingAvatar(null);
@@ -303,6 +270,7 @@ function ProfilePage() {
         interests: draft.interests ?? [],
         careerField: draft.careerField ?? "",
         goals: draft.goals ?? [],
+        socialLinks: draft.socialLinks ?? {},
       });
       if (avatarPreview) URL.revokeObjectURL(avatarPreview);
       setProfile(updated);
@@ -433,6 +401,73 @@ function ProfilePage() {
           )}
           {saveError && <p className="text-sm text-destructive mt-2">{saveError}</p>}
         </div>
+
+        {/* Social links */}
+        <div className="mt-5 pt-5 border-t border-border">
+          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3">Social links</p>
+          {editing ? (
+            <div className="space-y-2 max-w-sm">
+              <div className="relative">
+                <Globe className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+                <input
+                  value={draft.socialLinks?.website ?? ""}
+                  onChange={(e) => setDraft((d) => ({ ...d, socialLinks: { ...d.socialLinks, website: e.target.value } }))}
+                  placeholder="https://yoursite.com"
+                  className="w-full pl-9 h-9 rounded-md border border-input bg-transparent px-3 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                />
+              </div>
+              <div className="relative">
+                <Instagram className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+                <span className="absolute left-9 top-1/2 -translate-y-1/2 text-sm text-muted-foreground select-none pointer-events-none">@</span>
+                <input
+                  value={(draft.socialLinks?.instagram ?? "").replace(/^@/, "")}
+                  onChange={(e) => setDraft((d) => ({ ...d, socialLinks: { ...d.socialLinks, instagram: e.target.value.replace(/^@/, "") } }))}
+                  placeholder="handle"
+                  className="w-full pl-14 h-9 rounded-md border border-input bg-transparent px-3 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                />
+              </div>
+              <div className="relative">
+                <Linkedin className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+                <input
+                  value={draft.socialLinks?.linkedin ?? ""}
+                  onChange={(e) => setDraft((d) => ({ ...d, socialLinks: { ...d.socialLinks, linkedin: e.target.value } }))}
+                  placeholder="linkedin.com/in/yourprofile"
+                  className="w-full pl-9 h-9 rounded-md border border-input bg-transparent px-3 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                />
+              </div>
+              <div className="relative">
+                <MessageCircle className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+                <span className="absolute left-9 top-1/2 -translate-y-1/2 text-sm text-muted-foreground select-none pointer-events-none">@</span>
+                <input
+                  value={(draft.socialLinks?.line ?? "").replace(/^@/, "")}
+                  onChange={(e) => setDraft((d) => ({ ...d, socialLinks: { ...d.socialLinks, line: e.target.value.replace(/^@/, "") } }))}
+                  placeholder="LINE ID"
+                  className="w-full pl-14 h-9 rounded-md border border-input bg-transparent px-3 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                />
+              </div>
+            </div>
+          ) : (
+            (() => {
+              const sl = profile?.socialLinks ?? {};
+              const links = [
+                sl.website && { key: "website", href: /^https?:\/\//i.test(sl.website) ? sl.website : `https://${sl.website}`, label: (() => { try { return new URL(/^https?:\/\//i.test(sl.website) ? sl.website : `https://${sl.website}`).hostname.replace(/^www\./, ""); } catch { return "Website"; } })(), Icon: Globe },
+                sl.instagram && { key: "instagram", href: `https://instagram.com/${sl.instagram.replace(/^@/, "")}`, label: `@${sl.instagram.replace(/^@/, "")}`, Icon: Instagram },
+                sl.linkedin && { key: "linkedin", href: /^https?:\/\//i.test(sl.linkedin) ? sl.linkedin : `https://linkedin.com/in/${sl.linkedin.replace(/^@/, "")}`, label: (() => { const m = sl.linkedin.match(/linkedin\.com\/(?:in|company)\/([^/?#]+)/i); return m ? m[1] : sl.linkedin.replace(/^@/, ""); })(), Icon: Linkedin },
+                sl.line && { key: "line", href: `https://line.me/R/ti/p/~${sl.line.replace(/^@/, "")}`, label: `@${sl.line.replace(/^@/, "")}`, Icon: MessageCircle },
+              ].filter(Boolean) as { key: string; href: string; label: string; Icon: any }[];
+              return links.length > 0 ? (
+                <div className="flex flex-wrap gap-2">
+                  {links.map(({ key, href, label, Icon }) => (
+                    <a key={key} href={href} target="_blank" rel="noreferrer"
+                      className="inline-flex items-center gap-1.5 rounded-full border border-border px-3 py-1.5 text-xs font-medium hover:bg-muted transition-colors">
+                      <Icon className="h-3.5 w-3.5 shrink-0" />{label}
+                    </a>
+                  ))}
+                </div>
+              ) : <p className="text-sm text-muted-foreground italic">No links added yet.</p>;
+            })()
+          )}
+        </div>
       </section>
 
       {/* ── Interests / Career / Goals card ── */}
@@ -448,7 +483,7 @@ function ProfilePage() {
           ) : profile?.interests && profile.interests.length > 0 ? (
             <div className="flex flex-wrap gap-1.5">
               {profile.interests.map((i) => (
-                <span key={i} className="chip chip-primary">{i}</span>
+                <span key={i} className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${tagClass(i)}`}>{i}</span>
               ))}
             </div>
           ) : (

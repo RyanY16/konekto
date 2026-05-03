@@ -19,6 +19,7 @@ import { Route as CirclesRouteImport } from './routes/circles'
 import { Route as CareersRouteImport } from './routes/careers'
 import { Route as AccountRouteImport } from './routes/account'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as UsersUsernameRouteImport } from './routes/users_.$username'
 import { Route as JapanLifeGuideHandleRouteImport } from './routes/japan-life_.$guideHandle'
 import { Route as EventsEventHandleRouteImport } from './routes/events_.$eventHandle'
 import { Route as DealsDealHandleRouteImport } from './routes/deals_.$dealHandle'
@@ -75,6 +76,11 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const UsersUsernameRoute = UsersUsernameRouteImport.update({
+  id: '/users_/$username',
+  path: '/users/$username',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const JapanLifeGuideHandleRoute = JapanLifeGuideHandleRouteImport.update({
   id: '/japan-life_/$guideHandle',
   path: '/japan-life/$guideHandle',
@@ -117,6 +123,7 @@ export interface FileRoutesByFullPath {
   '/deals/$dealHandle': typeof DealsDealHandleRoute
   '/events/$eventHandle': typeof EventsEventHandleRoute
   '/japan-life/$guideHandle': typeof JapanLifeGuideHandleRoute
+  '/users/$username': typeof UsersUsernameRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -134,6 +141,7 @@ export interface FileRoutesByTo {
   '/deals/$dealHandle': typeof DealsDealHandleRoute
   '/events/$eventHandle': typeof EventsEventHandleRoute
   '/japan-life/$guideHandle': typeof JapanLifeGuideHandleRoute
+  '/users/$username': typeof UsersUsernameRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -152,6 +160,7 @@ export interface FileRoutesById {
   '/deals_/$dealHandle': typeof DealsDealHandleRoute
   '/events_/$eventHandle': typeof EventsEventHandleRoute
   '/japan-life_/$guideHandle': typeof JapanLifeGuideHandleRoute
+  '/users_/$username': typeof UsersUsernameRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -171,6 +180,7 @@ export interface FileRouteTypes {
     | '/deals/$dealHandle'
     | '/events/$eventHandle'
     | '/japan-life/$guideHandle'
+    | '/users/$username'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -188,6 +198,7 @@ export interface FileRouteTypes {
     | '/deals/$dealHandle'
     | '/events/$eventHandle'
     | '/japan-life/$guideHandle'
+    | '/users/$username'
   id:
     | '__root__'
     | '/'
@@ -205,6 +216,7 @@ export interface FileRouteTypes {
     | '/deals_/$dealHandle'
     | '/events_/$eventHandle'
     | '/japan-life_/$guideHandle'
+    | '/users_/$username'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -223,6 +235,7 @@ export interface RootRouteChildren {
   DealsDealHandleRoute: typeof DealsDealHandleRoute
   EventsEventHandleRoute: typeof EventsEventHandleRoute
   JapanLifeGuideHandleRoute: typeof JapanLifeGuideHandleRoute
+  UsersUsernameRoute: typeof UsersUsernameRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -297,6 +310,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/users_/$username': {
+      id: '/users_/$username'
+      path: '/users/$username'
+      fullPath: '/users/$username'
+      preLoaderRoute: typeof UsersUsernameRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/japan-life_/$guideHandle': {
       id: '/japan-life_/$guideHandle'
       path: '/japan-life/$guideHandle'
@@ -351,6 +371,7 @@ const rootRouteChildren: RootRouteChildren = {
   DealsDealHandleRoute: DealsDealHandleRoute,
   EventsEventHandleRoute: EventsEventHandleRoute,
   JapanLifeGuideHandleRoute: JapanLifeGuideHandleRoute,
+  UsersUsernameRoute: UsersUsernameRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

@@ -126,7 +126,9 @@ create table if not exists public.guides (
 );
 
 alter table public.circles add column if not exists social_links jsonb not null default '{}'::jsonb;
+alter table public.users add column if not exists social_links jsonb not null default '{}'::jsonb;
 alter table public.circles add column if not exists icon_url text;
+alter table public.circles add column if not exists location text not null default '';
 alter table public.events add column if not exists social_links jsonb not null default '{}'::jsonb;
 alter table public.deals add column if not exists social_links jsonb not null default '{}'::jsonb;
 alter table public.jobs add column if not exists social_links jsonb not null default '{}'::jsonb;
@@ -146,7 +148,7 @@ alter table public.guides enable row level security;
 drop policy if exists "Public read circles" on public.circles;
 create policy "Public read circles" on public.circles for select using (true);
 drop policy if exists "Public insert circles" on public.circles;
-create policy "Insert as owner" on public.circles for insert with check (auth.uid() = owner_id);
+create policy "Insert as owner" on public.circles for insert with check (auth.uid() IS NOT NULL);
 drop policy if exists "Public update circles" on public.circles;
 create policy "Update by owner or admin" on public.circles for update
   using (auth.uid() = owner_id or public.is_admin())

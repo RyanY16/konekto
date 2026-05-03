@@ -1,12 +1,12 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useState, useEffect } from "react";
-import { Search } from "lucide-react";
+import { useState } from "react";
+import { Search, MapPin } from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
 import { SaveButton } from "@/components/SaveButton";
 import AddCircleDialog from "@/components/AddCircleDialog";
 import { getCircles, getCircleHandle, getProfilesByIds } from "@/data/backend";
 import { useAuth } from "@/components/AuthProvider";
-import type { Circle } from "@/data/mock";
+import { tagClass } from "@/lib/tag-class";
 
 function relativeTime(iso: string | undefined): string | null {
   if (!iso) return null;
@@ -20,46 +20,48 @@ function relativeTime(iso: string | undefined): string | null {
   return `Updated ${Math.floor(months / 12)}y ago`;
 }
 
+
 export const Route = createFileRoute("/circles")({
   head: () => ({
     meta: [
       { title: "Circles — Konekto" },
-      {
-        name: "description",
-        content:
-          "Find your people. Browse university clubs and communities across Japan, filtered by interest, commitment and language.",
-      },
+      { name: "description", content: "Find your people. Browse university clubs and communities across Japan." },
     ],
   }),
+  loaderDeps: () => ({}),
+  staleTime: 30_000,
+  loader: async () => {
+    const cs = await getCircles();
+    const ids = [...new Set(cs.map((c) => c.ownerId).filter(Boolean) as string[])];
+    const profiles = ids.length > 0 ? await getProfilesByIds(ids) : [];
+    const ownerMap: Record<string, string> = {};
+    profiles.forEach((p) => { ownerMap[p.id] = p.username ?? p.displayName; });
+    return { circles: cs, ownerMap };
+  },
   component: CirclesPage,
 });
 
 const categories = ["All", "Tech", "Music", "Career", "Outdoors", "Arts"];
 
 function CirclesPage() {
-  const { isAdmin } = useAuth();
-  const [allCircles, setAllCircles] = useState<Circle[]>([]);
-  const [ownerMap, setOwnerMap] = useState<Record<string, string>>({});
+  const { user, isAdmin } = useAuth();
+  const { circles: allCircles, ownerMap } = Route.useLoaderData();
   const [cat, setCat] = useState("All");
   const [englishOnly, setEnglishOnly] = useState(false);
   const [q, setQ] = useState("");
 
-  useEffect(() => {
-    getCircles().then(async (cs) => {
-      setAllCircles(cs);
-      const ids = [...new Set(cs.map((c) => c.ownerId).filter(Boolean) as string[])];
-      if (ids.length === 0) return;
-      const profiles = await getProfilesByIds(ids);
-      const map: Record<string, string> = {};
-      profiles.forEach((p) => { map[p.id] = p.username ?? p.displayName; });
-      setOwnerMap(map);
-    });
-  }, []);
-
   const filtered = allCircles.filter((c) => {
     if (cat !== "All" && c.category !== cat) return false;
     if (englishOnly && !c.englishFriendly) return false;
-    if (q && !c.name.toLowerCase().includes(q.toLowerCase())) return false;
+    if (q) {
+      const ql = q.toLowerCase();
+      const matches =
+        c.name.toLowerCase().includes(ql) ||
+        c.description.toLowerCase().includes(ql) ||
+        c.location?.toLowerCase().includes(ql) ||
+        c.tags.some((t) => t.toLowerCase().includes(ql));
+      if (!matches) return false;
+    }
     return true;
   });
 
@@ -72,7 +74,7 @@ function CirclesPage() {
           subtitle="From hackathons to hiking clubs — discover the communities that fit you."
         />
         <div className="mt-1 shrink-0">
-          {isAdmin && <AddCircleDialog />}
+          {user && <AddCircleDialog />}
         </div>
       </div>
 
@@ -83,7 +85,7 @@ function CirclesPage() {
           <input
             value={q}
             onChange={(e) => setQ(e.target.value)}
-            placeholder="Search circles..."
+            placeholder="Search by name, location or tag…"
             className="w-full pl-10 pr-4 h-11 rounded-full border border-border bg-card text-sm focus:outline-none focus:ring-2 focus:ring-ring"
           />
         </div>
@@ -127,20 +129,48 @@ function CirclesPage() {
               </div>
               <SaveButton />
             </div>
-            <h3 className="mt-3 font-semibold text-lg">{c.name}</h3>
-            <p className="text-xs text-muted-foreground">
-              {c.category} · {c.members} members
-            </p>
+
+            <h3 className="mt-3 font-semibold text-lg leading-snug">{c.name}</h3>
+
+            <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+              <span className="text-xs text-muted-foreground">{c.category} · {c.members} members</span>
+              {c.location && (
+                <span className="flex items-center gap-0.5 text-xs text-muted-foreground">
+                  <MapPin className="h-3 w-3" />{c.location}
+                </span>
+              )}
+            </div>
+
             <p className="mt-2 text-sm text-muted-foreground line-clamp-2">{c.description}</p>
-            <div className="mt-4 flex flex-wrap gap-1.5">
+
+            {/* Tags */}
+            {c.tags.length > 0 && (
+              <div className="mt-3 flex flex-wrap gap-1.5">
+                {c.tags.map((tag) => (
+                  <span key={tag} className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${tagClass(tag)}`}>
+                    {tag}
+                  </span>
+                ))}
+              </div>
+            )}
+
+            <div className="mt-3 flex flex-wrap gap-1.5">
               {c.englishFriendly && <span className="chip chip-accent">🌏 English-friendly</span>}
-              <span className="chip">📊 {c.activity} activity</span>
+              <span className="chip">📊 {c.activity}</span>
               <span className="chip">⏱ {c.commitment}</span>
             </div>
+
             <div className="mt-4 pt-4 border-t border-border flex items-center justify-between">
               <div className="flex flex-col gap-0.5 text-xs text-muted-foreground">
                 {c.ownerId && ownerMap[c.ownerId] && (
-                  <span>👑 Owned by @{ownerMap[c.ownerId]}</span>
+                  <Link
+                    to="/users/$username"
+                    params={{ username: ownerMap[c.ownerId] }}
+                    className="hover:underline"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    👑 @{ownerMap[c.ownerId]}
+                  </Link>
                 )}
                 {relativeTime(c.updatedAt) && (
                   <span>{relativeTime(c.updatedAt)}</span>

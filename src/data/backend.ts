@@ -98,6 +98,7 @@ function mapCircle(row: Row<"circles">): Circle {
     iconUrl: row.icon_url ?? undefined,
     ownerId: (row as any).owner_id ?? undefined,
     tags: row.tags ?? [],
+    location: (row as any).location ?? undefined,
     socialLinks: normalizeSocialLinks(row.social_links),
     updatedAt: row.updated_at ?? row.created_at,
   };
@@ -222,6 +223,7 @@ export async function addCircle(
       owner_id: input.ownerId ?? null,
       icon_url: input.iconUrl ?? null,
       tags: input.tags,
+      location: input.location ?? null,
       social_links: input.socialLinks ?? {},
     },
     mapCircle,
@@ -247,6 +249,7 @@ export async function updateCircle(
       icon_url: input.iconUrl ?? null,
       owner_id: input.ownerId ?? null,
       tags: input.tags,
+      location: input.location ?? null,
       social_links: input.socialLinks ?? {},
     },
     mapCircle,
@@ -353,6 +356,7 @@ export type UserProfile = {
   interests: string[];
   careerField: string;
   goals: string[];
+  socialLinks: { website?: string; instagram?: string; linkedin?: string; line?: string };
 };
 
 function mapUser(row: Row<"users">): UserProfile {
@@ -368,6 +372,7 @@ function mapUser(row: Row<"users">): UserProfile {
     interests: (row as any).interests ?? [],
     careerField: (row as any).career_field ?? "",
     goals: (row as any).goals ?? [],
+    socialLinks: normalizeSocialLinks((row as any).social_links),
   };
 }
 
@@ -408,6 +413,7 @@ export async function upsertProfile(
     interests: input.interests ?? [],
     career_field: input.careerField ?? "",
     goals: input.goals ?? [],
+    social_links: input.socialLinks ?? {},
     updated_at: new Date().toISOString(),
   };
 
@@ -516,4 +522,49 @@ export async function getJobByHandle(handle: string) {
 export async function getGuideByHandle(handle: string) {
   const items = await getGuides();
   return findByHandle(items, handle, getGuideHandle, (item) => item.id);
+}
+
+export type SearchResult =
+  | { type: "circle"; id: string; name: string; category: string; emoji: string; iconUrl?: string; handle: string }
+  | { type: "person"; id: string; name: string; username: string; university: string; avatarUrl: string | null };
+
+export async function searchAll(q: string): Promise<SearchResult[]> {
+  if (!supabase || q.trim().length < 2) return [];
+  const ql = `%${q.trim()}%`;
+
+  const [{ data: circleRows }, { data: userRows }] = await Promise.all([
+    supabase
+      .from("circles")
+      .select("id, name, category, emoji, icon_url, tags")
+      .or(`name.ilike.${ql},description.ilike.${ql}`)
+      .limit(6),
+    supabase
+      .from("users")
+      .select("id, display_name, username, university, avatar_url")
+      .or(`username.ilike.${ql},display_name.ilike.${ql}`)
+      .limit(6),
+  ]);
+
+  const circles: SearchResult[] = (circleRows ?? []).map((r: any) => ({
+    type: "circle",
+    id: r.id,
+    name: r.name,
+    category: r.category,
+    emoji: r.emoji,
+    iconUrl: r.icon_url ?? undefined,
+    handle: toSlug(r.name) || r.id,
+  }));
+
+  const people: SearchResult[] = (userRows ?? [])
+    .filter((r: any) => r.username)
+    .map((r: any) => ({
+      type: "person",
+      id: r.id,
+      name: r.display_name || r.username,
+      username: r.username,
+      university: r.university ?? "",
+      avatarUrl: r.avatar_url ?? null,
+    }));
+
+  return [...circles, ...people];
 }

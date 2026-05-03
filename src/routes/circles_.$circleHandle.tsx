@@ -13,6 +13,8 @@ function relativeTime(iso: string | undefined): string | null {
   return `Updated ${Math.floor(months / 12)}y ago`;
 }
 
+import { Globe, Instagram, Linkedin, MessageCircle } from "lucide-react";
+import { tagClass } from "@/lib/tag-class";
 import { PageHeader } from "@/components/PageHeader";
 import { SocialLinks } from "@/components/SocialLinks";
 import { Button } from "@/components/ui/button";
@@ -45,10 +47,16 @@ type Draft = {
   commitment: string;
   englishFriendly: boolean;
   tags: string[];
+  location: string;
   ownerUsername: string;
+  website: string;
+  instagram: string;
+  linkedin: string;
+  line: string;
 };
 
 function toDraft(c: Circle, ownerUsername = ""): Draft {
+  const sl = (c as any).socialLinks ?? {};
   return {
     name: c.name,
     description: c.description,
@@ -57,7 +65,12 @@ function toDraft(c: Circle, ownerUsername = ""): Draft {
     commitment: c.commitment,
     englishFriendly: c.englishFriendly,
     tags: c.tags ?? [],
+    location: c.location ?? "",
     ownerUsername,
+    website: sl.website ?? "",
+    instagram: sl.instagram ?? "",
+    linkedin: sl.linkedin ?? "",
+    line: sl.line ?? "",
   };
 }
 
@@ -146,6 +159,7 @@ function CircleDetailPage() {
       await updateCircle(circle!.id, {
         name: draft.name,
         description: draft.description,
+        location: draft.location,
         category: draft.category,
         emoji: CATEGORY_EMOJI[draft.category] ?? circle!.emoji,
         activity: draft.activity as Circle["activity"],
@@ -153,7 +167,12 @@ function CircleDetailPage() {
         englishFriendly: draft.englishFriendly,
         tags: draft.tags,
         ownerId: resolvedOwnerId ?? undefined,
-        socialLinks: (circle as any).socialLinks ?? {},
+        socialLinks: {
+          website: draft.website || undefined,
+          instagram: draft.instagram || undefined,
+          linkedin: draft.linkedin || undefined,
+          line: draft.line || undefined,
+        },
         iconUrl: newIconUrl,
       });
       if (inputUsername !== ownerUsername) setOwnerUsername(inputUsername);
@@ -273,6 +292,15 @@ function CircleDetailPage() {
               />
             </div>
 
+            <div className="space-y-1">
+              <label className="text-xs font-medium text-muted-foreground">Location</label>
+              <Input
+                value={draft.location}
+                onChange={(e) => setDraft((d) => ({ ...d, location: e.target.value }))}
+                placeholder="e.g. Shibuya, Hongo Campus, Online"
+              />
+            </div>
+
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <div className="space-y-1">
                 <label className="text-xs font-medium text-muted-foreground">Category</label>
@@ -334,6 +362,50 @@ function CircleDetailPage() {
               </div>
             </div>
 
+            <div className="space-y-1">
+              <label className="text-xs font-medium text-muted-foreground">Social links</label>
+              <div className="space-y-2">
+                <div className="relative">
+                  <Globe className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+                  <Input
+                    value={draft.website}
+                    onChange={(e) => setDraft((d) => ({ ...d, website: e.target.value }))}
+                    placeholder="https://yoursite.com"
+                    className="pl-9"
+                  />
+                </div>
+                <div className="relative">
+                  <Instagram className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+                  <span className="absolute left-9 top-1/2 -translate-y-1/2 text-sm text-muted-foreground select-none pointer-events-none">@</span>
+                  <Input
+                    value={draft.instagram.replace(/^@/, "")}
+                    onChange={(e) => setDraft((d) => ({ ...d, instagram: e.target.value.replace(/^@/, "") }))}
+                    placeholder="handle"
+                    className="pl-14"
+                  />
+                </div>
+                <div className="relative">
+                  <Linkedin className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+                  <Input
+                    value={draft.linkedin}
+                    onChange={(e) => setDraft((d) => ({ ...d, linkedin: e.target.value }))}
+                    placeholder="linkedin.com/in/yourprofile"
+                    className="pl-9"
+                  />
+                </div>
+                <div className="relative">
+                  <MessageCircle className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+                  <span className="absolute left-9 top-1/2 -translate-y-1/2 text-sm text-muted-foreground select-none pointer-events-none">@</span>
+                  <Input
+                    value={draft.line.replace(/^@/, "")}
+                    onChange={(e) => setDraft((d) => ({ ...d, line: e.target.value.replace(/^@/, "") }))}
+                    placeholder="LINE ID"
+                    className="pl-14"
+                  />
+                </div>
+              </div>
+            </div>
+
             {saveError && <p className="text-sm text-destructive">{saveError}</p>}
           </div>
         ) : (
@@ -354,14 +426,23 @@ function CircleDetailPage() {
               <Detail label="Commitment" value={circle.commitment} />
             </div>
 
+            {circle.location && (
+              <p className="text-sm text-muted-foreground">📍 {circle.location}</p>
+            )}
+
             {ownerUsername && (
-              <p className="text-sm text-muted-foreground">👑 Owned by <span className="font-medium text-foreground">@{ownerUsername}</span></p>
+              <p className="text-sm text-muted-foreground">
+                👑 Owned by{" "}
+                <Link to="/users/$username" params={{ username: ownerUsername }} className="font-medium text-foreground hover:underline">
+                  @{ownerUsername}
+                </Link>
+              </p>
             )}
 
             <div className="flex flex-wrap gap-1.5 items-center">
               {circle.englishFriendly && <span className="chip chip-accent">🌏 English-friendly</span>}
               {circle.tags.map((tag) => (
-                <span key={tag} className="chip">{tag}</span>
+                <span key={tag} className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${tagClass(tag)}`}>{tag}</span>
               ))}
             </div>
 

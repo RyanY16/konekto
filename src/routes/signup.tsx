@@ -4,8 +4,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { TagPicker } from "@/components/TagPicker";
+import { UniversityPicker } from "@/components/UniversityPicker";
 import { useAuth } from "@/components/AuthProvider";
-import { supabase, isSupabaseConfigured } from "@/lib/supabase";
+import { upsertProfile } from "@/data/backend";
 
 export const Route = createFileRoute("/signup")({
   head: () => ({ meta: [{ title: "Sign up — Konekto" }] }),
@@ -50,20 +51,15 @@ function SignUpPage() {
     setError("");
     setLoading(true);
     try {
-      await signUp(email, password);
+      const newUser = await signUp(email, password);
 
-      // Save extra profile data if Supabase is configured
-      if (isSupabaseConfigured && supabase) {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (user) {
-          await supabase.from("profiles").upsert({
-            id: user.id,
-            display_name: fullName,
-            username,
-            university,
-            interests: selectedInterests,
-          });
-        }
+      if (newUser?.id) {
+        await upsertProfile(newUser.id, {
+          displayName: fullName,
+          username: username.trim().toLowerCase(),
+          university,
+          interests: selectedInterests,
+        });
       }
 
       setDone(true);
@@ -100,6 +96,10 @@ function SignUpPage() {
           <p className="mt-1 text-sm text-muted-foreground">Step {step} of 3</p>
         </div>
 
+        <Link to="/" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground mb-4">
+          ← Back to home
+        </Link>
+
         {/* Step indicators */}
         <div className="flex gap-1.5 mb-6">
           {[1, 2, 3].map((s) => (
@@ -119,7 +119,17 @@ function SignUpPage() {
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="username">Username</Label>
-                <Input id="username" value={username} onChange={(e) => setUsername(e.target.value)} placeholder="yukitanaka" />
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground select-none pointer-events-none">@</span>
+                  <Input
+                    id="username"
+                    value={username}
+                    onChange={(e) => setUsername(e.target.value.replace(/[^a-zA-Z0-9_]/g, "").toLowerCase())}
+                    placeholder="yukitanaka"
+                    className="pl-7"
+                    autoComplete="username"
+                  />
+                </div>
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="email">Email</Label>
@@ -150,7 +160,7 @@ function SignUpPage() {
             <>
               <div className="space-y-1.5">
                 <Label htmlFor="university">University</Label>
-                <Input id="university" value={university} onChange={(e) => setUniversity(e.target.value)} placeholder="e.g. Tokyo University" autoFocus />
+                <UniversityPicker value={university} onChange={setUniversity} />
               </div>
               <div className="space-y-1.5">
                 <Label>Interests</Label>

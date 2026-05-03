@@ -14,7 +14,7 @@ type AuthContextValue = {
   loading: boolean;
   isAdmin: boolean;
   signIn: (email: string, password: string) => Promise<void>;
-  signUp: (email: string, password: string) => Promise<void>;
+  signUp: (email: string, password: string) => Promise<{ id: string } | undefined>;
   signOut: () => Promise<void>;
 };
 
@@ -64,8 +64,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   async function signUp(email: string, password: string) {
     if (!isSupabaseConfigured || !supabase) throw new Error("Supabase not configured");
-    const { error } = await supabase.auth.signUp({ email, password });
+    const { data, error } = await supabase.auth.signUp({ email, password });
     if (error) throw error;
+    return data.user ?? undefined;
   }
 
   async function signOut() {

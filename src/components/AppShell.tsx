@@ -1,18 +1,15 @@
 import { Link, Outlet, useRouterState } from "@tanstack/react-router";
-import { Home, Users, Calendar, Tag, Briefcase, MapPin, User } from "lucide-react";
+import { Home, Users, User } from "lucide-react";
 import type { ComponentType } from "react";
 import { ThemeToggle } from "./ThemeToggle";
 import AuthProvider, { useAuth } from "@/components/AuthProvider";
+import { GlobalSearch } from "@/components/GlobalSearch";
 
 type NavItem = { to: string; label: string; icon: ComponentType<{ className?: string }> };
 
 const nav: NavItem[] = [
   { to: "/", label: "Home", icon: Home },
   { to: "/circles", label: "Circles", icon: Users },
-  { to: "/events", label: "Events", icon: Calendar },
-  { to: "/deals", label: "Deals", icon: Tag },
-  { to: "/careers", label: "Careers", icon: Briefcase },
-  { to: "/japan-life", label: "Japan Life", icon: MapPin },
   { to: "/profile", label: "Profile", icon: User },
 ];
 
@@ -52,6 +49,9 @@ export function AppShell() {
         <header className="sticky top-0 z-40 border-b border-border bg-background/80 backdrop-blur-md">
           <div className="mx-auto max-w-7xl px-4 h-14 flex items-center justify-between">
             <Logo />
+            <div className="flex-1 mx-4 max-w-sm">
+              <GlobalSearch />
+            </div>
             <div className="flex items-center gap-1">
               <AuthNav isActive={isActive} />
               <ThemeToggle />
@@ -74,8 +74,6 @@ export function AppShell() {
 }
 
 function AuthNav({ isActive }: { isActive: (to: string) => boolean }) {
-  const { user } = useAuth();
-  if (!user) return null;
   return (
     <nav className="hidden md:flex items-center gap-1">
       {nav.map((item) => {
@@ -99,11 +97,9 @@ function AuthNav({ isActive }: { isActive: (to: string) => boolean }) {
 }
 
 function AuthBottomNav({ isActive }: { isActive: (to: string) => boolean }) {
-  const { user } = useAuth();
-  if (!user) return null;
   return (
     <nav className="md:hidden fixed bottom-0 inset-x-0 z-40 border-t border-border bg-background/95 backdrop-blur-md">
-      <div className="grid grid-cols-7 h-16">
+      <div className="grid grid-cols-3 h-16">
         {nav.map((item) => {
           const Icon = item.icon;
           const active = isActive(item.to);
