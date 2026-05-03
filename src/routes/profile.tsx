@@ -218,6 +218,20 @@ function AvatarUploader({
 }) {
   const fileRef = useRef<HTMLInputElement>(null);
   const [cropFile, setCropFile] = useState<File | null>(null);
+  const [fetchingCrop, setFetchingCrop] = useState(false);
+
+  async function openCropForExisting() {
+    if (!src) return;
+    setFetchingCrop(true);
+    try {
+      const res = await fetch(src);
+      const blob = await res.blob();
+      const ext = blob.type.split("/")[1] ?? "jpg";
+      setCropFile(new File([blob], `avatar.${ext}`, { type: blob.type }));
+    } finally {
+      setFetchingCrop(false);
+    }
+  }
 
   return (
     <>
@@ -228,24 +242,36 @@ function AvatarUploader({
           onCancel={() => setCropFile(null)}
         />
       )}
-      <div className="relative shrink-0">
-        <div className="h-20 w-20 rounded-full bg-gradient-to-br from-primary to-accent flex items-center justify-center text-3xl text-primary-foreground font-bold overflow-hidden">
-          {src ? <img src={src} alt="avatar" className="h-full w-full object-cover" /> : initials}
+      <div className="flex flex-col items-center gap-2 shrink-0">
+        <div className="relative">
+          <div className="h-20 w-20 rounded-full bg-gradient-to-br from-primary to-accent flex items-center justify-center text-3xl text-primary-foreground font-bold overflow-hidden">
+            {src ? <img src={src} alt="avatar" className="h-full w-full object-cover" /> : initials}
+          </div>
+          {editing && (
+            <>
+              <button
+                type="button"
+                onClick={() => fileRef.current?.click()}
+                className="absolute inset-0 rounded-full flex items-center justify-center bg-black/40 text-white opacity-0 hover:opacity-100 transition-opacity"
+              >
+                <Camera className="h-6 w-6" />
+              </button>
+              <input
+                ref={fileRef} type="file" accept="image/*" className="hidden"
+                onChange={(e) => { const f = e.target.files?.[0]; if (f) setCropFile(f); e.target.value = ""; }}
+              />
+            </>
+          )}
         </div>
-        {editing && (
-          <>
-            <button
-              type="button"
-              onClick={() => fileRef.current?.click()}
-              className="absolute inset-0 rounded-full flex items-center justify-center bg-black/40 text-white opacity-0 hover:opacity-100 transition-opacity"
-            >
-              <Camera className="h-6 w-6" />
-            </button>
-            <input
-              ref={fileRef} type="file" accept="image/*" className="hidden"
-              onChange={(e) => { const f = e.target.files?.[0]; if (f) setCropFile(f); e.target.value = ""; }}
-            />
-          </>
+        {editing && src && (
+          <button
+            type="button"
+            onClick={openCropForExisting}
+            disabled={fetchingCrop}
+            className="text-xs text-muted-foreground hover:text-foreground border border-border rounded-full px-2.5 py-0.5 transition-colors disabled:opacity-50"
+          >
+            {fetchingCrop ? "Loading…" : "Crop"}
+          </button>
         )}
       </div>
     </>
