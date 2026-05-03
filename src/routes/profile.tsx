@@ -249,6 +249,7 @@ type Draft = Partial<UserProfile> & { degree: DegreeType; yearNum: string; natio
 function ProfilePage() {
   const { user, signOut } = useAuth();
   const [profile, setProfile] = useState<UserProfile | null>(null);
+  const [profileLoading, setProfileLoading] = useState(true);
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState<Draft>({ degree: "Bachelors", yearNum: "1" });
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
@@ -266,7 +267,7 @@ function ProfilePage() {
 
   useEffect(() => {
     if (!user) return;
-    getProfile(user.id).then(setProfile);
+    getProfile(user.id).then((p) => { setProfile(p); setProfileLoading(false); });
     getCircles().then(setAllCircles);
     getJoinedCircleIds(user.id).then((ids) => setJoinedIds(new Set(ids)));
   }, [user]);
@@ -299,6 +300,38 @@ function ProfilePage() {
       <div className="text-center py-16">
         <h2 className="text-xl font-semibold">Not signed in</h2>
         <p className="text-sm text-muted-foreground mt-2">Please sign in to view your profile.</p>
+      </div>
+    );
+  }
+
+  if (profileLoading) {
+    return (
+      <div>
+        <PageHeader eyebrow="Profile" title="Your hub." />
+        <div className="card-base p-6 mb-4 space-y-5 animate-pulse">
+          <div className="flex items-start gap-4">
+            <div className="h-20 w-20 rounded-full bg-muted shrink-0" />
+            <div className="flex-1 space-y-2 pt-1">
+              <div className="h-5 w-40 rounded bg-muted" />
+              <div className="h-4 w-28 rounded bg-muted" />
+              <div className="h-4 w-52 rounded bg-muted" />
+              <div className="h-4 w-36 rounded bg-muted" />
+            </div>
+          </div>
+          <div className="pt-5 border-t border-border space-y-2">
+            <div className="h-3 w-16 rounded bg-muted" />
+            <div className="h-4 w-full rounded bg-muted" />
+            <div className="h-4 w-3/4 rounded bg-muted" />
+          </div>
+        </div>
+        <div className="card-base p-6 animate-pulse space-y-3">
+          <div className="h-3 w-20 rounded bg-muted" />
+          <div className="flex flex-wrap gap-1.5">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <div key={i} className="h-6 w-24 rounded-full bg-muted" />
+            ))}
+          </div>
+        </div>
       </div>
     );
   }
