@@ -48,6 +48,32 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const { data: sub } = supabase.auth.onAuthStateChange(async (_event, session) => {
       const u = session?.user ?? null;
       setUser(await resolveUser(u));
+
+      // On first sign-in, backfill profile fields from signup metadata if the
+      // row exists but is still empty (trigger may have created it without data).
+      if ((_event === "SIGNED_IN" || _event === "INITIAL_SESSION") && u) {
+        const meta = u.user_metadata ?? {};
+        if (meta.display_name || meta.username) {
+          const { data: row } = await supabase!
+            .from("users")
+            .select("display_name, username")
+            .eq("id", u.id)
+            .maybeSingle();
+          if (row && !row.display_name && !row.username) {
+            const fields: Record<string, unknown> = {
+              id: u.id,
+              updated_at: new Date().toISOString(),
+            };
+            if (meta.display_name) fields.display_name = meta.display_name;
+            if (meta.username) fields.username = meta.username;
+            if (meta.university) fields.university = meta.university;
+            if (Array.isArray(meta.interests) && meta.interests.length > 0)
+              fields.interests = meta.interests;
+            await (supabase!.from("users") as any)
+              .upsert(fields, { onConflict: "id" });
+          }
+        }
+      }
     });
 
     return () => {
