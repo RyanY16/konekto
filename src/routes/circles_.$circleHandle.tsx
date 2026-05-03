@@ -197,27 +197,17 @@ function CircleDetailPage() {
 
   return (
     <div>
+      <Link to="/circles" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground mb-4">
+        ← Back to circles
+      </Link>
+
       <PageHeader
         eyebrow="Circles"
         title={editing ? draft.name || circle.name : circle.name}
         subtitle={editing ? undefined : circle.description}
       />
 
-      <section className="card-base p-6 space-y-5">
-        {/* ── Action bar ── */}
-        <div className="flex justify-end gap-2">
-          {editing ? (
-            <>
-              <Button size="sm" onClick={save} disabled={saving}>{saving ? "Saving…" : "Save"}</Button>
-              <Button size="sm" variant="outline" onClick={cancelEditing} disabled={saving}>Cancel</Button>
-            </>
-          ) : isAdmin ? (
-            <>
-              <Button size="sm" onClick={startEditing}>Edit</Button>
-              <DeleteRecordButton label={circle.name} onDelete={handleDelete} />
-            </>
-          ) : null}
-        </div>
+      <section className="card-base p-6 space-y-5 relative pb-16">
 
         {editing ? (
           /* ── Edit form ── */
@@ -454,9 +444,23 @@ function CircleDetailPage() {
           </>
         )}
 
-        <Link to="/circles" className="inline-block text-sm font-semibold text-primary hover:underline">
-          ← Back to circles
-        </Link>
+        {/* ── Bottom-corner action buttons ── */}
+        {editing ? (
+          <div className="absolute bottom-4 right-4 flex gap-2">
+            <Button size="sm" onClick={save} disabled={saving}>{saving ? "Saving…" : "Save"}</Button>
+            <Button size="sm" variant="outline" onClick={cancelEditing} disabled={saving}>Cancel</Button>
+          </div>
+        ) : isAdmin ? (
+          <div className="absolute bottom-4 right-4 flex gap-1.5">
+            <button
+              onClick={startEditing}
+              className="text-xs text-muted-foreground hover:text-foreground border border-border rounded-md px-2.5 py-1 transition-colors"
+            >
+              Edit
+            </button>
+            <DeleteRecordButton label={circle.name} onDelete={handleDelete} />
+          </div>
+        ) : null}
       </section>
     </div>
   );
