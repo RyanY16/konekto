@@ -67,9 +67,11 @@ export const Route = createRootRoute({
 
 const themeScript = `
 (function(){
-  var s=localStorage.getItem('konekto-theme');
+  var t=localStorage.getItem('konekto-theme');
   var prefersDark=window.matchMedia('(prefers-color-scheme: dark)').matches;
-  if(s==='dark'||(s!=='light'&&prefersDark)){document.documentElement.classList.add('dark');}
+  if(t==='dark'||(t!=='light'&&prefersDark)){document.documentElement.classList.add('dark');}
+  var c=localStorage.getItem('konekto-color');
+  if(c==='blue'){document.documentElement.classList.add('scheme-blue');}
 })();
 `.trim();
 

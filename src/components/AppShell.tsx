@@ -1,7 +1,7 @@
 import { Link, Outlet, useRouterState } from "@tanstack/react-router";
 import { Home, Users, User } from "lucide-react";
 import type { ComponentType } from "react";
-import { ThemeToggle } from "./ThemeToggle";
+import { SettingsPopover } from "./SettingsPopover";
 import AuthProvider, { useAuth } from "@/components/AuthProvider";
 import { GlobalSearch } from "@/components/GlobalSearch";
 
@@ -54,7 +54,7 @@ export function AppShell() {
             </div>
             <div className="flex items-center gap-1">
               <AuthNav isActive={isActive} />
-              <ThemeToggle />
+              <SettingsPopover />
               <div className="ml-2 flex items-center gap-2">
                 <AuthControls />
               </div>

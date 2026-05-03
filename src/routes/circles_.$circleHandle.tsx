@@ -37,7 +37,8 @@ import {
   searchUsers,
   type UserProfile,
 } from "@/data/backend";
-import { CIRCLE_CATEGORIES, ACTIVITY_LEVELS, COMMITMENT_LEVELS, CATEGORY_EMOJI } from "@/data/profile-options";
+import { CIRCLE_CATEGORIES, ACTIVITY_LEVELS, CATEGORY_EMOJI, LANGUAGES } from "@/data/profile-options";
+import { UniversityPicker } from "@/components/UniversityPicker";
 import type { Circle } from "@/data/mock";
 
 function CircleLoadingskeleton() {
@@ -68,10 +69,13 @@ type Draft = {
   description: string;
   category: string;
   activity: string;
-  commitment: string;
   englishFriendly: boolean;
   tags: string[];
-  location: string;
+  university: string;
+  primaryLanguage: string;
+  recruiting: boolean;
+  recruitingPeriod: string;
+  recruitingConditions: string;
   website: string;
   instagram: string;
   linkedin: string;
@@ -85,10 +89,13 @@ function toDraft(c: Circle): Draft {
     description: c.description,
     category: c.category,
     activity: c.activity,
-    commitment: c.commitment,
     englishFriendly: c.englishFriendly,
     tags: c.tags ?? [],
-    location: c.location ?? "",
+    university: c.university ?? "",
+    primaryLanguage: c.primaryLanguage ?? "",
+    recruiting: c.recruiting ?? false,
+    recruitingPeriod: c.recruitingPeriod ?? "",
+    recruitingConditions: c.recruitingConditions ?? "",
     website: sl.website ?? "",
     instagram: sl.instagram ?? "",
     linkedin: sl.linkedin ?? "",
@@ -264,13 +271,16 @@ function CircleDetailPage() {
       await updateCircle(circle!.id, {
         name: draft.name,
         description: draft.description,
-        location: draft.location,
         category: draft.category,
         emoji: CATEGORY_EMOJI[draft.category] ?? circle!.emoji,
         activity: draft.activity as Circle["activity"],
-        commitment: draft.commitment as Circle["commitment"],
         englishFriendly: draft.englishFriendly,
         tags: draft.tags,
+        university: draft.university,
+        primaryLanguage: draft.primaryLanguage,
+        recruiting: draft.recruiting,
+        recruitingPeriod: draft.recruitingPeriod,
+        recruitingConditions: draft.recruitingConditions,
         socialLinks: {
           website: draft.website || undefined,
           instagram: draft.instagram || undefined,
@@ -307,8 +317,10 @@ function CircleDetailPage() {
       <PageHeader
         eyebrow="Circles"
         title={editing ? draft.name || circle.name : circle.name}
-        subtitle={editing ? undefined : circle.description}
       />
+      {!editing && circle.description && (
+        <p className="whitespace-pre-wrap text-muted-foreground max-w-2xl -mt-4 mb-6">{circle.description}</p>
+      )}
 
       <section className="card-base p-6 space-y-5 relative pb-16">
 
@@ -381,17 +393,62 @@ function CircleDetailPage() {
                 value={draft.description}
                 onChange={(e) => setDraft((d) => ({ ...d, description: e.target.value }))}
                 placeholder="Short description"
-                rows={3}
+                rows={6}
               />
             </div>
 
             <div className="space-y-1">
-              <label className="text-xs font-medium text-muted-foreground">Location</label>
-              <Input
-                value={draft.location}
-                onChange={(e) => setDraft((d) => ({ ...d, location: e.target.value }))}
-                placeholder="e.g. Shibuya, Hongo Campus, Online"
+              <label className="text-xs font-medium text-muted-foreground">University / Location</label>
+              <UniversityPicker
+                value={draft.university}
+                onChange={(v) => setDraft((d) => ({ ...d, university: v }))}
+                extraOptions={["Online", "No university"]}
               />
+            </div>
+
+            <div className="space-y-1">
+              <label className="text-xs font-medium text-muted-foreground">Primary language</label>
+              <select
+                value={draft.primaryLanguage}
+                onChange={(e) => setDraft((d) => ({ ...d, primaryLanguage: e.target.value }))}
+                className={sel("")}
+              >
+                <option value="">— Select —</option>
+                {LANGUAGES.map((l) => <option key={l.name} value={l.name}>{l.flag} {l.name}</option>)}
+              </select>
+            </div>
+
+            <div className="space-y-2">
+              <label className="flex items-center gap-2 text-sm cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={draft.recruiting}
+                  onChange={(e) => setDraft((d) => ({ ...d, recruiting: e.target.checked }))}
+                  className="h-4 w-4"
+                />
+                Currently recruiting
+              </label>
+              {draft.recruiting && (
+                <div className="space-y-2 pl-6">
+                  <div className="space-y-1">
+                    <label className="text-xs font-medium text-muted-foreground">Recruiting period</label>
+                    <Input
+                      value={draft.recruitingPeriod}
+                      onChange={(e) => setDraft((d) => ({ ...d, recruitingPeriod: e.target.value }))}
+                      placeholder="e.g. April–May, Spring semester"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-xs font-medium text-muted-foreground">Conditions / requirements</label>
+                    <Textarea
+                      value={draft.recruitingConditions}
+                      onChange={(e) => setDraft((d) => ({ ...d, recruitingConditions: e.target.value }))}
+                      placeholder="e.g. Open to all levels, must attend trial session"
+                      rows={2}
+                    />
+                  </div>
+                </div>
+              )}
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
@@ -413,16 +470,6 @@ function CircleDetailPage() {
                   className={sel("")}
                 >
                   {ACTIVITY_LEVELS.map((a) => <option key={a} value={a}>{a}</option>)}
-                </select>
-              </div>
-              <div className="space-y-1">
-                <label className="text-xs font-medium text-muted-foreground">Commitment</label>
-                <select
-                  value={draft.commitment}
-                  onChange={(e) => setDraft((d) => ({ ...d, commitment: e.target.value }))}
-                  className={sel("")}
-                >
-                  {COMMITMENT_LEVELS.map((c) => <option key={c} value={c}>{c}</option>)}
                 </select>
               </div>
             </div>
@@ -614,11 +661,23 @@ function CircleDetailPage() {
               <Detail label="Category" value={circle.category} />
               <Detail label="Members" value={`${circle.members}`} />
               <Detail label="Activity" value={circle.activity} />
-              <Detail label="Commitment" value={circle.commitment} />
             </div>
 
-            {circle.location && (
-              <p className="text-sm text-muted-foreground">📍 {circle.location}</p>
+            {circle.university && (
+              <p className="text-sm text-muted-foreground">🏫 {circle.university}</p>
+            )}
+
+            {circle.primaryLanguage && (() => {
+              const lang = LANGUAGES.find((l) => l.name === circle.primaryLanguage);
+              return <p className="text-sm text-muted-foreground">{lang?.flag ?? "🌐"} {circle.primaryLanguage}</p>;
+            })()}
+
+            {circle.recruiting && (
+              <div className="rounded-lg border border-green-500/30 bg-green-500/5 px-3 py-2 space-y-0.5">
+                <p className="text-sm font-medium text-green-700 dark:text-green-400">✅ Recruiting</p>
+                {circle.recruitingPeriod && <p className="text-xs text-muted-foreground">Period: {circle.recruitingPeriod}</p>}
+                {circle.recruitingConditions && <p className="text-xs text-muted-foreground">{circle.recruitingConditions}</p>}
+              </div>
             )}
 
             {ownerUsername && (

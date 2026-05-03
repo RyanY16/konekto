@@ -63,9 +63,9 @@ $$;
 alter table public.users enable row level security;
 drop policy if exists "Users can read own profile" on public.users;
 drop policy if exists "Authenticated users can read all profiles" on public.users;
--- Authenticated users can search/view all profiles (needed for user search, circle editors, etc.)
-create policy "Authenticated users can read all profiles" on public.users for select
-  to authenticated using (true);
+drop policy if exists "Public can read all profiles" on public.users;
+-- Profiles are public so username search works even before login (signup availability check)
+create policy "Public can read all profiles" on public.users for select using (true);
 drop policy if exists "Users can update own profile" on public.users;
 -- Users update only their own profile; admins update any (but cannot change role via app)
 create policy "Users can update own profile" on public.users for update
@@ -143,8 +143,13 @@ create table if not exists public.guides (
 alter table public.circles add column if not exists social_links jsonb not null default '{}'::jsonb;
 alter table public.users add column if not exists social_links jsonb not null default '{}'::jsonb;
 alter table public.users add column if not exists nationality text not null default '';
+alter table public.users add column if not exists languages jsonb not null default '[]'::jsonb;
 alter table public.circles add column if not exists icon_url text;
-alter table public.circles add column if not exists location text not null default '';
+alter table public.circles add column if not exists university text not null default '';
+alter table public.circles add column if not exists primary_language text not null default '';
+alter table public.circles add column if not exists recruiting boolean not null default false;
+alter table public.circles add column if not exists recruiting_period text not null default '';
+alter table public.circles add column if not exists recruiting_conditions text not null default '';
 alter table public.events add column if not exists social_links jsonb not null default '{}'::jsonb;
 alter table public.deals add column if not exists social_links jsonb not null default '{}'::jsonb;
 alter table public.jobs add column if not exists social_links jsonb not null default '{}'::jsonb;

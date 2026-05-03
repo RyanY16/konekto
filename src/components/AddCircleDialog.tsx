@@ -11,7 +11,8 @@ import { socialLinksFromForm } from "@/lib/social-links";
 import { addCircle, uploadCircleIcon } from "@/data/backend";
 import { useRouter } from "@tanstack/react-router";
 import { useAuth } from "@/components/AuthProvider";
-import { CIRCLE_CATEGORIES, ACTIVITY_LEVELS, COMMITMENT_LEVELS, CATEGORY_EMOJI } from "@/data/profile-options";
+import { CIRCLE_CATEGORIES, ACTIVITY_LEVELS, CATEGORY_EMOJI, LANGUAGES } from "@/data/profile-options";
+import { UniversityPicker } from "@/components/UniversityPicker";
 
 export default function AddCircleDialog() {
   const router = useRouter();
@@ -21,6 +22,9 @@ export default function AddCircleDialog() {
   const [saving, setSaving] = useState(false);
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [category, setCategory] = useState<string>(CIRCLE_CATEGORIES[0]);
+  const [university, setUniversity] = useState("");
+  const [primaryLanguage, setPrimaryLanguage] = useState("");
+  const [recruiting, setRecruiting] = useState(false);
   const [pendingIcon, setPendingIcon] = useState<File | null>(null);
   const [iconPreview, setIconPreview] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -38,6 +42,9 @@ export default function AddCircleDialog() {
     setIconPreview(null);
     setSelectedTags([]);
     setCategory(CIRCLE_CATEGORIES[0]);
+    setUniversity("");
+    setPrimaryLanguage("");
+    setRecruiting(false);
     setError("");
     formRef.current?.reset();
   }
@@ -64,9 +71,12 @@ export default function AddCircleDialog() {
         description: String(form.get("description") ?? "").trim(),
         activity: String(form.get("activity") ?? "Weekly") as "Daily" | "Weekly" | "Monthly" | "Occasionally",
         englishFriendly: form.get("englishFriendly") === "on",
-        commitment: String(form.get("commitment") ?? "Casual") as "Casual" | "Regular" | "Serious",
         emoji: CATEGORY_EMOJI[cat] ?? "👥",
-        location: String(form.get("location") ?? "").trim(),
+        university: university.trim() || undefined,
+        primaryLanguage: primaryLanguage || undefined,
+        recruiting,
+        recruitingPeriod: recruiting ? String(form.get("recruitingPeriod") ?? "").trim() || undefined : undefined,
+        recruitingConditions: recruiting ? String(form.get("recruitingConditions") ?? "").trim() || undefined : undefined,
         socialLinks: socialLinksFromForm(form),
         tags: selectedTags,
         ownerId: user?.id ?? null,
@@ -154,17 +164,61 @@ export default function AddCircleDialog() {
           {/* Description */}
           <div className={field}>
             <label className={lbl}>Description</label>
-            <Textarea name="description" placeholder="What does this circle do?" rows={3} required />
+            <Textarea name="description" placeholder="What does this circle do?" rows={6} required />
           </div>
 
-          {/* Location */}
+          {/* University */}
           <div className={field}>
-            <label className={lbl}>Location</label>
-            <Input name="location" placeholder="e.g. Shibuya, Hongo Campus, Online" />
+            <label className={lbl}>University</label>
+            <UniversityPicker
+              value={university}
+              onChange={setUniversity}
+              extraOptions={["Online", "No university"]}
+            />
           </div>
 
-          {/* Category / Activity / Commitment */}
-          <div className="grid grid-cols-3 gap-3">
+          {/* Primary language */}
+          <div className={field}>
+            <label className={lbl}>Primary language</label>
+            <select
+              className={sel}
+              value={primaryLanguage}
+              onChange={(e) => setPrimaryLanguage(e.target.value)}
+            >
+              <option value="">— Select language —</option>
+              {LANGUAGES.map((l) => (
+                <option key={l.name} value={l.name}>{l.flag} {l.name}</option>
+              ))}
+            </select>
+          </div>
+
+          {/* Recruiting */}
+          <div className={field}>
+            <label className="flex items-center gap-2.5 text-sm cursor-pointer select-none">
+              <input
+                type="checkbox"
+                className="h-4 w-4 rounded"
+                checked={recruiting}
+                onChange={(e) => setRecruiting(e.target.checked)}
+              />
+              <span>Currently recruiting</span>
+            </label>
+            {recruiting && (
+              <div className="mt-2 space-y-2 pl-6">
+                <div className={field}>
+                  <label className={lbl}>Recruiting period</label>
+                  <Input name="recruitingPeriod" placeholder="e.g. April – June 2025" />
+                </div>
+                <div className={field}>
+                  <label className={lbl}>Conditions / requirements</label>
+                  <Textarea name="recruitingConditions" placeholder="Any requirements to join?" rows={2} />
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Category / Activity */}
+          <div className="grid grid-cols-2 gap-3">
             <div className={field}>
               <label className={lbl}>Category</label>
               <select
@@ -181,12 +235,6 @@ export default function AddCircleDialog() {
               <label className={lbl}>Activity</label>
               <select name="activity" className={sel}>
                 {ACTIVITY_LEVELS.map((a) => <option key={a} value={a}>{a}</option>)}
-              </select>
-            </div>
-            <div className={field}>
-              <label className={lbl}>Commitment</label>
-              <select name="commitment" className={sel}>
-                {COMMITMENT_LEVELS.map((c) => <option key={c} value={c}>{c}</option>)}
               </select>
             </div>
           </div>

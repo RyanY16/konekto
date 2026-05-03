@@ -64,6 +64,11 @@ function Landing() {
               Log in
             </Link>
           </div>
+          <div className="mt-4">
+            <Link to="/circles" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
+              Continue as guest →
+            </Link>
+          </div>
         </section>
 
         {/* Feature grid */}

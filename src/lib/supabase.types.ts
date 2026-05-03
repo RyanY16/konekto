@@ -38,7 +38,6 @@ export type Database = {
           members: number;
           activity: "Daily" | "Weekly" | "Monthly" | "Occasionally";
           english_friendly: boolean;
-          commitment: "Casual" | "Regular" | "Serious";
           emoji: string;
           owner_id: string | null;
           icon_url: string | null;

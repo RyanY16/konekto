@@ -74,7 +74,16 @@ function CirclesPage() {
           subtitle="From hackathons to hiking clubs — discover the communities that fit you."
         />
         <div className="mt-1 shrink-0">
-          {user && <AddCircleDialog />}
+          {user ? (
+            <AddCircleDialog />
+          ) : (
+            <Link
+              to="/signup"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-semibold bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
+            >
+              + Add circle
+            </Link>
+          )}
         </div>
       </div>
 
@@ -162,9 +171,9 @@ function CirclesPage() {
             )}
 
             <div className="mt-3 flex flex-wrap gap-1.5">
+              {c.recruiting && <span className="chip bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-400">✅ Recruiting</span>}
               {c.englishFriendly && <span className="chip chip-accent">🌏 English-friendly</span>}
               <span className="chip">📊 {c.activity}</span>
-              <span className="chip">⏱ {c.commitment}</span>
             </div>
 
             <div className="mt-4 pt-4 border-t border-border flex items-center justify-between relative z-10">

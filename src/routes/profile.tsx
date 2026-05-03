@@ -16,7 +16,8 @@ import {
 import type { Circle } from "@/data/mock";
 import { UniversityPicker } from "@/components/UniversityPicker";
 import { NationalityPicker } from "@/components/NationalityPicker";
-import { CAREER_FIELDS, INTEREST_GROUPS, GOAL_GROUPS, GOALS, NATIONALITIES } from "@/data/profile-options";
+import { CAREER_FIELDS, INTEREST_GROUPS, GOAL_GROUPS, GOALS, NATIONALITIES, LANGUAGES, FLUENCY_LEVELS } from "@/data/profile-options";
+import type { SpokenLanguage } from "@/data/backend";
 
 export const Route = createFileRoute("/profile")({
   head: () => ({
@@ -280,7 +281,7 @@ function AvatarUploader({
 
 // ── Draft type ────────────────────────────────────────────────────────────────
 
-type Draft = Partial<UserProfile> & { degree: DegreeType; yearNum: string; nationality: string };
+type Draft = Partial<UserProfile> & { degree: DegreeType; yearNum: string; nationality: string; languages: SpokenLanguage[] };
 
 // ── Main page ─────────────────────────────────────────────────────────────────
 
@@ -289,7 +290,7 @@ function ProfilePage() {
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [profileLoading, setProfileLoading] = useState(true);
   const [editing, setEditing] = useState(false);
-  const [draft, setDraft] = useState<Draft>({ degree: "Bachelors", yearNum: "1", nationality: "" });
+  const [draft, setDraft] = useState<Draft>({ degree: "Bachelors", yearNum: "1", nationality: "", languages: [] });
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
   const [pendingAvatar, setPendingAvatar] = useState<File | null>(null);
   const [saving, setSaving] = useState(false);
@@ -300,12 +301,19 @@ function ProfilePage() {
   const [circleEditing, setCircleEditing] = useState(false);
   const [circleError, setCircleError] = useState<string | null>(null);
   const [togglingId, setTogglingId] = useState<string | null>(null);
+  const [tagsEditing, setTagsEditing] = useState(false);
+  const [tagsDraft, setTagsDraft] = useState<{ interests: string[]; careerField: string; goals: string[] }>({ interests: [], careerField: "", goals: [] });
+  const [tagsSaving, setTagsSaving] = useState(false);
 
   const savedEvents = events.slice(0, 3);
 
   useEffect(() => {
     if (!user) return;
-    getProfile(user.id).then((p) => { setProfile(p); setProfileLoading(false); });
+    getProfile(user.id).then((p) => {
+      setProfile(p);
+      setProfileLoading(false);
+      setTagsDraft({ interests: p?.interests ?? [], careerField: p?.careerField ?? "", goals: p?.goals ?? [] });
+    });
     getCircles().then(setAllCircles);
     getJoinedCircleIds(user.id).then((ids) => setJoinedIds(new Set(ids)));
   }, [user]);
@@ -335,9 +343,20 @@ function ProfilePage() {
 
   if (!user) {
     return (
-      <div className="text-center py-16">
-        <h2 className="text-xl font-semibold">Not signed in</h2>
-        <p className="text-sm text-muted-foreground mt-2">Please sign in to view your profile.</p>
+      <div className="min-h-[60vh] flex items-center justify-center">
+        <div className="text-center max-w-sm">
+          <div className="text-4xl mb-4">👤</div>
+          <h2 className="text-xl font-semibold">Create an account to get started</h2>
+          <p className="text-sm text-muted-foreground mt-2 mb-6">Sign up to build your profile, join circles, and connect with other students.</p>
+          <div className="flex flex-col gap-2">
+            <Link to="/signup" className="inline-flex items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:bg-primary/90 transition-colors">
+              Create account
+            </Link>
+            <Link to="/login" className="inline-flex items-center justify-center rounded-md border border-border px-4 py-2 text-sm font-medium hover:bg-muted transition-colors">
+              Log in
+            </Link>
+          </div>
+        </div>
       </div>
     );
   }
@@ -387,6 +406,7 @@ function ProfilePage() {
       interests: profile?.interests ?? [],
       careerField: profile?.careerField ?? "",
       goals: profile?.goals ?? [],
+      languages: profile?.languages ?? [],
       socialLinks: profile?.socialLinks ?? {},
     });
     setAvatarPreview(null);
@@ -401,6 +421,21 @@ function ProfilePage() {
     setAvatarPreview(null);
     setPendingAvatar(null);
     setSaveError(null);
+  }
+
+  async function saveTags() {
+    setTagsSaving(true);
+    try {
+      const updated = await upsertProfile(user!.id, {
+        interests: tagsDraft.interests,
+        careerField: tagsDraft.careerField,
+        goals: tagsDraft.goals,
+      });
+      setProfile(updated);
+      setTagsEditing(false);
+    } finally {
+      setTagsSaving(false);
+    }
   }
 
   async function save() {
@@ -421,6 +456,7 @@ function ProfilePage() {
         interests: draft.interests ?? [],
         careerField: draft.careerField ?? "",
         goals: draft.goals ?? [],
+        languages: draft.languages ?? [],
         socialLinks: draft.socialLinks ?? {},
       });
       if (avatarPreview) URL.revokeObjectURL(avatarPreview);
@@ -558,6 +594,51 @@ function ProfilePage() {
               />
             </div>
             <div className="space-y-1">
+              <p className="text-xs font-medium text-muted-foreground">Languages spoken</p>
+              <div className="space-y-2">
+                {(draft.languages ?? []).map((l, i) => {
+                  const lang = LANGUAGES.find((x) => x.name === l.language);
+                  return (
+                    <div key={i} className="flex items-center gap-2">
+                      <span className="text-base">{lang?.flag ?? "🌐"}</span>
+                      <select
+                        value={l.language}
+                        onChange={(e) => setDraft((d) => {
+                          const langs = [...(d.languages ?? [])];
+                          langs[i] = { ...langs[i], language: e.target.value };
+                          return { ...d, languages: langs };
+                        })}
+                        className="flex-1 h-8 rounded-md border border-input bg-transparent px-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                      >
+                        {LANGUAGES.map((x) => <option key={x.name} value={x.name}>{x.flag} {x.name}</option>)}
+                      </select>
+                      <select
+                        value={l.fluency}
+                        onChange={(e) => setDraft((d) => {
+                          const langs = [...(d.languages ?? [])];
+                          langs[i] = { ...langs[i], fluency: e.target.value };
+                          return { ...d, languages: langs };
+                        })}
+                        className="h-8 rounded-md border border-input bg-transparent px-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                      >
+                        {FLUENCY_LEVELS.map((f) => <option key={f} value={f}>{f}</option>)}
+                      </select>
+                      <button
+                        type="button"
+                        onClick={() => setDraft((d) => ({ ...d, languages: (d.languages ?? []).filter((_, j) => j !== i) }))}
+                        className="text-muted-foreground hover:text-destructive text-xs px-1"
+                      >✕</button>
+                    </div>
+                  );
+                })}
+                <button
+                  type="button"
+                  onClick={() => setDraft((d) => ({ ...d, languages: [...(d.languages ?? []), { language: "English", fluency: "Fluent" }] }))}
+                  className="text-xs text-primary hover:underline"
+                >+ Add language</button>
+              </div>
+            </div>
+            <div className="space-y-1">
               <p className="text-xs font-medium text-muted-foreground">Degree &amp; Year</p>
               <div className="flex gap-2 flex-wrap items-center">
                 <select
@@ -598,14 +679,25 @@ function ProfilePage() {
             }`}>
               {user.role === "admin" ? "⚡ Admin" : "User"}
             </span>
-            <div className="pt-1 space-y-0.5">
-              <p className="text-sm text-muted-foreground">
-                {[profile?.university, gradeLabel].filter(Boolean).join(" · ") || "No university info yet"}
-              </p>
+            <div className="pt-2 space-y-1">
+              {profile?.university && (
+                <p className="text-sm"><span className="text-muted-foreground">University: </span>{profile.university}</p>
+              )}
+              {gradeLabel && (
+                <p className="text-sm"><span className="text-muted-foreground">Year: </span>{gradeLabel}</p>
+              )}
               {profile?.nationality && (() => {
                 const nat = NATIONALITIES.find((n) => n.name === profile.nationality);
-                return <p className="text-sm text-muted-foreground">{nat?.flag} {profile.nationality}</p>;
+                return <p className="text-sm"><span className="text-muted-foreground">Nationality: </span>{nat?.flag} {profile.nationality}</p>;
               })()}
+              {(profile?.languages ?? []).length > 0 && (
+                <p className="text-sm"><span className="text-muted-foreground">Languages: </span>
+                  {profile!.languages.map((l, i) => {
+                    const lang = LANGUAGES.find((x) => x.name === l.language);
+                    return <span key={i}>{i > 0 && " · "}{lang?.flag} {l.language} <span className="text-muted-foreground text-xs">({l.fluency})</span></span>;
+                  })}
+                </p>
+              )}
             </div>
           </div>
         )}
@@ -689,14 +781,35 @@ function ProfilePage() {
       </section>
 
       {/* ── Interests / Career / Goals card ── */}
-      {!editing && <section className="card-base p-6 mb-6 space-y-6">
+      <section className="card-base p-6 mb-6 space-y-6">
+        <div className="flex items-center justify-between">
+          <h2 className="text-sm font-semibold">Interests & Goals</h2>
+          {!tagsEditing ? (
+            <button
+              onClick={() => { setTagsDraft({ interests: profile?.interests ?? [], careerField: profile?.careerField ?? "", goals: profile?.goals ?? [] }); setTagsEditing(true); }}
+              className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
+            >
+              <Pencil className="h-3.5 w-3.5" /> Edit
+            </button>
+          ) : (
+            <div className="flex gap-2">
+              <button onClick={() => setTagsEditing(false)} className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors">
+                <X className="h-3.5 w-3.5" /> Cancel
+              </button>
+              <button onClick={saveTags} disabled={tagsSaving} className="flex items-center gap-1 text-xs text-primary hover:text-primary/80 transition-colors font-medium">
+                <Check className="h-3.5 w-3.5" /> {tagsSaving ? "Saving…" : "Save"}
+              </button>
+            </div>
+          )}
+        </div>
+
         {/* Interests */}
         <div>
           <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3">Interests</p>
-          {editing ? (
+          {tagsEditing ? (
             <InterestPicker
-              value={draft.interests ?? []}
-              onChange={(v) => setDraft((d) => ({ ...d, interests: v }))}
+              value={tagsDraft.interests}
+              onChange={(v) => setTagsDraft((d) => ({ ...d, interests: v }))}
             />
           ) : profile?.interests && profile.interests.length > 0 ? (
             <div className="flex flex-wrap gap-1.5">
@@ -712,11 +825,11 @@ function ProfilePage() {
         {/* Career */}
         <div className="pt-5 border-t border-border">
           <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3">Career field</p>
-          {editing ? (
+          {tagsEditing ? (
             <select
-              value={draft.careerField ?? ""}
-              onChange={(e) => setDraft((d) => ({ ...d, careerField: e.target.value }))}
-              className="h-9 w-full max-w-xs rounded-md border border-input bg-transparent px-3 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+              value={tagsDraft.careerField}
+              onChange={(e) => setTagsDraft((d) => ({ ...d, careerField: e.target.value }))}
+              className="h-9 w-full max-w-xs rounded-md border border-input bg-background px-3 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
             >
               <option value="">Select a field…</option>
               {CAREER_FIELDS.map((f) => <option key={f} value={f}>{f}</option>)}
@@ -731,15 +844,15 @@ function ProfilePage() {
         {/* Goals */}
         <div className="pt-5 border-t border-border">
           <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3">Goals</p>
-          {editing ? (
-            <GoalPicker value={draft.goals ?? []} onChange={(v) => setDraft((d) => ({ ...d, goals: v }))} />
+          {tagsEditing ? (
+            <GoalPicker value={tagsDraft.goals} onChange={(v) => setTagsDraft((d) => ({ ...d, goals: v }))} />
           ) : profile?.goals && profile.goals.length > 0 ? (
             <GoalChips goals={profile.goals} />
           ) : (
             <p className="text-sm text-muted-foreground italic">No goals added yet.</p>
           )}
         </div>
-      </section>}
+      </section>
 
       {/* ── Stats ── */}
       {!editing && <>

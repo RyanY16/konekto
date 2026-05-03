@@ -77,9 +77,6 @@ export const CATEGORY_EMOJI: Record<string, string> = {
 export const ACTIVITY_LEVELS = ["Daily", "Weekly", "Monthly", "Occasionally"] as const;
 export type ActivityLevel = (typeof ACTIVITY_LEVELS)[number];
 
-export const COMMITMENT_LEVELS = ["Casual", "Regular", "Serious"] as const;
-export type CommitmentLevel = (typeof COMMITMENT_LEVELS)[number];
-
 export type Nationality = { name: string; flag: string };
 
 export const NATIONALITIES: Nationality[] = [
@@ -141,6 +138,48 @@ export const NATIONALITIES: Nationality[] = [
   { name: "Peruvian", flag: "🇵🇪" },
   { name: "New Zealander", flag: "🇳🇿" },
   { name: "Other", flag: "🌍" },
+];
+
+export const FLUENCY_LEVELS = ["Native", "Fluent", "Advanced", "Intermediate", "Basic"] as const;
+export type FluencyLevel = (typeof FLUENCY_LEVELS)[number];
+
+export type Language = { name: string; flag: string };
+
+export const LANGUAGES: Language[] = [
+  { name: "Japanese", flag: "🇯🇵" },
+  { name: "English", flag: "🇬🇧" },
+  { name: "Mandarin Chinese", flag: "🇨🇳" },
+  { name: "Korean", flag: "🇰🇷" },
+  { name: "Spanish", flag: "🇪🇸" },
+  { name: "French", flag: "🇫🇷" },
+  { name: "German", flag: "🇩🇪" },
+  { name: "Portuguese", flag: "🇵🇹" },
+  { name: "Italian", flag: "🇮🇹" },
+  { name: "Russian", flag: "🇷🇺" },
+  { name: "Arabic", flag: "🇸🇦" },
+  { name: "Hindi", flag: "🇮🇳" },
+  { name: "Bengali", flag: "🇧🇩" },
+  { name: "Turkish", flag: "🇹🇷" },
+  { name: "Vietnamese", flag: "🇻🇳" },
+  { name: "Thai", flag: "🇹🇭" },
+  { name: "Indonesian", flag: "🇮🇩" },
+  { name: "Malay", flag: "🇲🇾" },
+  { name: "Dutch", flag: "🇳🇱" },
+  { name: "Polish", flag: "🇵🇱" },
+  { name: "Swedish", flag: "🇸🇪" },
+  { name: "Norwegian", flag: "🇳🇴" },
+  { name: "Danish", flag: "🇩🇰" },
+  { name: "Finnish", flag: "🇫🇮" },
+  { name: "Greek", flag: "🇬🇷" },
+  { name: "Romanian", flag: "🇷🇴" },
+  { name: "Czech", flag: "🇨🇿" },
+  { name: "Hungarian", flag: "🇭🇺" },
+  { name: "Ukrainian", flag: "🇺🇦" },
+  { name: "Tagalog", flag: "🇵🇭" },
+  { name: "Cantonese", flag: "🇭🇰" },
+  { name: "Taiwanese Mandarin", flag: "🇹🇼" },
+  { name: "Swahili", flag: "🇰🇪" },
+  { name: "Other", flag: "🌐" },
 ];
 
 export type GoalGroup = { label: string; items: readonly string[] };

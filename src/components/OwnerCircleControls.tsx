@@ -29,7 +29,6 @@ export default function OwnerCircleControls({ circle }: { circle: any }) {
         description: circle.description,
         activity: circle.activity,
         englishFriendly: circle.englishFriendly,
-        commitment: circle.commitment,
         emoji: circle.emoji,
         iconUrl: circle.iconUrl,
         tags: selectedTags,

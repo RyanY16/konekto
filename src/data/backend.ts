@@ -93,12 +93,15 @@ function mapCircle(row: Row<"circles">): Circle {
     members: row.members,
     activity: row.activity,
     englishFriendly: row.english_friendly,
-    commitment: row.commitment,
     emoji: row.emoji,
     iconUrl: row.icon_url ?? undefined,
     ownerId: (row as any).owner_id ?? undefined,
     tags: row.tags ?? [],
-    location: (row as any).location ?? undefined,
+    university: (row as any).university ?? undefined,
+    primaryLanguage: (row as any).primary_language ?? undefined,
+    recruiting: (row as any).recruiting ?? false,
+    recruitingPeriod: (row as any).recruiting_period ?? undefined,
+    recruitingConditions: (row as any).recruiting_conditions ?? undefined,
     socialLinks: normalizeSocialLinks(row.social_links),
     updatedAt: row.updated_at ?? row.created_at,
   };
@@ -218,12 +221,15 @@ export async function addCircle(
       members: input.members ?? 1,
       activity: input.activity,
       english_friendly: input.englishFriendly,
-      commitment: input.commitment,
       emoji: input.emoji,
       owner_id: input.ownerId ?? null,
       icon_url: input.iconUrl ?? null,
       tags: input.tags,
-      location: input.location ?? null,
+      university: input.university ?? "",
+      primary_language: input.primaryLanguage ?? "",
+      recruiting: input.recruiting ?? false,
+      recruiting_period: input.recruitingPeriod ?? "",
+      recruiting_conditions: input.recruitingConditions ?? "",
       social_links: input.socialLinks ?? {},
     },
     mapCircle,
@@ -244,12 +250,15 @@ export async function updateCircle(
       members: input.members,
       activity: input.activity,
       english_friendly: input.englishFriendly,
-      commitment: input.commitment,
       emoji: input.emoji,
       icon_url: input.iconUrl ?? null,
       ...(input.ownerId !== undefined ? { owner_id: input.ownerId } : {}),
       tags: input.tags,
-      location: input.location ?? null,
+      university: input.university ?? "",
+      primary_language: input.primaryLanguage ?? "",
+      recruiting: input.recruiting ?? false,
+      recruiting_period: input.recruitingPeriod ?? "",
+      recruiting_conditions: input.recruitingConditions ?? "",
       social_links: input.socialLinks ?? {},
     },
     mapCircle,
@@ -344,6 +353,8 @@ export async function deleteGuide(id: string) {
   return deleteSupabase("guides", id);
 }
 
+export type SpokenLanguage = { language: string; fluency: string };
+
 export type UserProfile = {
   id: string;
   username: string | null;
@@ -357,6 +368,7 @@ export type UserProfile = {
   interests: string[];
   careerField: string;
   goals: string[];
+  languages: SpokenLanguage[];
   socialLinks: { website?: string; instagram?: string; linkedin?: string; line?: string };
 };
 
@@ -374,6 +386,7 @@ function mapUser(row: Row<"users">): UserProfile {
     interests: (row as any).interests ?? [],
     careerField: (row as any).career_field ?? "",
     goals: (row as any).goals ?? [],
+    languages: (row as any).languages ?? [],
     socialLinks: normalizeSocialLinks((row as any).social_links),
   };
 }
@@ -389,6 +402,12 @@ export async function getProfilesByIds(ids: string[]): Promise<UserProfile[]> {
   if (!supabase || ids.length === 0) return [];
   const { data } = await supabase.from("users").select("*").in("id", ids);
   return (data ?? []).map((row) => mapUser(row as unknown as Row<"users">));
+}
+
+export async function checkEmailExists(email: string): Promise<boolean> {
+  if (!supabase) return false;
+  const { data } = await (supabase as any).rpc("email_exists", { email_input: email.toLowerCase().trim() });
+  return Boolean(data);
 }
 
 export async function getProfileByUsername(username: string): Promise<UserProfile | null> {
@@ -416,6 +435,7 @@ export async function upsertProfile(
   if (input.interests !== undefined) fields.interests = input.interests;
   if (input.careerField !== undefined) fields.career_field = input.careerField;
   if (input.goals !== undefined) fields.goals = input.goals;
+  if (input.languages !== undefined) fields.languages = input.languages;
   if (input.socialLinks !== undefined) fields.social_links = input.socialLinks;
   fields.updated_at = new Date().toISOString();
 

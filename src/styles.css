@@ -130,6 +130,31 @@
   --ring: oklch(0.72 0.18 28);
 }
 
+/* Blue colour scheme */
+.scheme-blue {
+  --primary: oklch(0.68 0.20 261);
+  --primary-foreground: oklch(0.99 0.005 80);
+  --primary-soft: oklch(0.94 0.06 261);
+  --ring: oklch(0.68 0.20 261);
+  --sidebar-primary: oklch(0.68 0.20 261);
+  --sidebar-ring: oklch(0.68 0.20 261);
+  --accent: oklch(0.50 0.24 293);
+  --accent-foreground: oklch(0.99 0 0);
+  --accent-soft: oklch(0.94 0.06 293);
+}
+
+.dark.scheme-blue {
+  --primary: oklch(0.72 0.20 261);
+  --primary-foreground: oklch(0.18 0.02 260);
+  --primary-soft: oklch(0.30 0.10 261);
+  --ring: oklch(0.72 0.20 261);
+  --sidebar-primary: oklch(0.72 0.20 261);
+  --sidebar-ring: oklch(0.72 0.20 261);
+  --accent: oklch(0.58 0.22 293);
+  --accent-foreground: oklch(0.99 0 0);
+  --accent-soft: oklch(0.28 0.10 293);
+}
+
 @layer base {
   * {
     border-color: var(--color-border);
