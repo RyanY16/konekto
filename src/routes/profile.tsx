@@ -402,9 +402,60 @@ function ProfilePage() {
   const initials = (profile?.displayName || user.email || "?")[0].toUpperCase();
   const avatarSrc = avatarPreview ?? profile?.avatarUrl ?? null;
 
+  const completionSteps = [
+    { label: "Add your name",        done: Boolean(profile?.displayName) },
+    { label: "Pick a username",      done: Boolean(profile?.username) },
+    { label: "Add a photo",          done: Boolean(profile?.avatarUrl) },
+    { label: "Set your university",  done: Boolean(profile?.university) },
+    { label: "Add your nationality", done: Boolean(profile?.nationality) },
+    { label: "Write a bio",          done: Boolean(profile?.bio) },
+    { label: "Choose interests",     done: (profile?.interests?.length ?? 0) > 0 },
+    { label: "Set your goals",       done: (profile?.goals?.length ?? 0) > 0 },
+  ];
+  const doneCount = completionSteps.filter((s) => s.done).length;
+  const pct = Math.round((doneCount / completionSteps.length) * 100);
+  const isComplete = doneCount === completionSteps.length;
+
   return (
     <div>
       <PageHeader eyebrow="Profile" title="Your hub." />
+
+      {/* ── Onboarding completion banner ── */}
+      {!isComplete && !editing && (
+        <div className="card-base p-5 mb-4 border-primary/30 bg-primary/5">
+          <div className="flex items-start justify-between gap-4 mb-3">
+            <div>
+              <p className="font-semibold text-sm">Complete your profile</p>
+              <p className="text-xs text-muted-foreground mt-0.5">{doneCount} of {completionSteps.length} steps done</p>
+            </div>
+            <span className="text-2xl font-bold text-primary shrink-0">{pct}%</span>
+          </div>
+          {/* Progress bar */}
+          <div className="h-1.5 w-full rounded-full bg-muted overflow-hidden mb-4">
+            <div
+              className="h-full rounded-full bg-primary transition-all duration-500"
+              style={{ width: `${pct}%` }}
+            />
+          </div>
+          {/* Checklist */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 mb-4">
+            {completionSteps.map((s) => (
+              <div key={s.label} className={`flex items-center gap-2 text-xs ${s.done ? "text-muted-foreground line-through" : "text-foreground"}`}>
+                <span className={`flex-shrink-0 h-4 w-4 rounded-full border flex items-center justify-center text-[10px] ${s.done ? "bg-primary border-primary text-primary-foreground" : "border-muted-foreground"}`}>
+                  {s.done ? "✓" : ""}
+                </span>
+                {s.label}
+              </div>
+            ))}
+          </div>
+          <button
+            onClick={startEditing}
+            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-colors"
+          >
+            <Pencil className="h-3.5 w-3.5" /> Fill in profile
+          </button>
+        </div>
+      )}
 
       {/* ── Profile identity card ── */}
       <section className="card-base p-6 mb-4">
