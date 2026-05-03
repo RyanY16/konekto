@@ -62,9 +62,10 @@ $$;
 
 alter table public.users enable row level security;
 drop policy if exists "Users can read own profile" on public.users;
--- Users read their own profile; admins read any profile
-create policy "Users can read own profile" on public.users for select
-  using (auth.uid() = id or public.is_admin());
+drop policy if exists "Authenticated users can read all profiles" on public.users;
+-- Authenticated users can search/view all profiles (needed for user search, circle editors, etc.)
+create policy "Authenticated users can read all profiles" on public.users for select
+  to authenticated using (true);
 drop policy if exists "Users can update own profile" on public.users;
 -- Users update only their own profile; admins update any (but cannot change role via app)
 create policy "Users can update own profile" on public.users for update
@@ -165,9 +166,16 @@ create policy "Public read circles" on public.circles for select using (true);
 drop policy if exists "Public insert circles" on public.circles;
 create policy "Insert as owner" on public.circles for insert with check (auth.uid() IS NOT NULL);
 drop policy if exists "Public update circles" on public.circles;
-create policy "Update by owner or admin" on public.circles for update
-  using (auth.uid() = owner_id or public.is_admin())
-  with check (auth.uid() = owner_id or public.is_admin());
+drop policy if exists "Update by owner or admin" on public.circles;
+create policy "Update by owner, editor or admin" on public.circles for update
+  using (
+    auth.uid() = owner_id or public.is_admin()
+    or exists (select 1 from public.circle_editors where circle_id = id and user_id = auth.uid())
+  )
+  with check (
+    auth.uid() = owner_id or public.is_admin()
+    or exists (select 1 from public.circle_editors where circle_id = id and user_id = auth.uid())
+  );
 drop policy if exists "Public delete circles" on public.circles;
 create policy "Delete by owner or admin" on public.circles for delete
   using (auth.uid() = owner_id or public.is_admin());
@@ -271,6 +279,33 @@ on conflict (id) do update set
   location = excluded.location,
   tags = excluded.tags,
   emoji = excluded.emoji;
+
+-- Circle editors: users the owner grants edit access to
+create table if not exists public.circle_editors (
+  circle_id text not null references public.circles(id) on delete cascade,
+  user_id uuid not null references auth.users(id) on delete cascade,
+  primary key (circle_id, user_id)
+);
+alter table public.circle_editors enable row level security;
+drop policy if exists "Editors visible to owner and self" on public.circle_editors;
+create policy "Editors visible to owner and self" on public.circle_editors for select
+  using (
+    auth.uid() = user_id
+    or exists (select 1 from public.circles where id = circle_id and owner_id = auth.uid())
+    or public.is_admin()
+  );
+drop policy if exists "Owner can add editors" on public.circle_editors;
+create policy "Owner can add editors" on public.circle_editors for insert
+  with check (
+    exists (select 1 from public.circles where id = circle_id and owner_id = auth.uid())
+    or public.is_admin()
+  );
+drop policy if exists "Owner can remove editors" on public.circle_editors;
+create policy "Owner can remove editors" on public.circle_editors for delete
+  using (
+    exists (select 1 from public.circles where id = circle_id and owner_id = auth.uid())
+    or public.is_admin()
+  );
 
 insert into public.guides (id, title, section, excerpt, emoji, read_time) values
   ('g1', 'Finding an apartment in Tokyo', 'Housing', 'Key money, guarantor companies, and the foreigner-friendly listings worth bookmarking.', '🏠', '6 min'),

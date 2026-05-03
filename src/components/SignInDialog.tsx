@@ -41,7 +41,7 @@ export function SignInDialog() {
       <DialogTrigger asChild>
         <Button size="sm">Sign in</Button>
       </DialogTrigger>
-      <DialogContent>
+      <DialogContent aria-describedby={undefined}>
         <DialogHeader>
           <DialogTitle>Sign in</DialogTitle>
         </DialogHeader>

@@ -11,6 +11,7 @@ export const supabase = isSupabaseConfigured
       auth: {
         persistSession: true,
         autoRefreshToken: true,
+        lock: (_name, _timeout, fn) => fn(),
       },
     })
   : null;

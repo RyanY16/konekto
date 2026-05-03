@@ -206,12 +206,12 @@ export async function getGuides(): Promise<Guide[]> {
 }
 
 export async function addCircle(
-  input: Omit<Circle, "id" | "members" | "ownerId"> & { members?: number; ownerId?: string | null },
+  input: Omit<Circle, "id" | "members" | "ownerId"> & { members?: number; ownerId?: string | null; id?: string; iconUrl?: string },
 ) {
   return insertSupabase(
     "circles",
     {
-      id: newId("circle"),
+      id: input.id ?? newId("circle"),
       name: input.name,
       category: input.category,
       description: input.description,
@@ -247,7 +247,7 @@ export async function updateCircle(
       commitment: input.commitment,
       emoji: input.emoji,
       icon_url: input.iconUrl ?? null,
-      owner_id: input.ownerId ?? null,
+      ...(input.ownerId !== undefined ? { owner_id: input.ownerId } : {}),
       tags: input.tags,
       location: input.location ?? null,
       social_links: input.socialLinks ?? {},
@@ -428,6 +428,50 @@ export async function upsertProfile(
   return mapUser(data as unknown as Row<"users">);
 }
 
+export async function getCircleEditorIds(circleId: string): Promise<string[]> {
+  if (!supabase) return [];
+  const { data } = await (supabase.from("circle_editors") as any)
+    .select("user_id")
+    .eq("circle_id", circleId);
+  return (data ?? []).map((r: any) => r.user_id as string);
+}
+
+export async function getCircleEditors(circleId: string): Promise<UserProfile[]> {
+  if (!supabase) return [];
+  const ids = await getCircleEditorIds(circleId);
+  if (ids.length === 0) return [];
+  return getProfilesByIds(ids);
+}
+
+export async function addCircleEditor(circleId: string, username: string): Promise<void> {
+  const client = assertSupabase();
+  const profile = await getProfileByUsername(username);
+  if (!profile) throw new Error(`No user found with username @${username}`);
+  const { error } = await (client.from("circle_editors") as any)
+    .insert({ circle_id: circleId, user_id: profile.id });
+  if (error) throw new Error(error.message);
+}
+
+export async function removeCircleEditor(circleId: string, userId: string): Promise<void> {
+  const client = assertSupabase();
+  const { error } = await (client.from("circle_editors") as any)
+    .delete()
+    .eq("circle_id", circleId)
+    .eq("user_id", userId);
+  if (error) throw new Error(error.message);
+}
+
+export async function transferCircleOwnership(circleId: string, username: string): Promise<void> {
+  const client = assertSupabase();
+  const profile = await getProfileByUsername(username);
+  if (!profile) throw new Error(`No user found with username @${username}`);
+  const { error } = await client
+    .from("circles")
+    .update({ owner_id: profile.id } as any)
+    .eq("id", circleId);
+  if (error) throw new Error(error.message);
+}
+
 export async function getJoinedCircleIds(userId: string): Promise<string[]> {
   if (!supabase) return [];
   const { data } = await (supabase.from("user_circles") as any)
@@ -489,8 +533,19 @@ export async function getHomeData() {
 }
 
 export async function getCircleByHandle(handle: string) {
+  if (supabase) {
+    // Try direct ID lookup first (fast, no slug ambiguity)
+    const { data: byId } = await supabase.from("circles").select("*").eq("id", handle).maybeSingle();
+    if (byId) return mapCircle(byId as unknown as Row<"circles">);
+    // Fall back to fetching all and matching slug
+    const { data: all, error } = await supabase.from("circles").select("*").order("created_at");
+    if (!error && all) {
+      const items = all.map((r) => mapCircle(r as unknown as Row<"circles">));
+      return findByHandle(items, handle, getCircleHandle, (item) => item.id) ?? null;
+    }
+  }
   const items = await getCircles();
-  return findByHandle(items, handle, getCircleHandle, (item) => item.id);
+  return findByHandle(items, handle, getCircleHandle, (item) => item.id) ?? null;
 }
 
 export async function getEventByHandle(handle: string) {
@@ -556,4 +611,22 @@ export async function searchAll(q: string): Promise<SearchResult[]> {
     }));
 
   return [...circles, ...people];
+}
+
+export async function searchUsers(q: string): Promise<{ id: string; username: string; displayName: string; avatarUrl: string | null }[]> {
+  if (!supabase || q.trim().length < 1) return [];
+  const ql = `%${q.trim()}%`;
+  const { data } = await supabase
+    .from("users")
+    .select("id, display_name, username, avatar_url")
+    .or(`username.ilike.${ql},display_name.ilike.${ql}`)
+    .limit(8);
+  return (data ?? [])
+    .filter((r: any) => r.username)
+    .map((r: any) => ({
+      id: r.id,
+      username: r.username,
+      displayName: r.display_name || r.username,
+      avatarUrl: r.avatar_url ?? null,
+    }));
 }

@@ -30,12 +30,36 @@ import {
   getProfile,
   getProfileByUsername,
   uploadCircleIcon,
+  getCircleEditors,
+  addCircleEditor,
+  removeCircleEditor,
+  transferCircleOwnership,
+  searchUsers,
+  type UserProfile,
 } from "@/data/backend";
 import { CIRCLE_CATEGORIES, ACTIVITY_LEVELS, COMMITMENT_LEVELS, CATEGORY_EMOJI } from "@/data/profile-options";
 import type { Circle } from "@/data/mock";
 
+function CircleLoadingskeleton() {
+  return (
+    <div className="animate-pulse space-y-4">
+      <div className="h-4 w-24 bg-muted rounded" />
+      <div className="h-8 w-64 bg-muted rounded" />
+      <div className="card-base p-6 space-y-4">
+        <div className="grid grid-cols-2 gap-3">
+          {[...Array(4)].map((_, i) => <div key={i} className="h-16 bg-muted rounded-lg" />)}
+        </div>
+        <div className="h-4 w-40 bg-muted rounded" />
+        <div className="h-4 w-32 bg-muted rounded" />
+      </div>
+    </div>
+  );
+}
+
 export const Route = createFileRoute("/circles_/$circleHandle")({
   loader: ({ params }) => getCircleByHandle(params.circleHandle),
+  staleTime: 30_000,
+  pendingComponent: CircleLoadingskeleton,
   component: CircleDetailPage,
 });
 
@@ -48,14 +72,13 @@ type Draft = {
   englishFriendly: boolean;
   tags: string[];
   location: string;
-  ownerUsername: string;
   website: string;
   instagram: string;
   linkedin: string;
   line: string;
 };
 
-function toDraft(c: Circle, ownerUsername = ""): Draft {
+function toDraft(c: Circle): Draft {
   const sl = (c as any).socialLinks ?? {};
   return {
     name: c.name,
@@ -66,7 +89,6 @@ function toDraft(c: Circle, ownerUsername = ""): Draft {
     englishFriendly: c.englishFriendly,
     tags: c.tags ?? [],
     location: c.location ?? "",
-    ownerUsername,
     website: sl.website ?? "",
     instagram: sl.instagram ?? "",
     linkedin: sl.linkedin ?? "",
@@ -87,6 +109,26 @@ function CircleDetailPage() {
   const [saveError, setSaveError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // Editors state
+  const [editors, setEditors] = useState<UserProfile[]>([]);
+  const [editorInput, setEditorInput] = useState("");
+  const [editorError, setEditorError] = useState<string | null>(null);
+  const [editorLoading, setEditorLoading] = useState(false);
+  const [editorSuggestions, setEditorSuggestions] = useState<{ id: string; username: string; displayName: string; avatarUrl: string | null }[]>([]);
+  const [editorSuggestionsOpen, setEditorSuggestionsOpen] = useState(false);
+  const editorSearchRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [transferInput, setTransferInput] = useState("");
+  const [transferError, setTransferError] = useState<string | null>(null);
+  const [transferring, setTransferring] = useState(false);
+  const [showTransfer, setShowTransfer] = useState(false);
+  const [transferSuggestions, setTransferSuggestions] = useState<{ id: string; username: string; displayName: string; avatarUrl: string | null }[]>([]);
+  const [transferSuggestionsOpen, setTransferSuggestionsOpen] = useState(false);
+  const transferSearchRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const isOwner = !!(user && circle?.ownerId && user.id === circle.ownerId);
+  const isEditor = editors.some((e) => e.id === user?.id);
+  const canEdit = isOwner || isEditor || isAdmin;
+
   useEffect(() => {
     if (!circle?.ownerId) return;
     getProfile(circle.ownerId).then((p) => {
@@ -95,6 +137,85 @@ function CircleDetailPage() {
       setDraft((d) => ({ ...d, ownerUsername: name }));
     });
   }, [circle?.ownerId]);
+
+  useEffect(() => {
+    if (!circle?.id) return;
+    getCircleEditors(circle.id).then(setEditors);
+  }, [circle?.id]);
+
+  function onEditorInputChange(val: string) {
+    setEditorInput(val);
+    setEditorError(null);
+    if (editorSearchRef.current) clearTimeout(editorSearchRef.current);
+    const q = val.replace(/^@/, "").trim();
+    if (q.length === 0) { setEditorSuggestions([]); setEditorSuggestionsOpen(false); return; }
+    editorSearchRef.current = setTimeout(async () => {
+      const results = await searchUsers(q);
+      setEditorSuggestions(results.filter((r) => !editors.some((e) => e.id === r.id) && r.id !== circle?.ownerId));
+      setEditorSuggestionsOpen(true);
+    }, 180);
+  }
+
+  function onTransferInputChange(val: string) {
+    setTransferInput(val);
+    setTransferError(null);
+    if (transferSearchRef.current) clearTimeout(transferSearchRef.current);
+    const q = val.replace(/^@/, "").trim();
+    if (q.length === 0) { setTransferSuggestions([]); setTransferSuggestionsOpen(false); return; }
+    transferSearchRef.current = setTimeout(async () => {
+      const results = await searchUsers(q);
+      setTransferSuggestions(results);
+      setTransferSuggestionsOpen(true);
+    }, 180);
+  }
+
+  async function handleAddEditor() {
+    if (!circle || !editorInput.trim()) return;
+    const username = editorInput.trim().replace(/^@/, "");
+    setEditorError(null);
+    setEditorLoading(true);
+    setEditorSuggestionsOpen(false);
+    try {
+      const profile = await getProfileByUsername(username);
+      if (!profile) {
+        setEditorError(`No user found with username @${username}`);
+        return;
+      }
+      if (editors.some((e) => e.id === profile.id)) {
+        setEditorError(`@${username} is already an editor`);
+        return;
+      }
+      await addCircleEditor(circle.id, username);
+      setEditors(await getCircleEditors(circle.id));
+      setEditorInput("");
+    } catch (err) {
+      setEditorError(err instanceof Error ? err.message : "Failed to add editor");
+    } finally {
+      setEditorLoading(false);
+    }
+  }
+
+  async function handleRemoveEditor(userId: string) {
+    if (!circle) return;
+    await removeCircleEditor(circle.id, userId);
+    setEditors((prev) => prev.filter((e) => e.id !== userId));
+  }
+
+  async function handleTransfer() {
+    if (!circle || !transferInput.trim()) return;
+    setTransferError(null);
+    setTransferring(true);
+    try {
+      await transferCircleOwnership(circle.id, transferInput.trim().replace(/^@/, ""));
+      await router.invalidate();
+      setShowTransfer(false);
+      setTransferInput("");
+    } catch (err) {
+      setTransferError(err instanceof Error ? err.message : "Transfer failed");
+    } finally {
+      setTransferring(false);
+    }
+  }
 
   if (!circle) {
     return (
@@ -108,7 +229,7 @@ function CircleDetailPage() {
   }
 
   function startEditing() {
-    setDraft(toDraft(circle!, ownerUsername));
+    setDraft(toDraft(circle!));
     setPendingIcon(null);
     setIconPreview(null);
     setSaveError(null);
@@ -132,22 +253,6 @@ function CircleDetailPage() {
     setSaving(true);
     setSaveError(null);
     try {
-      let resolvedOwnerId: string | null = circle!.ownerId ?? null;
-      const inputUsername = draft.ownerUsername.replace(/^@/, "").trim();
-      if (inputUsername !== ownerUsername.replace(/^@/, "").trim()) {
-        if (inputUsername === "") {
-          resolvedOwnerId = null;
-        } else {
-          const profile = await getProfileByUsername(inputUsername);
-          if (!profile) {
-            setSaveError(`No user found with username @${inputUsername}`);
-            setSaving(false);
-            return;
-          }
-          resolvedOwnerId = profile.id;
-        }
-      }
-
       let newIconUrl: string | undefined = (circle as any).iconUrl;
       if (pendingIcon) {
         newIconUrl = await uploadCircleIcon(circle!.id, pendingIcon);
@@ -166,7 +271,6 @@ function CircleDetailPage() {
         commitment: draft.commitment as Circle["commitment"],
         englishFriendly: draft.englishFriendly,
         tags: draft.tags,
-        ownerId: resolvedOwnerId ?? undefined,
         socialLinks: {
           website: draft.website || undefined,
           instagram: draft.instagram || undefined,
@@ -175,7 +279,6 @@ function CircleDetailPage() {
         },
         iconUrl: newIconUrl,
       });
-      if (inputUsername !== ownerUsername) setOwnerUsername(inputUsername);
       await router.invalidate();
       setEditing(false);
     } catch (err) {
@@ -229,7 +332,7 @@ function CircleDetailPage() {
                       </div>
                     </>
                   ) : (
-                    <span className="text-3xl group-hover:scale-110 transition-transform">{draft.emoji || "📷"}</span>
+                    <span className="text-3xl group-hover:scale-110 transition-transform">{circle.emoji || "📷"}</span>
                   )}
                 </button>
                 <div className="text-xs text-muted-foreground space-y-1">
@@ -340,16 +443,10 @@ function CircleDetailPage() {
             </div>
 
             <div className="space-y-1">
-              <label className="text-xs font-medium text-muted-foreground">Owner username</label>
-              <div className="relative">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">@</span>
-                <Input
-                  value={draft.ownerUsername.replace(/^@/, "")}
-                  onChange={(e) => setDraft((d) => ({ ...d, ownerUsername: e.target.value.replace(/^@/, "") }))}
-                  placeholder="username (leave blank to remove)"
-                  className="pl-7"
-                />
-              </div>
+              <label className="text-xs font-medium text-muted-foreground">Owner</label>
+              <p className="text-sm py-1 px-1">
+                {ownerUsername ? <span>@{ownerUsername.replace(/^@/, "")}</span> : <span className="text-muted-foreground">No owner</span>}
+              </p>
             </div>
 
             <div className="space-y-1">
@@ -396,6 +493,110 @@ function CircleDetailPage() {
               </div>
             </div>
 
+            {/* Editors (owner/admin only, inside edit form) */}
+            {(isOwner || isAdmin) && (
+              <div className="space-y-3 pt-2 border-t border-border">
+                <label className="text-xs font-medium text-muted-foreground">Editors</label>
+
+                {editors.length > 0 && (
+                  <div className="space-y-1.5">
+                    {editors.map((e) => (
+                      <div key={e.id} className="flex items-center justify-between gap-2">
+                        <span className="text-sm">
+                          {e.displayName || e.username}
+                          {e.username && <span className="text-muted-foreground ml-1">@{e.username}</span>}
+                        </span>
+                        <button onClick={() => handleRemoveEditor(e.id)} className="text-xs text-destructive hover:underline shrink-0">Remove</button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                <div className="flex gap-2">
+                  <div className="relative flex-1">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground pointer-events-none">@</span>
+                    <input
+                      value={editorInput}
+                      onChange={(e) => onEditorInputChange(e.target.value)}
+                      onKeyDown={(e) => { if (e.key === "Enter") handleAddEditor(); if (e.key === "Escape") setEditorSuggestionsOpen(false); }}
+                      onFocus={() => editorInput.trim() && setEditorSuggestionsOpen(true)}
+                      onBlur={() => setTimeout(() => setEditorSuggestionsOpen(false), 150)}
+                      placeholder="username"
+                      className="w-full pl-7 h-8 rounded-md border border-input bg-transparent px-3 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                    />
+                    {editorSuggestionsOpen && editorSuggestions.length > 0 && (
+                      <ul className="absolute z-50 mt-1 w-full bg-background border border-border rounded-md shadow-lg max-h-48 overflow-y-auto">
+                        {editorSuggestions.map((s) => (
+                          <li key={s.id}>
+                            <button
+                              type="button"
+                              className="w-full text-left px-3 py-2 text-sm hover:bg-accent flex items-center gap-2"
+                              onMouseDown={(e) => { e.preventDefault(); setEditorInput(s.username); setEditorSuggestionsOpen(false); }}
+                            >
+                              {s.avatarUrl && <img src={s.avatarUrl} alt="" className="w-5 h-5 rounded-full object-cover shrink-0" />}
+                              <span className="font-medium">{s.displayName}</span>
+                              <span className="text-muted-foreground">@{s.username}</span>
+                            </button>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+                  <Button size="sm" onClick={handleAddEditor} disabled={editorLoading || !editorInput.trim()}>
+                    {editorLoading ? "Adding…" : "Add"}
+                  </Button>
+                </div>
+                {editorError && <p className="text-xs text-destructive">{editorError}</p>}
+
+                {/* Transfer ownership */}
+                {!showTransfer ? (
+                  <button onClick={() => setShowTransfer(true)} className="text-xs text-muted-foreground hover:text-foreground underline">
+                    Transfer ownership…
+                  </button>
+                ) : (
+                  <div className="space-y-2 rounded-lg border border-destructive/40 bg-destructive/5 p-3">
+                    <p className="text-xs font-medium text-destructive">Transfer ownership to another user</p>
+                    <div className="flex gap-2">
+                      <div className="relative flex-1">
+                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground pointer-events-none">@</span>
+                        <input
+                          value={transferInput}
+                          onChange={(e) => onTransferInputChange(e.target.value)}
+                          onKeyDown={(e) => { if (e.key === "Escape") setTransferSuggestionsOpen(false); }}
+                          onFocus={() => transferInput.trim() && setTransferSuggestionsOpen(true)}
+                          onBlur={() => setTimeout(() => setTransferSuggestionsOpen(false), 150)}
+                          placeholder="new owner username"
+                          className="w-full pl-7 h-8 rounded-md border border-input bg-transparent px-3 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                        />
+                        {transferSuggestionsOpen && transferSuggestions.length > 0 && (
+                          <ul className="absolute z-50 mt-1 w-full bg-background border border-border rounded-md shadow-lg max-h-48 overflow-y-auto">
+                            {transferSuggestions.map((s) => (
+                              <li key={s.id}>
+                                <button
+                                  type="button"
+                                  className="w-full text-left px-3 py-2 text-sm hover:bg-accent flex items-center gap-2"
+                                  onMouseDown={(e) => { e.preventDefault(); setTransferInput(s.username); setTransferSuggestionsOpen(false); }}
+                                >
+                                  {s.avatarUrl && <img src={s.avatarUrl} alt="" className="w-5 h-5 rounded-full object-cover shrink-0" />}
+                                  <span className="font-medium">{s.displayName}</span>
+                                  <span className="text-muted-foreground">@{s.username}</span>
+                                </button>
+                              </li>
+                            ))}
+                          </ul>
+                        )}
+                      </div>
+                      <Button size="sm" variant="destructive" onClick={handleTransfer} disabled={transferring || !transferInput.trim()}>
+                        {transferring ? "…" : "Transfer"}
+                      </Button>
+                      <Button size="sm" variant="outline" onClick={() => { setShowTransfer(false); setTransferInput(""); setTransferError(null); }}>Cancel</Button>
+                    </div>
+                    {transferError && <p className="text-xs text-destructive">{transferError}</p>}
+                  </div>
+                )}
+              </div>
+            )}
+
             {saveError && <p className="text-sm text-destructive">{saveError}</p>}
           </div>
         ) : (
@@ -429,6 +630,20 @@ function CircleDetailPage() {
               </p>
             )}
 
+            {editors.length > 0 && (
+              <p className="text-sm text-muted-foreground">
+                ✏️ Editors:{" "}
+                {editors.map((e, i) => (
+                  <span key={e.id}>
+                    {i > 0 && <span>, </span>}
+                    <Link to="/users/$username" params={{ username: e.username ?? e.id }} className="font-medium text-foreground hover:underline">
+                      @{e.username ?? e.displayName}
+                    </Link>
+                  </span>
+                ))}
+              </p>
+            )}
+
             <div className="flex flex-wrap gap-1.5 items-center">
               {circle.englishFriendly && <span className="chip chip-accent">🌏 English-friendly</span>}
               {circle.tags.map((tag) => (
@@ -450,7 +665,7 @@ function CircleDetailPage() {
             <Button size="sm" onClick={save} disabled={saving}>{saving ? "Saving…" : "Save"}</Button>
             <Button size="sm" variant="outline" onClick={cancelEditing} disabled={saving}>Cancel</Button>
           </div>
-        ) : isAdmin ? (
+        ) : canEdit ? (
           <div className="absolute bottom-4 right-4 flex gap-1.5">
             <button
               onClick={startEditing}
@@ -458,7 +673,7 @@ function CircleDetailPage() {
             >
               Edit
             </button>
-            <DeleteRecordButton label={circle.name} onDelete={handleDelete} />
+            {(isOwner || isAdmin) && <DeleteRecordButton label={circle.name} onDelete={handleDelete} />}
           </div>
         ) : null}
       </section>

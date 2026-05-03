@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import TagPicker from "@/components/TagPicker";
 import { socialLinksFromForm } from "@/lib/social-links";
-import { addCircle, updateCircle, uploadCircleIcon } from "@/data/backend";
+import { addCircle, uploadCircleIcon } from "@/data/backend";
 import { useRouter } from "@tanstack/react-router";
 import { useAuth } from "@/components/AuthProvider";
 import { CIRCLE_CATEGORIES, ACTIVITY_LEVELS, COMMITMENT_LEVELS, CATEGORY_EMOJI } from "@/data/profile-options";
@@ -24,6 +24,7 @@ export default function AddCircleDialog() {
   const [pendingIcon, setPendingIcon] = useState<File | null>(null);
   const [iconPreview, setIconPreview] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const formRef = useRef<HTMLFormElement>(null);
 
   function handleIconFile(file: File) {
     if (iconPreview) URL.revokeObjectURL(iconPreview);
@@ -38,6 +39,7 @@ export default function AddCircleDialog() {
     setSelectedTags([]);
     setCategory(CIRCLE_CATEGORIES[0]);
     setError("");
+    formRef.current?.reset();
   }
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
@@ -48,8 +50,15 @@ export default function AddCircleDialog() {
 
     try {
       const cat = String(form.get("category") ?? CIRCLE_CATEGORIES[0]);
+      const circleId = `circle-${crypto.randomUUID()}`;
 
-      const newCircle = await addCircle({
+      let iconUrl: string | undefined;
+      if (pendingIcon) {
+        iconUrl = await uploadCircleIcon(circleId, pendingIcon);
+      }
+
+      await addCircle({
+        id: circleId,
         name: String(form.get("name") ?? "").trim(),
         category: cat,
         description: String(form.get("description") ?? "").trim(),
@@ -61,12 +70,8 @@ export default function AddCircleDialog() {
         socialLinks: socialLinksFromForm(form),
         tags: selectedTags,
         ownerId: user?.id ?? null,
+        iconUrl,
       });
-
-      if (pendingIcon) {
-        const iconUrl = await uploadCircleIcon(newCircle.id, pendingIcon);
-        await updateCircle(newCircle.id, { ...newCircle, iconUrl } as any);
-      }
 
       await router.invalidate();
       setOpen(false);
@@ -89,12 +94,12 @@ export default function AddCircleDialog() {
           <Plus className="h-4 w-4" /> Add circle
         </Button>
       </DialogTrigger>
-      <DialogContent className="max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-h-[90vh] overflow-y-auto" aria-describedby={undefined}>
         <DialogHeader>
           <DialogTitle>Add circle</DialogTitle>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit} className="space-y-5">
+        <form ref={formRef} onSubmit={handleSubmit} className="space-y-5">
           {/* Icon upload */}
           <div className={field}>
             <label className={lbl}>Circle icon</label>

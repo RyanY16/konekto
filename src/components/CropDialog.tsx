@@ -19,9 +19,35 @@ export function CropDialog({ file, onCrop, onCancel }: Props) {
 
   useEffect(() => () => URL.revokeObjectURL(src), [src]);
 
+  const containerRef = useRef<HTMLDivElement>(null);
+  const offsetRef = useRef({ x: 0, y: 0 });
+  // Keep offsetRef in sync so event handlers (which close over the ref) see current values
+  useEffect(() => { offsetRef.current = offset; }, [offset]);
+
+  // Attach wheel + touchmove as non-passive so preventDefault works
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const handleWheel = (e: WheelEvent) => {
+      e.preventDefault();
+      setScale((s) => Math.min(5, Math.max(0.5, s - e.deltaY * 0.002)));
+    };
+    const handleTouchMove = (e: TouchEvent) => {
+      if (!touchRef.current) return;
+      e.preventDefault();
+      const t = e.touches[0];
+      setOffset({ x: touchRef.current.ox + t.clientX - touchRef.current.x, y: touchRef.current.oy + t.clientY - touchRef.current.y });
+    };
+    el.addEventListener("wheel", handleWheel, { passive: false });
+    el.addEventListener("touchmove", handleTouchMove, { passive: false });
+    return () => {
+      el.removeEventListener("wheel", handleWheel);
+      el.removeEventListener("touchmove", handleTouchMove);
+    };
+  }, []);
+
   // Mouse drag
   const onMouseDown = (e: React.MouseEvent) => {
-    e.preventDefault();
     drag.current = { x: e.clientX, y: e.clientY, ox: offset.x, oy: offset.y };
   };
   const onMouseMove = useCallback((e: React.MouseEvent) => {
@@ -30,23 +56,11 @@ export function CropDialog({ file, onCrop, onCancel }: Props) {
   }, []);
   const onMouseUp = () => { drag.current = null; };
 
-  // Touch drag
+  // Touch drag (start only — move is handled by the non-passive listener above)
   const touchRef = useRef<{ x: number; y: number; ox: number; oy: number } | null>(null);
   const onTouchStart = (e: React.TouchEvent) => {
     const t = e.touches[0];
     touchRef.current = { x: t.clientX, y: t.clientY, ox: offset.x, oy: offset.y };
-  };
-  const onTouchMove = (e: React.TouchEvent) => {
-    if (!touchRef.current) return;
-    e.preventDefault();
-    const t = e.touches[0];
-    setOffset({ x: touchRef.current.ox + t.clientX - touchRef.current.x, y: touchRef.current.oy + t.clientY - touchRef.current.y });
-  };
-
-  // Scroll to zoom
-  const onWheel = (e: React.WheelEvent) => {
-    e.preventDefault();
-    setScale((s) => Math.min(5, Math.max(0.5, s - e.deltaY * 0.002)));
   };
 
   function crop() {
@@ -91,15 +105,14 @@ export function CropDialog({ file, onCrop, onCancel }: Props) {
 
         {/* Circular crop viewport */}
         <div
+          ref={containerRef}
           className="relative mx-auto overflow-hidden rounded-full border-2 border-primary cursor-grab active:cursor-grabbing select-none"
           style={{ width: DISPLAY, height: DISPLAY }}
           onMouseDown={onMouseDown}
           onMouseMove={onMouseMove}
           onMouseUp={onMouseUp}
           onMouseLeave={onMouseUp}
-          onWheel={onWheel}
           onTouchStart={onTouchStart}
-          onTouchMove={onTouchMove}
           onTouchEnd={() => { touchRef.current = null; }}
         >
           <img
