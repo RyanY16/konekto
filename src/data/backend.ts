@@ -402,41 +402,27 @@ export async function upsertProfile(
 ): Promise<UserProfile> {
   const client = assertSupabase();
 
-  const fields = {
-    username: input.username ?? null,
-    display_name: input.displayName ?? "",
-    university: input.university ?? "",
-    year: input.year ?? "",
-    bio: input.bio ?? "",
-    avatar_url: input.avatarUrl ?? null,
-    tags: input.tags ?? [],
-    interests: input.interests ?? [],
-    career_field: input.careerField ?? "",
-    goals: input.goals ?? [],
-    social_links: input.socialLinks ?? {},
-    updated_at: new Date().toISOString(),
-  };
+  const fields: Record<string, unknown> = { id: userId };
+  if (input.username !== undefined) fields.username = input.username;
+  if (input.displayName !== undefined) fields.display_name = input.displayName;
+  if (input.university !== undefined) fields.university = input.university;
+  if (input.year !== undefined) fields.year = input.year;
+  if (input.bio !== undefined) fields.bio = input.bio;
+  if (input.avatarUrl !== undefined) fields.avatar_url = input.avatarUrl;
+  if (input.tags !== undefined) fields.tags = input.tags;
+  if (input.interests !== undefined) fields.interests = input.interests;
+  if (input.careerField !== undefined) fields.career_field = input.careerField;
+  if (input.goals !== undefined) fields.goals = input.goals;
+  if (input.socialLinks !== undefined) fields.social_links = input.socialLinks;
+  fields.updated_at = new Date().toISOString();
 
-  // Check whether a row already exists (uses the SELECT policy).
-  const { data: existing } = await client
-    .from("users")
-    .select("id")
-    .eq("id", userId)
-    .maybeSingle();
+  const { data, error } = await (client.from("users") as any)
+    .upsert(fields, { onConflict: "id" })
+    .select("*")
+    .single();
 
-  // Cast the builder to `any` because our hand-written Database type omits
-  // the Relationships field that Supabase's generics require for insert/update.
-  const table = client.from("users") as any;
-
-  if (existing) {
-    const { data, error } = await table.update(fields).eq("id", userId).select("*").single();
-    if (error) throw new Error(error.message);
-    return mapUser(data as unknown as Row<"users">);
-  } else {
-    const { data, error } = await table.insert({ id: userId, ...fields }).select("*").single();
-    if (error) throw new Error(error.message);
-    return mapUser(data as unknown as Row<"users">);
-  }
+  if (error) throw new Error(error.message);
+  return mapUser(data as unknown as Row<"users">);
 }
 
 export async function getJoinedCircleIds(userId: string): Promise<string[]> {
