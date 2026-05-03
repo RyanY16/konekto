@@ -17,15 +17,29 @@ create table if not exists public.users (
 -- Ensure role column exists before any functions reference it
 alter table public.users add column if not exists role text not null default 'user' check (role in ('user', 'admin'));
 
--- Auto-create a public.users row when someone signs up
+-- Auto-create a public.users row when someone signs up, seeding from user metadata
 create or replace function public.handle_new_user()
 returns trigger
 language plpgsql security definer set search_path = public
 as $$
 begin
-  insert into public.users (id, role)
-  values (new.id, 'user')
-  on conflict (id) do nothing;
+  insert into public.users (id, role, display_name, username, university, interests)
+  values (
+    new.id,
+    'user',
+    coalesce(new.raw_user_meta_data->>'display_name', ''),
+    nullif(trim(coalesce(new.raw_user_meta_data->>'username', '')), ''),
+    coalesce(new.raw_user_meta_data->>'university', ''),
+    coalesce(
+      array(select jsonb_array_elements_text(new.raw_user_meta_data->'interests')),
+      '{}'::text[]
+    )
+  )
+  on conflict (id) do update set
+    display_name = coalesce(nullif(excluded.display_name, ''), public.users.display_name),
+    username     = coalesce(excluded.username, public.users.username),
+    university   = coalesce(nullif(excluded.university, ''), public.users.university),
+    interests    = case when array_length(excluded.interests, 1) > 0 then excluded.interests else public.users.interests end;
   return new;
 end;
 $$;

@@ -6,7 +6,6 @@ import { Label } from "@/components/ui/label";
 import { TagPicker } from "@/components/TagPicker";
 import { UniversityPicker } from "@/components/UniversityPicker";
 import { useAuth } from "@/components/AuthProvider";
-import { upsertProfile } from "@/data/backend";
 
 export const Route = createFileRoute("/signup")({
   head: () => ({ meta: [{ title: "Sign up — Konekto" }] }),
@@ -51,16 +50,12 @@ function SignUpPage() {
     setError("");
     setLoading(true);
     try {
-      const newUser = await signUp(email, password);
-
-      if (newUser?.id) {
-        await upsertProfile(newUser.id, {
-          displayName: fullName,
-          username: username.trim().toLowerCase(),
-          university,
-          interests: selectedInterests,
-        });
-      }
+      await signUp(email, password, {
+        display_name: fullName,
+        username: username.trim().toLowerCase(),
+        university,
+        interests: selectedInterests,
+      });
 
       setDone(true);
     } catch (err: any) {
