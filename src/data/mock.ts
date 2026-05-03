@@ -1,3 +1,10 @@
+export type SocialLinks = {
+  website?: string;
+  instagram?: string;
+  linkedin?: string;
+  line?: string;
+};
+
 export type Circle = {
   id: string;
   name: string;
