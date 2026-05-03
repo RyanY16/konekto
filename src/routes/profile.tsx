@@ -14,7 +14,8 @@ import {
 } from "@/data/backend";
 import type { Circle } from "@/data/mock";
 import { UniversityPicker } from "@/components/UniversityPicker";
-import { CAREER_FIELDS, INTEREST_GROUPS, GOALS } from "@/data/profile-options";
+import { NationalityPicker } from "@/components/NationalityPicker";
+import { CAREER_FIELDS, INTEREST_GROUPS, GOALS, NATIONALITIES } from "@/data/profile-options";
 
 export const Route = createFileRoute("/profile")({
   head: () => ({
@@ -164,7 +165,7 @@ function AvatarUploader({
 
 // ── Draft type ────────────────────────────────────────────────────────────────
 
-type Draft = Partial<UserProfile> & { degree: DegreeType; yearNum: string };
+type Draft = Partial<UserProfile> & { degree: DegreeType; yearNum: string; nationality: string };
 
 // ── Main page ─────────────────────────────────────────────────────────────────
 
@@ -231,6 +232,7 @@ function ProfilePage() {
       username: profile?.username ?? "",
       displayName: profile?.displayName ?? "",
       university: profile?.university ?? "",
+      nationality: profile?.nationality ?? "",
       degree,
       yearNum: num || "1",
       bio: profile?.bio ?? "",
@@ -263,6 +265,7 @@ function ProfilePage() {
         username: draft.username?.trim() || null,
         displayName: draft.displayName ?? "",
         university: draft.university ?? "",
+        nationality: draft.nationality ?? "",
         year: formatYear(draft.degree ?? "Bachelors", draft.yearNum ?? "1"),
         bio: draft.bio ?? "",
         avatarUrl,
@@ -340,6 +343,10 @@ function ProfilePage() {
                   value={draft.university ?? ""}
                   onChange={(v) => setDraft((d) => ({ ...d, university: v }))}
                 />
+                <NationalityPicker
+                  value={draft.nationality ?? ""}
+                  onChange={(v) => setDraft((d) => ({ ...d, nationality: v }))}
+                />
                 <div className="flex gap-2 flex-wrap items-center">
                   <select
                     value={draft.degree}
@@ -358,9 +365,19 @@ function ProfilePage() {
                 </div>
               </div>
             ) : (
-              <p className="text-sm text-muted-foreground">
-                {[profile?.university, gradeLabel].filter(Boolean).join(" · ") || "No university info yet"}
-              </p>
+              <div className="space-y-0.5">
+                <p className="text-sm text-muted-foreground">
+                  {[profile?.university, gradeLabel].filter(Boolean).join(" · ") || "No university info yet"}
+                </p>
+                {profile?.nationality && (() => {
+                  const nat = NATIONALITIES.find((n) => n.name === profile.nationality);
+                  return (
+                    <p className="text-sm text-muted-foreground">
+                      {nat?.flag} {profile.nationality}
+                    </p>
+                  );
+                })()}
+              </div>
             )}
           </div>
 

@@ -127,6 +127,7 @@ create table if not exists public.guides (
 
 alter table public.circles add column if not exists social_links jsonb not null default '{}'::jsonb;
 alter table public.users add column if not exists social_links jsonb not null default '{}'::jsonb;
+alter table public.users add column if not exists nationality text not null default '';
 alter table public.circles add column if not exists icon_url text;
 alter table public.circles add column if not exists location text not null default '';
 alter table public.events add column if not exists social_links jsonb not null default '{}'::jsonb;

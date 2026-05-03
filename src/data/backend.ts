@@ -350,6 +350,7 @@ export type UserProfile = {
   displayName: string;
   university: string;
   year: string;
+  nationality: string;
   bio: string;
   avatarUrl: string | null;
   tags: string[];
@@ -366,6 +367,7 @@ function mapUser(row: Row<"users">): UserProfile {
     displayName: row.display_name,
     university: row.university,
     year: row.year,
+    nationality: (row as any).nationality ?? "",
     bio: row.bio,
     avatarUrl: row.avatar_url,
     tags: row.tags ?? [],
@@ -407,6 +409,7 @@ export async function upsertProfile(
   if (input.displayName !== undefined) fields.display_name = input.displayName;
   if (input.university !== undefined) fields.university = input.university;
   if (input.year !== undefined) fields.year = input.year;
+  if (input.nationality !== undefined) fields.nationality = input.nationality;
   if (input.bio !== undefined) fields.bio = input.bio;
   if (input.avatarUrl !== undefined) fields.avatar_url = input.avatarUrl;
   if (input.tags !== undefined) fields.tags = input.tags;

@@ -3,6 +3,7 @@ import { getProfileByUsername, getCircles, getJoinedCircleIds, getCircleHandle }
 import { MapPin } from "lucide-react";
 import { tagClass } from "@/lib/tag-class";
 import { SocialLinks } from "@/components/SocialLinks";
+import { NATIONALITIES } from "@/data/profile-options";
 
 export const Route = createFileRoute("/users_/$username")({
   loader: async ({ params }) => {
@@ -67,6 +68,10 @@ function UserProfilePage() {
                 </span>
               )}
               {profile.year && <span>{profile.year}</span>}
+              {profile.nationality && (() => {
+                const nat = NATIONALITIES.find((n) => n.name === profile.nationality);
+                return <span>{nat?.flag} {profile.nationality}</span>;
+              })()}
               {profile.careerField && <span>· {profile.careerField}</span>}
             </div>
 
