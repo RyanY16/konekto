@@ -15,7 +15,7 @@ import {
 import type { Circle } from "@/data/mock";
 import { UniversityPicker } from "@/components/UniversityPicker";
 import { NationalityPicker } from "@/components/NationalityPicker";
-import { CAREER_FIELDS, INTEREST_GROUPS, GOALS, NATIONALITIES } from "@/data/profile-options";
+import { CAREER_FIELDS, INTEREST_GROUPS, GOAL_GROUPS, GOALS, NATIONALITIES } from "@/data/profile-options";
 
 export const Route = createFileRoute("/profile")({
   head: () => ({
@@ -42,6 +42,83 @@ function formatYear(degree: string, num: string) {
 
 // ── University searchable combobox ────────────────────────────────────────────
 
+
+// ── Goal group colours ────────────────────────────────────────────────────────
+
+const GOAL_COLOURS: Record<string, { idle: string; active: string; chip: string }> = {
+  "Career":          { idle: "border-orange-200 text-orange-600 hover:bg-orange-50 dark:border-orange-800 dark:text-orange-400 dark:hover:bg-orange-950", active: "bg-orange-500 border-orange-500 text-white", chip: "bg-orange-100 text-orange-700 dark:bg-orange-950 dark:text-orange-300" },
+  "Academic":        { idle: "border-violet-200 text-violet-600 hover:bg-violet-50 dark:border-violet-800 dark:text-violet-400 dark:hover:bg-violet-950", active: "bg-violet-600 border-violet-600 text-white dark:bg-violet-500 dark:border-violet-500", chip: "bg-violet-100 text-violet-700 dark:bg-violet-950 dark:text-violet-300" },
+  "Social & Culture":{ idle: "border-rose-200 text-rose-600 hover:bg-rose-50 dark:border-rose-800 dark:text-rose-400 dark:hover:bg-rose-950",           active: "bg-rose-500 border-rose-500 text-white",   chip: "bg-rose-100 text-rose-700 dark:bg-rose-950 dark:text-rose-300" },
+};
+const GOAL_DEFAULT = { idle: "border-border text-muted-foreground hover:bg-muted", active: "bg-primary border-primary text-primary-foreground", chip: "bg-muted text-muted-foreground" };
+
+function goalGroupFor(item: string) {
+  return GOAL_GROUPS.find((g) => g.items.includes(item as any))?.label ?? null;
+}
+
+function GoalPicker({ value, onChange }: { value: string[]; onChange: (v: string[]) => void }) {
+  const set = new Set(value);
+  const toggle = (item: string) => {
+    const next = new Set(set);
+    next.has(item) ? next.delete(item) : next.add(item);
+    onChange(Array.from(next));
+  };
+  return (
+    <div className="space-y-4">
+      {GOAL_GROUPS.map((group) => {
+        const colours = GOAL_COLOURS[group.label] ?? GOAL_DEFAULT;
+        return (
+          <div key={group.label}>
+            <p className="text-xs font-semibold text-muted-foreground mb-1.5">{group.label}</p>
+            <div className="flex flex-wrap gap-1.5">
+              {group.items.map((item) => {
+                const active = set.has(item);
+                return (
+                  <button
+                    key={item}
+                    type="button"
+                    onClick={() => toggle(item)}
+                    className={`px-2.5 py-0.5 rounded-full text-xs border transition-colors ${active ? colours.active : colours.idle}`}
+                  >
+                    {item}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function GoalChips({ goals }: { goals: string[] }) {
+  return (
+    <div className="space-y-2">
+      {GOAL_GROUPS.map((group) => {
+        const chips = goals.filter((g) => group.items.includes(g as any));
+        if (chips.length === 0) return null;
+        const colours = GOAL_COLOURS[group.label] ?? GOAL_DEFAULT;
+        return (
+          <div key={group.label} className="flex flex-wrap gap-1.5 items-center">
+            <span className="text-xs text-muted-foreground w-20 shrink-0">{group.label}</span>
+            {chips.map((g) => (
+              <span key={g} className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${colours.chip}`}>{g}</span>
+            ))}
+          </div>
+        );
+      })}
+      {(() => {
+        const ungrouped = goals.filter((g) => !goalGroupFor(g));
+        return ungrouped.length > 0 ? (
+          <div className="flex flex-wrap gap-1.5">
+            {ungrouped.map((g) => <span key={g} className="chip">{g}</span>)}
+          </div>
+        ) : null;
+      })()}
+    </div>
+  );
+}
 
 // ── Multi-select chip picker (flat list) ─────────────────────────────────────
 
@@ -533,17 +610,9 @@ function ProfilePage() {
         <div className="pt-5 border-t border-border">
           <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3">Goals</p>
           {editing ? (
-            <ChipPicker
-              options={GOALS}
-              value={draft.goals ?? []}
-              onChange={(v) => setDraft((d) => ({ ...d, goals: v }))}
-            />
+            <GoalPicker value={draft.goals ?? []} onChange={(v) => setDraft((d) => ({ ...d, goals: v }))} />
           ) : profile?.goals && profile.goals.length > 0 ? (
-            <div className="flex flex-wrap gap-1.5">
-              {profile.goals.map((g) => (
-                <span key={g} className="chip">{g}</span>
-              ))}
-            </div>
+            <GoalChips goals={profile.goals} />
           ) : (
             <p className="text-sm text-muted-foreground italic">No goals added yet.</p>
           )}

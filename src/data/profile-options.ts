@@ -143,21 +143,23 @@ export const NATIONALITIES: Nationality[] = [
   { name: "Other", flag: "🌍" },
 ];
 
-export const GOALS = [
-  "Find an internship",
-  "Land a full-time job",
-  "Shukatsu (就活)",
-  "Start a company",
-  "Publish research",
-  "Make international friends",
-  "Improve Japanese",
-  "Practice English",
-  "Join more circles",
-  "Network with professionals",
-  "Learn new skills",
-  "Study abroad experience",
-  "Enjoy student life",
-  "Build a portfolio",
+export type GoalGroup = { label: string; items: readonly string[] };
+
+export const GOAL_GROUPS: readonly GoalGroup[] = [
+  {
+    label: "Career",
+    items: ["Find an internship", "Land a full-time job", "Shukatsu (就活)", "Start a company", "Build a portfolio", "Network with professionals"],
+  },
+  {
+    label: "Academic",
+    items: ["Publish research", "Learn new skills", "Study abroad experience", "Build a portfolio"],
+  },
+  {
+    label: "Social & Culture",
+    items: ["Make international friends", "Join more circles", "Enjoy student life", "Improve Japanese", "Practice English"],
+  },
 ] as const;
 
-export type Goal = (typeof GOALS)[number];
+export const GOALS = GOAL_GROUPS.flatMap((g) => g.items).filter((v, i, a) => a.indexOf(v) === i) as unknown as readonly string[];
+
+export type Goal = string;
