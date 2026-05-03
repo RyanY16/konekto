@@ -3,6 +3,7 @@ import React, { useState, useEffect, useRef, useCallback } from "react";
 import { Globe, Instagram, Linkedin, MessageCircle } from "lucide-react";
 import { tagClass } from "@/lib/tag-class";
 import { Bookmark, Users, Briefcase, Pencil, Check, X, LogOut, Camera } from "lucide-react";
+import { CropDialog } from "@/components/CropDialog";
 import { events } from "@/data/mock";
 import { PageHeader } from "@/components/PageHeader";
 import { Button } from "@/components/ui/button";
@@ -216,27 +217,38 @@ function AvatarUploader({
   src: string | null; initials: string; editing: boolean; onUpload: (f: File) => void;
 }) {
   const fileRef = useRef<HTMLInputElement>(null);
+  const [cropFile, setCropFile] = useState<File | null>(null);
+
   return (
-    <div className="relative shrink-0">
-      <div className="h-20 w-20 rounded-full bg-gradient-to-br from-primary to-accent flex items-center justify-center text-3xl text-primary-foreground font-bold overflow-hidden">
-        {src ? <img src={src} alt="avatar" className="h-full w-full object-cover" /> : initials}
-      </div>
-      {editing && (
-        <>
-          <button
-            type="button"
-            onClick={() => fileRef.current?.click()}
-            className="absolute inset-0 rounded-full flex items-center justify-center bg-black/40 text-white opacity-0 hover:opacity-100 transition-opacity"
-          >
-            <Camera className="h-6 w-6" />
-          </button>
-          <input
-            ref={fileRef} type="file" accept="image/*" className="hidden"
-            onChange={(e) => { const f = e.target.files?.[0]; if (f) onUpload(f); e.target.value = ""; }}
-          />
-        </>
+    <>
+      {cropFile && (
+        <CropDialog
+          file={cropFile}
+          onCrop={(cropped) => { setCropFile(null); onUpload(cropped); }}
+          onCancel={() => setCropFile(null)}
+        />
       )}
-    </div>
+      <div className="relative shrink-0">
+        <div className="h-20 w-20 rounded-full bg-gradient-to-br from-primary to-accent flex items-center justify-center text-3xl text-primary-foreground font-bold overflow-hidden">
+          {src ? <img src={src} alt="avatar" className="h-full w-full object-cover" /> : initials}
+        </div>
+        {editing && (
+          <>
+            <button
+              type="button"
+              onClick={() => fileRef.current?.click()}
+              className="absolute inset-0 rounded-full flex items-center justify-center bg-black/40 text-white opacity-0 hover:opacity-100 transition-opacity"
+            >
+              <Camera className="h-6 w-6" />
+            </button>
+            <input
+              ref={fileRef} type="file" accept="image/*" className="hidden"
+              onChange={(e) => { const f = e.target.files?.[0]; if (f) setCropFile(f); e.target.value = ""; }}
+            />
+          </>
+        )}
+      </div>
+    </>
   );
 }
 
