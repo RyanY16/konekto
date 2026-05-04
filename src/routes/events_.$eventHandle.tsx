@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import TagPicker from "@/components/TagPicker";
+import CirclePicker from "@/components/CirclePicker";
 import { DeleteRecordButton } from "@/components/DeleteRecordButton";
 import { ShareButton } from "@/components/ShareButton";
 import { useAuth } from "@/components/AuthProvider";
@@ -16,7 +17,10 @@ import {
   getEventByHandle,
   updateEvent,
   getProfile,
+  getCircleByHandle,
+  getCircleHandle,
 } from "@/data/backend";
+import type { Circle } from "@/data/mock";
 import { LANGUAGES } from "@/data/profile-options";
 import type { EventItem } from "@/data/mock";
 
@@ -77,6 +81,7 @@ type Draft = {
   cost: string;
   primaryLanguage: string;
   tags: string[];
+  circleIds: string[];
   website: string;
   instagram: string;
   linkedin: string;
@@ -94,6 +99,7 @@ function toDraft(e: EventItem): Draft {
     cost: e.cost ?? "",
     primaryLanguage: e.primaryLanguage ?? "",
     tags: e.tags ?? [],
+    circleIds: e.circleIds ?? [],
     website: sl.website ?? "",
     instagram: sl.instagram ?? "",
     linkedin: sl.linkedin ?? "",
@@ -107,6 +113,7 @@ function EventDetailPage() {
   const router = useRouter();
   const [editing, setEditing] = useState(false);
   const [ownerUsername, setOwnerUsername] = useState<string>("");
+  const [linkedCircles, setLinkedCircles] = useState<Circle[]>([]);
   const [draft, setDraft] = useState<Draft>(event ? toDraft(event) : {} as Draft);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
@@ -120,6 +127,14 @@ function EventDetailPage() {
       setOwnerUsername(p?.username ?? p?.displayName ?? "");
     });
   }, [event?.ownerId]);
+
+  useEffect(() => {
+    const ids = event?.circleIds ?? [];
+    if (ids.length === 0) { setLinkedCircles([]); return; }
+    Promise.all(ids.map((id) => getCircleByHandle(id))).then((results) => {
+      setLinkedCircles(results.filter(Boolean) as Circle[]);
+    });
+  }, [event?.circleIds?.join(",")]);
 
   if (!event) {
     return (
@@ -156,6 +171,7 @@ function EventDetailPage() {
         cost: draft.cost,
         primaryLanguage: draft.primaryLanguage,
         tags: draft.tags,
+        circleIds: draft.circleIds,
         socialLinks: {
           website: draft.website || undefined,
           instagram: draft.instagram || undefined,
@@ -292,6 +308,17 @@ function EventDetailPage() {
               <TagPicker value={draft.tags} onChange={(t) => setDraft((d) => ({ ...d, tags: t }))} />
             </div>
 
+            {user && (
+              <div className="space-y-1">
+                <label className="text-xs font-medium text-muted-foreground">Associated circles</label>
+                <CirclePicker
+                  value={draft.circleIds}
+                  onChange={(ids) => setDraft((d) => ({ ...d, circleIds: ids }))}
+                  userId={user.id}
+                />
+              </div>
+            )}
+
             <div className="space-y-1">
               <label className="text-xs font-medium text-muted-foreground">Social links</label>
               <div className="space-y-2">
@@ -369,6 +396,24 @@ function EventDetailPage() {
                     {tag}
                   </span>
                 ))}
+              </div>
+            )}
+
+            {linkedCircles.length > 0 && (
+              <div>
+                <p className="text-xs font-medium text-muted-foreground mb-1.5">Circles</p>
+                <div className="flex flex-wrap gap-2">
+                  {linkedCircles.map((c) => (
+                    <Link
+                      key={c.id}
+                      to="/circles/$circleHandle"
+                      params={{ circleHandle: getCircleHandle(c) }}
+                      className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-primary/10 text-primary border border-primary/20 hover:bg-primary/20 transition-colors"
+                    >
+                      {c.emoji} {c.name}
+                    </Link>
+                  ))}
+                </div>
               </div>
             )}
 

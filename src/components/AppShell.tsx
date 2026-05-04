@@ -48,15 +48,15 @@ export function AppShell() {
       <div className="min-h-screen bg-background">
         {/* Top bar */}
         <header className="sticky top-0 z-40 border-b border-border bg-background/80 backdrop-blur-md">
-          <div className="mx-auto max-w-7xl px-4 h-14 flex items-center justify-between">
+          <div className="mx-auto max-w-7xl px-4 h-14 flex items-center gap-2 min-w-0">
             <Logo />
-            <div className="flex-1 mx-4 max-w-sm">
+            <div className="flex-1 min-w-0 mx-2">
               <GlobalSearch />
             </div>
-            <div className="flex items-center gap-1">
+            <div className="flex items-center gap-1 shrink-0">
               <AuthNav isActive={isActive} />
               <SettingsPopover />
-              <div className="ml-2 flex items-center gap-2">
+              <div className="flex items-center gap-2">
                 <AuthControls />
               </div>
             </div>
@@ -131,11 +131,11 @@ function AuthControls() {
     if (loading) return <div className="h-8 w-8 rounded bg-muted animate-pulse" />;
     if (!user) {
       return (
-        <div className="flex items-center gap-2">
-          <Link to="/login" className="px-3 py-1.5 rounded-lg text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-muted transition-colors">
+        <div className="flex items-center gap-1.5">
+          <Link to="/login" className="hidden sm:block px-3 py-1.5 rounded-lg text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-muted transition-colors">
             Log in
           </Link>
-          <Link to="/signup" className="px-3 py-1.5 rounded-lg text-sm font-semibold bg-primary text-primary-foreground hover:bg-primary/90 transition-colors">
+          <Link to="/signup" className="px-2.5 py-1.5 rounded-lg text-sm font-semibold bg-primary text-primary-foreground hover:bg-primary/90 transition-colors whitespace-nowrap">
             Sign up
           </Link>
         </div>

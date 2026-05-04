@@ -43,7 +43,7 @@ export const Route = createFileRoute("/events")({
   loader: async () => {
     try {
       const evs = await getEvents();
-      const list = evs.length > 0 ? evs : mockEvents;
+      const list = evs;
       const ids = [...new Set(list.map((e) => e.ownerId).filter(Boolean) as string[])];
       const ownerMap: Record<string, string> = {};
       if (ids.length > 0) {

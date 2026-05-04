@@ -68,12 +68,14 @@ export type Database = {
           cost: string | null;
           primary_language: string | null;
           owner_id: string | null;
+          circle_ids: string[];
           created_at: string;
           updated_at: string | null;
         };
-        Insert: Omit<Database["public"]["Tables"]["events"]["Row"], "created_at" | "updated_at"> & {
+        Insert: Omit<Database["public"]["Tables"]["events"]["Row"], "created_at" | "updated_at" | "circle_ids"> & {
           created_at?: string;
           updated_at?: string;
+          circle_ids?: string[];
         };
         Update: Partial<Database["public"]["Tables"]["events"]["Insert"]>;
       };

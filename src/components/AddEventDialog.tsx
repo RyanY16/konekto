@@ -7,6 +7,7 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogT
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import TagPicker from "@/components/TagPicker";
+import CirclePicker from "@/components/CirclePicker";
 import { socialLinksFromForm } from "@/lib/social-links";
 import { addEvent } from "@/data/backend";
 import { useRouter } from "@tanstack/react-router";
@@ -33,6 +34,7 @@ export default function AddEventDialog() {
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
+  const [selectedCircleIds, setSelectedCircleIds] = useState<string[]>([]);
   const [category, setCategory] = useState<string>(EVENT_CATEGORIES[0]);
   const [location, setLocation] = useState("");
   const [primaryLanguage, setPrimaryLanguage] = useState("");
@@ -40,6 +42,7 @@ export default function AddEventDialog() {
 
   function reset() {
     setSelectedTags([]);
+    setSelectedCircleIds([]);
     setCategory(EVENT_CATEGORIES[0]);
     setLocation("");
     setPrimaryLanguage("");
@@ -68,6 +71,7 @@ export default function AddEventDialog() {
         primaryLanguage: primaryLanguage || undefined,
         socialLinks: socialLinksFromForm(form),
         ownerId: user?.id,
+        circleIds: selectedCircleIds,
       });
 
       setOpen(false);
@@ -182,6 +186,18 @@ export default function AddEventDialog() {
             <label className={lbl}>Tags</label>
             <TagPicker value={selectedTags} onChange={setSelectedTags} />
           </div>
+
+          {/* Circles */}
+          {user && (
+            <div className={field}>
+              <label className={lbl}>Associated circles</label>
+              <CirclePicker
+                value={selectedCircleIds}
+                onChange={setSelectedCircleIds}
+                userId={user.id}
+              />
+            </div>
+          )}
 
           {/* Social links */}
           <div className={field}>

@@ -154,6 +154,7 @@ function mapEvent(row: Row<"events">): EventItem {
     ownerId: row.owner_id ?? undefined,
     updatedAt: row.updated_at ?? row.created_at,
     socialLinks: normalizeSocialLinks(row.social_links),
+    circleIds: row.circle_ids ?? [],
   };
 }
 
@@ -339,6 +340,7 @@ export async function addEvent(
     primary_language: input.primaryLanguage ?? "",
     social_links: input.socialLinks ?? {},
     owner_id: input.ownerId ?? null,
+    circle_ids: input.circleIds ?? [],
   };
   const { signal, cleanup } = abortAfter();
   try {
@@ -367,6 +369,7 @@ export async function updateEvent(
   if (input.cost !== undefined) values.cost = input.cost;
   if (input.primaryLanguage !== undefined) values.primary_language = input.primaryLanguage;
   if (input.socialLinks !== undefined) values.social_links = input.socialLinks;
+  if (input.circleIds !== undefined) values.circle_ids = input.circleIds;
   values.updated_at = new Date().toISOString();
 
   const { signal, cleanup } = abortAfter();
@@ -560,6 +563,30 @@ export async function getCircleEditorIds(circleId: string): Promise<string[]> {
     .select("user_id")
     .eq("circle_id", circleId);
   return (data ?? []).map((r: any) => r.user_id as string);
+}
+
+export async function getMyEditableCircles(userId: string): Promise<Circle[]> {
+  if (!supabase) return [];
+  const { data: editorRows } = await (supabase.from("circle_editors") as any)
+    .select("circle_id")
+    .eq("user_id", userId);
+  const editorIds: string[] = (editorRows ?? []).map((r: any) => r.circle_id as string);
+
+  const { data: owned } = await supabase.from("circles").select("*").eq("owner_id", userId);
+
+  let editorCircles: any[] = [];
+  if (editorIds.length > 0) {
+    const { data } = await supabase.from("circles").select("*").in("id", editorIds);
+    editorCircles = data ?? [];
+  }
+
+  const seen = new Set<string>();
+  const all = [...(owned ?? []), ...editorCircles].filter((r) => {
+    if (seen.has(r.id)) return false;
+    seen.add(r.id);
+    return true;
+  });
+  return all.map((r) => mapCircle(r as unknown as Row<"circles">));
 }
 
 export async function getCircleEditors(circleId: string): Promise<UserProfile[]> {

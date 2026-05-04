@@ -40,6 +40,7 @@ export type EventItem = {
   ownerId?: string;
   updatedAt?: string;
   socialLinks?: SocialLinks;
+  circleIds?: string[];
 };
 
 export type Deal = {

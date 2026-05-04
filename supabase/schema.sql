@@ -157,6 +157,7 @@ alter table public.events add column if not exists owner_id uuid references auth
 alter table public.events add column if not exists updated_at timestamptz;
 alter table public.events add column if not exists cost text not null default '';
 alter table public.events add column if not exists primary_language text not null default '';
+alter table public.events add column if not exists circle_ids text[] not null default '{}';
 alter table public.deals add column if not exists social_links jsonb not null default '{}'::jsonb;
 alter table public.jobs add column if not exists social_links jsonb not null default '{}'::jsonb;
 alter table public.guides add column if not exists social_links jsonb not null default '{}'::jsonb;
@@ -194,11 +195,17 @@ create policy "Delete by owner or admin" on public.circles for delete
 drop policy if exists "Public read events" on public.events;
 create policy "Public read events" on public.events for select using (true);
 drop policy if exists "Public insert events" on public.events;
-create policy "Admin insert events" on public.events for insert with check (public.is_admin());
+drop policy if exists "Admin insert events" on public.events;
+create policy "Owner or admin insert events" on public.events for insert with check (auth.uid() IS NOT NULL);
 drop policy if exists "Public update events" on public.events;
-create policy "Admin update events" on public.events for update using (public.is_admin()) with check (public.is_admin());
+drop policy if exists "Admin update events" on public.events;
+create policy "Owner or admin update events" on public.events for update
+  using (auth.uid() = owner_id or public.is_admin())
+  with check (auth.uid() = owner_id or public.is_admin());
 drop policy if exists "Public delete events" on public.events;
-create policy "Admin delete events" on public.events for delete using (public.is_admin());
+drop policy if exists "Admin delete events" on public.events;
+create policy "Owner or admin delete events" on public.events for delete
+  using (auth.uid() = owner_id or public.is_admin());
 
 drop policy if exists "Public read deals" on public.deals;
 create policy "Public read deals" on public.deals for select using (true);
