@@ -22,7 +22,7 @@ const YEAR_OPTIONS = [
 
 function SignUpPage() {
   const navigate = useNavigate();
-  const { signUp, user } = useAuth();
+  const { signUp, user, profileIncomplete, refreshUser } = useAuth();
 
   const [step, setStep] = useState<1 | 2 | 3>(1);
 
@@ -49,10 +49,16 @@ function SignUpPage() {
   const [profileLoading, setProfileLoading] = useState(false);
   const [profileError, setProfileError] = useState("");
 
-  // If already logged in and lands here, go home
+  // If already logged in: complete profile if needed, otherwise go home
   useEffect(() => {
-    if (user) navigate({ to: "/" });
-  }, [user]);
+    if (!user) return;
+    if (profileIncomplete) {
+      setUserId(user.id);
+      setStep(3);
+    } else if (step !== 3) {
+      navigate({ to: "/" });
+    }
+  }, [user, profileIncomplete]);
 
   // Listen for email verification in same browser (step 2)
   useEffect(() => {
@@ -124,7 +130,9 @@ function SignUpPage() {
     if (usernameStatus === "taken") { setProfileError("That username is taken."); return; }
     if (usernameStatus === "checking") { setProfileError("Still checking username, please wait."); return; }
 
-    const uid = userId ?? (supabase ? (await supabase.auth.getUser()).data.user?.id : null);
+    if (!supabase) { setProfileError("Session expired — please refresh and try again."); return; }
+    const { data: { user: sessionUser } } = await supabase.auth.getUser();
+    const uid = sessionUser?.id ?? null;
     if (!uid) { setProfileError("Session expired — please refresh and try again."); return; }
 
     setProfileLoading(true);
@@ -137,6 +145,7 @@ function SignUpPage() {
         year,
         interests,
       });
+      await refreshUser();
       navigate({ to: "/" });
     } catch (err: any) {
       setProfileError(err?.message ?? "Could not save profile.");

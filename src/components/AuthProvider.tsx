@@ -7,15 +7,18 @@ type User = {
   id: string;
   email?: string | null;
   role: "user" | "admin";
+  username: string | null;
 };
 
 type AuthContextValue = {
   user: User | null;
   loading: boolean;
   isAdmin: boolean;
+  profileIncomplete: boolean;
   signIn: (email: string, password: string) => Promise<void>;
   signUp: (email: string, password: string, metadata?: Record<string, unknown>) => Promise<{ id: string } | undefined>;
   signOut: () => Promise<void>;
+  refreshUser: () => Promise<void>;
 };
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
@@ -34,8 +37,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     async function resolveUser(u: { id: string; email?: string | null } | null) {
       if (!u) return null;
-      const { data: profile } = await supabase!.from("users").select("role").eq("id", u.id).maybeSingle();
-      return { id: u.id, email: u.email, role: (profile?.role ?? "user") as "user" | "admin" };
+      const { data: profile } = await supabase!.from("users").select("role, username").eq("id", u.id).maybeSingle();
+      return {
+        id: u.id,
+        email: u.email,
+        role: (profile?.role ?? "user") as "user" | "admin",
+        username: (profile as any)?.username ?? null,
+      };
     }
 
     // onAuthStateChange fires INITIAL_SESSION immediately on subscribe with the
@@ -109,10 +117,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setUser(null);
   }
 
+  async function refreshUser() {
+    if (!supabase) return;
+    const { data: { user: u } } = await supabase.auth.getUser();
+    if (!u) return;
+    const { data: profile } = await supabase.from("users").select("role, username").eq("id", u.id).maybeSingle();
+    setUser({
+      id: u.id,
+      email: u.email,
+      role: (profile?.role ?? "user") as "user" | "admin",
+      username: (profile as any)?.username ?? null,
+    });
+  }
+
   const isAdmin = user?.role === "admin";
+  const profileIncomplete = !!(user && !user.username);
 
   return (
-    <AuthContext.Provider value={{ user, loading, isAdmin, signIn, signUp, signOut }}>
+    <AuthContext.Provider value={{ user, loading, isAdmin, profileIncomplete, signIn, signUp, signOut, refreshUser }}>
       {children}
     </AuthContext.Provider>
   );

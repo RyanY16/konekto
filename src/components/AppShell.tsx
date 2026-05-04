@@ -1,6 +1,7 @@
-import { Link, Outlet, useRouterState } from "@tanstack/react-router";
+import { Link, Outlet, useRouterState, useNavigate } from "@tanstack/react-router";
 import { Home, Users, User, Calendar } from "lucide-react";
 import type { ComponentType } from "react";
+import { useEffect } from "react";
 import { SettingsPopover } from "./SettingsPopover";
 import AuthProvider, { useAuth } from "@/components/AuthProvider";
 import { GlobalSearch } from "@/components/GlobalSearch";
@@ -29,6 +30,20 @@ function Logo() {
   );
 }
 
+function ProfileGuard() {
+  const { user, loading, profileIncomplete } = useAuth();
+  const pathname = useRouterState({ select: (s) => s.location.pathname });
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    if (loading || !user || profileIncomplete === false) return;
+    if (pathname === "/signup" || pathname === "/login") return;
+    navigate({ to: "/signup" });
+  }, [loading, user, profileIncomplete, pathname]);
+
+  return null;
+}
+
 export function AppShell() {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const isBare = BARE_ROUTES.includes(pathname);
@@ -46,6 +61,7 @@ export function AppShell() {
 
   return (
     <AuthProvider>
+      <ProfileGuard />
       <div className="min-h-screen bg-background">
         {/* Top bar */}
         <header className="sticky top-0 z-40 border-b border-border bg-background/80 backdrop-blur-md">
