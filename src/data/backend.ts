@@ -155,6 +155,7 @@ function mapEvent(row: Row<"events">): EventItem {
     updatedAt: row.updated_at ?? row.created_at,
     socialLinks: normalizeSocialLinks(row.social_links),
     circleIds: row.circle_ids ?? [],
+    online: row.online ?? false,
   };
 }
 
@@ -341,6 +342,7 @@ export async function addEvent(
     social_links: input.socialLinks ?? {},
     owner_id: input.ownerId ?? null,
     circle_ids: input.circleIds ?? [],
+    online: input.online ?? false,
   };
   const { signal, cleanup } = abortAfter();
   try {
@@ -370,6 +372,7 @@ export async function updateEvent(
   if (input.primaryLanguage !== undefined) values.primary_language = input.primaryLanguage;
   if (input.socialLinks !== undefined) values.social_links = input.socialLinks;
   if (input.circleIds !== undefined) values.circle_ids = input.circleIds;
+  if (input.online !== undefined) values.online = input.online;
   values.updated_at = new Date().toISOString();
 
   const { signal, cleanup } = abortAfter();

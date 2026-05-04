@@ -69,6 +69,7 @@ export type Database = {
           primary_language: string | null;
           owner_id: string | null;
           circle_ids: string[];
+          online: boolean;
           created_at: string;
           updated_at: string | null;
         };
@@ -76,6 +77,7 @@ export type Database = {
           created_at?: string;
           updated_at?: string;
           circle_ids?: string[];
+          online?: boolean;
         };
         Update: Partial<Database["public"]["Tables"]["events"]["Insert"]>;
       };

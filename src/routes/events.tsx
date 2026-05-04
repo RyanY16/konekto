@@ -180,7 +180,9 @@ function EventsPage() {
                   <Calendar className="h-3.5 w-3.5 shrink-0" /> {e.date}
                 </p>
                 <p className="flex items-center gap-1.5">
-                  <MapPin className="h-3.5 w-3.5 shrink-0" /> {e.location}
+                  <MapPin className="h-3.5 w-3.5 shrink-0" />
+                  {e.location}
+                  {e.online && <span className="ml-1 text-xs text-blue-600 dark:text-blue-400 font-medium">· Online</span>}
                 </p>
               </div>
               {e.tags.length > 0 && (

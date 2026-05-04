@@ -78,6 +78,7 @@ type Draft = {
   category: string;
   date: string;
   location: string;
+  online: boolean;
   cost: string;
   primaryLanguage: string;
   tags: string[];
@@ -96,6 +97,7 @@ function toDraft(e: EventItem): Draft {
     category: e.category,
     date: e.date,
     location: e.location,
+    online: e.online ?? false,
     cost: e.cost ?? "",
     primaryLanguage: e.primaryLanguage ?? "",
     tags: e.tags ?? [],
@@ -167,6 +169,7 @@ function EventDetailPage() {
         category: draft.category as EventItem["category"],
         date: draft.date,
         location: draft.location,
+        online: draft.online,
         emoji: CATEGORY_EMOJI[draft.category] || "📅",
         cost: draft.cost,
         primaryLanguage: draft.primaryLanguage,
@@ -257,18 +260,33 @@ function EventDetailPage() {
               />
             </div>
 
+            <div className="flex items-center gap-2">
+              <input
+                id="edit-online"
+                type="checkbox"
+                checked={draft.online}
+                onChange={(e) => setDraft((d) => ({ ...d, online: e.target.checked }))}
+                className="h-4 w-4 rounded border-input accent-primary"
+              />
+              <label htmlFor="edit-online" className="text-sm font-medium cursor-pointer select-none">
+                Online event
+              </label>
+            </div>
+
             <div className="space-y-1">
-              <label className="text-xs font-medium text-muted-foreground">Location</label>
+              <label className="text-xs font-medium text-muted-foreground">
+                {draft.online ? "Platform / link" : "Location"}
+              </label>
               <div className="relative">
                 <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
                 <Input
                   value={draft.location}
                   onChange={(e) => setDraft((d) => ({ ...d, location: e.target.value }))}
-                  placeholder="e.g. Tokyo Big Sight, Shibuya, Online"
+                  placeholder={draft.online ? "e.g. Zoom, Discord, Google Meet" : "e.g. Tokyo Big Sight, Shibuya"}
                   className="pl-9"
                 />
               </div>
-              {draft.location.trim() && (
+              {!draft.online && draft.location.trim() && (
                 <a
                   href={mapsUrl(draft.location)}
                   target="_blank"
@@ -360,17 +378,25 @@ function EventDetailPage() {
               {event.cost && <Detail label="Cost" value={event.cost} />}
             </div>
 
-            {/* Location with maps link */}
-            <a
-              href={mapsUrl(event.location)}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center gap-2 text-sm text-foreground hover:text-primary transition-colors group"
-            >
-              <MapPin className="h-4 w-4 text-muted-foreground shrink-0" />
-              <span className="font-medium">{event.location}</span>
-              <ExternalLink className="h-3.5 w-3.5 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
-            </a>
+            {/* Location */}
+            {event.online ? (
+              <div className="flex items-center gap-2 text-sm text-foreground">
+                <MapPin className="h-4 w-4 text-muted-foreground shrink-0" />
+                <span className="font-medium">{event.location}</span>
+                <span className="chip bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-400 text-xs px-2 py-0.5 rounded-full">🌐 Online</span>
+              </div>
+            ) : (
+              <a
+                href={mapsUrl(event.location)}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-2 text-sm text-foreground hover:text-primary transition-colors group"
+              >
+                <MapPin className="h-4 w-4 text-muted-foreground shrink-0" />
+                <span className="font-medium">{event.location}</span>
+                <ExternalLink className="h-3.5 w-3.5 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+              </a>
+            )}
 
             {langInfo && (
               <p className="text-sm text-muted-foreground">{langInfo.flag} {langInfo.name}</p>

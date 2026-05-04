@@ -38,6 +38,7 @@ export default function AddEventDialog() {
   const [category, setCategory] = useState<string>(EVENT_CATEGORIES[0]);
   const [location, setLocation] = useState("");
   const [primaryLanguage, setPrimaryLanguage] = useState("");
+  const [online, setOnline] = useState(false);
   const formRef = useRef<HTMLFormElement>(null);
 
   function reset() {
@@ -46,6 +47,7 @@ export default function AddEventDialog() {
     setCategory(EVENT_CATEGORIES[0]);
     setLocation("");
     setPrimaryLanguage("");
+    setOnline(false);
     setError("");
     formRef.current?.reset();
   }
@@ -72,6 +74,7 @@ export default function AddEventDialog() {
         socialLinks: socialLinksFromForm(form),
         ownerId: user?.id,
         circleIds: selectedCircleIds,
+        online,
       });
 
       setOpen(false);
@@ -135,20 +138,34 @@ export default function AddEventDialog() {
             <Input name="date" placeholder="e.g. Fri, May 8 · 7:00 PM" required />
           </div>
 
+          {/* Online checkbox */}
+          <div className="flex items-center gap-2">
+            <input
+              id="add-online"
+              type="checkbox"
+              checked={online}
+              onChange={(e) => setOnline(e.target.checked)}
+              className="h-4 w-4 rounded border-input accent-primary"
+            />
+            <label htmlFor="add-online" className="text-sm font-medium cursor-pointer select-none">
+              Online event
+            </label>
+          </div>
+
           {/* Location with maps preview */}
           <div className={field}>
-            <label className={lbl}>Location</label>
+            <label className={lbl}>{online ? "Platform / link" : "Location"}</label>
             <div className="relative">
               <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
               <Input
                 value={location}
                 onChange={(e) => setLocation(e.target.value)}
-                placeholder="e.g. Tokyo Big Sight, Shibuya, Online"
+                placeholder={online ? "e.g. Zoom, Discord, Google Meet" : "e.g. Tokyo Big Sight, Shibuya"}
                 className="pl-9"
                 required
               />
             </div>
-            {location.trim() && (
+            {!online && location.trim() && (
               <a
                 href={mapsUrl(location)}
                 target="_blank"

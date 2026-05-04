@@ -41,6 +41,7 @@ export type EventItem = {
   updatedAt?: string;
   socialLinks?: SocialLinks;
   circleIds?: string[];
+  online?: boolean;
 };
 
 export type Deal = {
