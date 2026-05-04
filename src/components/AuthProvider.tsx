@@ -34,20 +34,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     async function resolveUser(u: { id: string; email?: string | null } | null) {
       if (!u) return null;
-      const { data: profile } = await supabase!.from("users").select("role").eq("id", u.id).single();
+      const { data: profile } = await supabase!.from("users").select("role").eq("id", u.id).maybeSingle();
       return { id: u.id, email: u.email, role: (profile?.role ?? "user") as "user" | "admin" };
     }
 
-    (async () => {
-      const { data: { user: u } } = await supabase.auth.getUser();
-      if (!mounted) return;
-      setUser(await resolveUser(u));
-      setLoading(false);
-    })();
-
+    // onAuthStateChange fires INITIAL_SESSION immediately on subscribe with the
+    // locally-cached session — no extra network round-trip needed. We dropped the
+    // separate getUser() IIFE because it raced against INITIAL_SESSION and could
+    // overwrite a valid user with null if the JWT validation request was slow.
     const { data: sub } = supabase.auth.onAuthStateChange(async (_event, session) => {
       const u = session?.user ?? null;
-      setUser(await resolveUser(u));
+      const resolved = await resolveUser(u);
+      if (!mounted) return;
+      setUser(resolved);
+
+      // INITIAL_SESSION is the very first event — use it to unblock the loading state.
+      if (_event === "INITIAL_SESSION") {
+        setLoading(false);
+      }
 
       // On first sign-in, backfill profile fields from signup metadata if the
       // row exists but is still empty (trigger may have created it without data).
@@ -59,7 +63,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             .select("display_name, username")
             .eq("id", u.id)
             .maybeSingle();
-          if (row && !row.display_name && !row.username) {
+          if (mounted && row && !row.display_name && !row.username) {
             const fields: Record<string, unknown> = {
               id: u.id,
               updated_at: new Date().toISOString(),
