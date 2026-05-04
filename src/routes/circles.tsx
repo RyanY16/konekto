@@ -8,6 +8,7 @@ import AddCircleDialog from "@/components/AddCircleDialog";
 import { getCircles, getCircleHandle, getProfilesByIds } from "@/data/backend";
 import { useAuth } from "@/components/AuthProvider";
 import { tagClass } from "@/lib/tag-class";
+import { circles as mockCircles } from "@/data/mock";
 
 function relativeTime(iso: string | undefined): string | null {
   if (!iso) return null;
@@ -32,15 +33,44 @@ export const Route = createFileRoute("/circles")({
   loaderDeps: () => ({}),
   staleTime: 30_000,
   loader: async () => {
-    const cs = await getCircles();
-    const ids = [...new Set(cs.map((c) => c.ownerId).filter(Boolean) as string[])];
-    const profiles = ids.length > 0 ? await getProfilesByIds(ids) : [];
-    const ownerMap: Record<string, string> = {};
-    profiles.forEach((p) => { ownerMap[p.id] = p.username ?? p.displayName; });
-    return { circles: cs, ownerMap };
+    try {
+      const cs = await getCircles();
+      const ids = [...new Set(cs.map((c) => c.ownerId).filter(Boolean) as string[])];
+      const ownerMap: Record<string, string> = {};
+      if (ids.length > 0) {
+        const profiles = await getProfilesByIds(ids).catch(() => []);
+        profiles.forEach((p) => { ownerMap[p.id] = p.username ?? p.displayName; });
+      }
+      return { circles: cs, ownerMap };
+    } catch {
+      return { circles: mockCircles, ownerMap: {} };
+    }
   },
+  pendingComponent: CirclesSkeleton,
   component: CirclesPage,
 });
+
+function CirclesSkeleton() {
+  return (
+    <div className="animate-pulse space-y-6">
+      <div className="h-8 w-48 bg-muted rounded" />
+      <div className="flex gap-2">
+        {[...Array(6)].map((_, i) => <div key={i} className="h-9 w-20 bg-muted rounded-full" />)}
+      </div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        {[...Array(6)].map((_, i) => (
+          <div key={i} className="card-base p-5 space-y-3">
+            <div className="h-10 w-10 bg-muted rounded-lg" />
+            <div className="h-5 w-40 bg-muted rounded" />
+            <div className="h-3 w-32 bg-muted rounded" />
+            <div className="h-3 w-full bg-muted rounded" />
+            <div className="h-3 w-3/4 bg-muted rounded" />
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
 
 const categories = ["All", "Tech", "Music", "Career", "Outdoors", "Arts"];
 
