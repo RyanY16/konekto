@@ -34,8 +34,8 @@ export default function OwnerCircleControls({ circle }: { circle: any }) {
         tags: selectedTags,
         socialLinks: circle.socialLinks ?? {},
       });
-      await router.invalidate();
       setEditing(false);
+      router.invalidate();
     } finally {
       setSaving(false);
     }

@@ -1,6 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { Search, MapPin } from "lucide-react";
+import { LANGUAGES } from "@/data/profile-options";
 import { PageHeader } from "@/components/PageHeader";
 import { SaveButton } from "@/components/SaveButton";
 import AddCircleDialog from "@/components/AddCircleDialog";
@@ -47,18 +48,32 @@ function CirclesPage() {
   const { user, isAdmin } = useAuth();
   const { circles: allCircles, ownerMap } = Route.useLoaderData();
   const [cat, setCat] = useState("All");
-  const [englishOnly, setEnglishOnly] = useState(false);
   const [q, setQ] = useState("");
+  const [uniFilter, setUniFilter] = useState("All");
+  const [langFilter, setLangFilter] = useState("All");
+  const [recruitingOnly, setRecruitingOnly] = useState(false);
+
+  const universities = useMemo(() => {
+    const set = new Set(allCircles.map((c) => (c as any).university).filter(Boolean) as string[]);
+    return ["All", ...Array.from(set).sort()];
+  }, [allCircles]);
+
+  const languages = useMemo(() => {
+    const set = new Set(allCircles.map((c) => (c as any).primaryLanguage).filter(Boolean) as string[]);
+    return ["All", ...Array.from(set).sort()];
+  }, [allCircles]);
 
   const filtered = allCircles.filter((c) => {
     if (cat !== "All" && c.category !== cat) return false;
-    if (englishOnly && !c.englishFriendly) return false;
+    if (uniFilter !== "All" && (c as any).university !== uniFilter) return false;
+    if (langFilter !== "All" && (c as any).primaryLanguage !== langFilter) return false;
+    if (recruitingOnly && !(c as any).recruiting) return false;
     if (q) {
       const ql = q.toLowerCase();
       const matches =
         c.name.toLowerCase().includes(ql) ||
         c.description.toLowerCase().includes(ql) ||
-        c.location?.toLowerCase().includes(ql) ||
+        (c as any).location?.toLowerCase().includes(ql) ||
         c.tags.some((t) => t.toLowerCase().includes(ql));
       if (!matches) return false;
     }
@@ -98,6 +113,7 @@ function CirclesPage() {
             className="w-full pl-10 pr-4 h-11 rounded-full border border-border bg-card text-sm focus:outline-none focus:ring-2 focus:ring-ring"
           />
         </div>
+        {/* Category pills */}
         <div className="flex flex-wrap items-center gap-2">
           {categories.map((c) => (
             <button
@@ -112,15 +128,39 @@ function CirclesPage() {
               {c}
             </button>
           ))}
+        </div>
+        {/* Secondary filters */}
+        <div className="flex flex-wrap items-center gap-2">
+          {universities.length > 2 && (
+            <select
+              value={uniFilter}
+              onChange={(e) => setUniFilter(e.target.value)}
+              className="h-9 rounded-full border border-border bg-card px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+            >
+              {universities.map((u) => <option key={u} value={u}>{u === "All" ? "All universities" : u}</option>)}
+            </select>
+          )}
+          {languages.length > 2 && (
+            <select
+              value={langFilter}
+              onChange={(e) => setLangFilter(e.target.value)}
+              className="h-9 rounded-full border border-border bg-card px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+            >
+              {languages.map((l) => {
+                const flag = l === "All" ? null : LANGUAGES.find((x) => x.name === l)?.flag;
+                return <option key={l} value={l}>{l === "All" ? "All languages" : `${flag ?? ""} ${l}`}</option>;
+              })}
+            </select>
+          )}
           <button
-            onClick={() => setEnglishOnly((v) => !v)}
+            onClick={() => setRecruitingOnly((v) => !v)}
             className={`px-3.5 py-1.5 rounded-full text-sm font-medium border transition-colors ${
-              englishOnly
-                ? "bg-accent text-accent-foreground border-accent"
+              recruitingOnly
+                ? "bg-green-100 text-green-700 border-green-300 dark:bg-green-900/40 dark:text-green-400 dark:border-green-700"
                 : "bg-card border-border hover:bg-muted"
             }`}
           >
-            🌏 English-friendly
+            ✅ Recruiting only
           </button>
         </div>
       </div>
@@ -172,7 +212,6 @@ function CirclesPage() {
 
             <div className="mt-3 flex flex-wrap gap-1.5">
               {c.recruiting && <span className="chip bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-400">✅ Recruiting</span>}
-              {c.englishFriendly && <span className="chip chip-accent">🌏 English-friendly</span>}
               <span className="chip">📊 {c.activity}</span>
             </div>
 
@@ -192,7 +231,7 @@ function CirclesPage() {
                   <span>{relativeTime(c.updatedAt)}</span>
                 )}
               </div>
-              <span className="text-sm font-semibold text-primary shrink-0">View →</span>
+              <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-primary text-primary-foreground shrink-0">View →</span>
             </div>
           </article>
         ))}

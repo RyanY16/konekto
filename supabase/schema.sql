@@ -150,7 +150,11 @@ alter table public.circles add column if not exists primary_language text not nu
 alter table public.circles add column if not exists recruiting boolean not null default false;
 alter table public.circles add column if not exists recruiting_period text not null default '';
 alter table public.circles add column if not exists recruiting_conditions text not null default '';
+alter table public.circles add column if not exists membership_fee text not null default '';
 alter table public.events add column if not exists social_links jsonb not null default '{}'::jsonb;
+alter table public.events add column if not exists description text not null default '';
+alter table public.events add column if not exists owner_id uuid references auth.users(id);
+alter table public.events add column if not exists updated_at timestamptz;
 alter table public.deals add column if not exists social_links jsonb not null default '{}'::jsonb;
 alter table public.jobs add column if not exists social_links jsonb not null default '{}'::jsonb;
 alter table public.guides add column if not exists social_links jsonb not null default '{}'::jsonb;
@@ -221,23 +225,7 @@ create policy "Admin update guides" on public.guides for update using (public.is
 drop policy if exists "Public delete guides" on public.guides;
 create policy "Admin delete guides" on public.guides for delete using (public.is_admin());
 
-insert into public.circles (id, name, category, description, members, activity, english_friendly, commitment, emoji, tags) values
-  ('c1', 'Tokyo Tech Society', 'Tech', 'Hackathons, side projects, and AI study sessions every week.', 248, 'High', true, 'Regular', '💻', array['coding', 'ai', 'international-friendly']),
-  ('c2', 'Waseda Jazz Club', 'Music', 'Weekly jam sessions in Takadanobaba. All levels welcome.', 86, 'Medium', true, 'Casual', '🎷', array['music', 'performance']),
-  ('c3', 'Keio Finance Circle', 'Career', 'Markets, IB prep, and case competitions.', 312, 'High', false, 'Serious', '📈', array['finance', 'shukatsu']),
-  ('c4', 'Kyoto Hiking Crew', 'Outdoors', 'Monthly hikes around Kansai mountains.', 142, 'Medium', true, 'Casual', '🥾', array['outdoors', 'travel']),
-  ('c5', 'International Film Society', 'Arts', 'Screenings & discussions in English and Japanese.', 97, 'Low', true, 'Casual', '🎬', array['film', 'international-friendly']),
-  ('c6', 'Todai Robotics', 'Tech', 'Build, compete, repeat. Robocon every spring.', 64, 'High', false, 'Serious', '🤖', array['engineering', 'competition'])
-on conflict (id) do update set
-  name = excluded.name,
-  category = excluded.category,
-  description = excluded.description,
-  members = excluded.members,
-  activity = excluded.activity,
-  english_friendly = excluded.english_friendly,
-  commitment = excluded.commitment,
-  emoji = excluded.emoji,
-  tags = excluded.tags;
+-- Circle seed data removed; circles are managed via the app.
 
 insert into public.events (id, title, category, date, location, emoji, going, tags) values
   ('e1', 'International Welcome Mixer', 'Social', 'Fri, May 8 · 7:00 PM', 'Shibuya', '🥂', 124, array['international-friendly', 'free']),

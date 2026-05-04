@@ -1,5 +1,5 @@
 import { Link, Outlet, useRouterState } from "@tanstack/react-router";
-import { Home, Users, User } from "lucide-react";
+import { Home, Users, User, Calendar } from "lucide-react";
 import type { ComponentType } from "react";
 import { SettingsPopover } from "./SettingsPopover";
 import AuthProvider, { useAuth } from "@/components/AuthProvider";
@@ -10,6 +10,7 @@ type NavItem = { to: string; label: string; icon: ComponentType<{ className?: st
 const nav: NavItem[] = [
   { to: "/", label: "Home", icon: Home },
   { to: "/circles", label: "Circles", icon: Users },
+  { to: "/events", label: "Events", icon: Calendar },
   { to: "/profile", label: "Profile", icon: User },
 ];
 
@@ -99,7 +100,7 @@ function AuthNav({ isActive }: { isActive: (to: string) => boolean }) {
 function AuthBottomNav({ isActive }: { isActive: (to: string) => boolean }) {
   return (
     <nav className="md:hidden fixed bottom-0 inset-x-0 z-40 border-t border-border bg-background/95 backdrop-blur-md">
-      <div className="grid grid-cols-3 h-16">
+      <div className="grid grid-cols-4 h-16">
         {nav.map((item) => {
           const Icon = item.icon;
           const active = isActive(item.to);

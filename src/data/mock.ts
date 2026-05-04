@@ -20,6 +20,7 @@ export type Circle = {
   recruiting?: boolean;
   recruitingPeriod?: string;
   recruitingConditions?: string;
+  membershipFee?: string;
   ownerId?: string;
   updatedAt?: string;
 };
@@ -30,9 +31,13 @@ export type EventItem = {
   category: "Social" | "Career" | "Hackathon" | "Networking";
   date: string;
   location: string;
+  description?: string;
   emoji: string;
   going: number;
   tags: string[];
+  ownerId?: string;
+  updatedAt?: string;
+  socialLinks?: SocialLinks;
 };
 
 export type Deal = {

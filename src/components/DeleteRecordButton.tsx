@@ -34,8 +34,8 @@ export function DeleteRecordButton({
 
     try {
       await onDelete();
-      await router.invalidate();
       onDeleted?.();
+      router.invalidate();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not delete this item.");
     } finally {

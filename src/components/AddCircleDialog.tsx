@@ -73,19 +73,21 @@ export default function AddCircleDialog() {
         englishFriendly: form.get("englishFriendly") === "on",
         emoji: CATEGORY_EMOJI[cat] ?? "👥",
         university: university.trim() || undefined,
+        location: String(form.get("location") ?? "").trim() || undefined,
         primaryLanguage: primaryLanguage || undefined,
         recruiting,
         recruitingPeriod: recruiting ? String(form.get("recruitingPeriod") ?? "").trim() || undefined : undefined,
         recruitingConditions: recruiting ? String(form.get("recruitingConditions") ?? "").trim() || undefined : undefined,
+        membershipFee: String(form.get("membershipFee") ?? "").trim() || undefined,
         socialLinks: socialLinksFromForm(form),
         tags: selectedTags,
         ownerId: user?.id ?? null,
         iconUrl,
       });
 
-      await router.invalidate();
       setOpen(false);
       reset();
+      router.invalidate();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not add circle.");
     } finally {
@@ -177,6 +179,12 @@ export default function AddCircleDialog() {
             />
           </div>
 
+          {/* Specific location */}
+          <div className={field}>
+            <label className={lbl}>Specific location</label>
+            <Input name="location" placeholder="e.g. Building 14 Room 203, Main Campus Gate" />
+          </div>
+
           {/* Primary language */}
           <div className={field}>
             <label className={lbl}>Primary language</label>
@@ -215,6 +223,12 @@ export default function AddCircleDialog() {
                 </div>
               </div>
             )}
+          </div>
+
+          {/* Membership fee */}
+          <div className={field}>
+            <label className={lbl}>Membership fee</label>
+            <Input name="membershipFee" placeholder="e.g. Free, ¥3,000/year, ¥500/month" />
           </div>
 
           {/* Category / Activity */}

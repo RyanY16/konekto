@@ -22,6 +22,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import TagPicker from "@/components/TagPicker";
 import { DeleteRecordButton } from "@/components/DeleteRecordButton";
+import { ShareButton } from "@/components/ShareButton";
 import { useAuth } from "@/components/AuthProvider";
 import {
   deleteCircle,
@@ -69,13 +70,14 @@ type Draft = {
   description: string;
   category: string;
   activity: string;
-  englishFriendly: boolean;
   tags: string[];
   university: string;
+  location: string;
   primaryLanguage: string;
   recruiting: boolean;
   recruitingPeriod: string;
   recruitingConditions: string;
+  membershipFee: string;
   website: string;
   instagram: string;
   linkedin: string;
@@ -89,13 +91,14 @@ function toDraft(c: Circle): Draft {
     description: c.description,
     category: c.category,
     activity: c.activity,
-    englishFriendly: c.englishFriendly,
     tags: c.tags ?? [],
     university: c.university ?? "",
+    location: (c as any).location ?? "",
     primaryLanguage: c.primaryLanguage ?? "",
     recruiting: c.recruiting ?? false,
     recruitingPeriod: c.recruitingPeriod ?? "",
     recruitingConditions: c.recruitingConditions ?? "",
+    membershipFee: (c as any).membershipFee ?? "",
     website: sl.website ?? "",
     instagram: sl.instagram ?? "",
     linkedin: sl.linkedin ?? "",
@@ -214,9 +217,9 @@ function CircleDetailPage() {
     setTransferring(true);
     try {
       await transferCircleOwnership(circle.id, transferInput.trim().replace(/^@/, ""));
-      await router.invalidate();
       setShowTransfer(false);
       setTransferInput("");
+      router.invalidate();
     } catch (err) {
       setTransferError(err instanceof Error ? err.message : "Transfer failed");
     } finally {
@@ -274,13 +277,14 @@ function CircleDetailPage() {
         category: draft.category,
         emoji: CATEGORY_EMOJI[draft.category] ?? circle!.emoji,
         activity: draft.activity as Circle["activity"],
-        englishFriendly: draft.englishFriendly,
         tags: draft.tags,
         university: draft.university,
+        location: draft.location,
         primaryLanguage: draft.primaryLanguage,
         recruiting: draft.recruiting,
         recruitingPeriod: draft.recruitingPeriod,
         recruitingConditions: draft.recruitingConditions,
+        membershipFee: draft.membershipFee,
         socialLinks: {
           website: draft.website || undefined,
           instagram: draft.instagram || undefined,
@@ -289,8 +293,8 @@ function CircleDetailPage() {
         },
         iconUrl: newIconUrl,
       });
-      await router.invalidate();
       setEditing(false);
+      router.invalidate();
     } catch (err) {
       setSaveError(err instanceof Error ? err.message : "Save failed");
     } finally {
@@ -398,11 +402,20 @@ function CircleDetailPage() {
             </div>
 
             <div className="space-y-1">
-              <label className="text-xs font-medium text-muted-foreground">University / Location</label>
+              <label className="text-xs font-medium text-muted-foreground">University</label>
               <UniversityPicker
                 value={draft.university}
                 onChange={(v) => setDraft((d) => ({ ...d, university: v }))}
                 extraOptions={["Online", "No university"]}
+              />
+            </div>
+
+            <div className="space-y-1">
+              <label className="text-xs font-medium text-muted-foreground">Specific location</label>
+              <Input
+                value={draft.location}
+                onChange={(e) => setDraft((d) => ({ ...d, location: e.target.value }))}
+                placeholder="e.g. Building 14 Room 203, Main Campus Gate"
               />
             </div>
 
@@ -451,6 +464,15 @@ function CircleDetailPage() {
               )}
             </div>
 
+            <div className="space-y-1">
+              <label className="text-xs font-medium text-muted-foreground">Membership fee</label>
+              <Input
+                value={draft.membershipFee}
+                onChange={(e) => setDraft((d) => ({ ...d, membershipFee: e.target.value }))}
+                placeholder="e.g. Free, ¥3,000/year, ¥500/month"
+              />
+            </div>
+
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <div className="space-y-1">
                 <label className="text-xs font-medium text-muted-foreground">Category</label>
@@ -473,16 +495,6 @@ function CircleDetailPage() {
                 </select>
               </div>
             </div>
-
-            <label className="flex items-center gap-2 text-sm cursor-pointer">
-              <input
-                type="checkbox"
-                checked={draft.englishFriendly}
-                onChange={(e) => setDraft((d) => ({ ...d, englishFriendly: e.target.checked }))}
-                className="h-4 w-4"
-              />
-              English-friendly
-            </label>
 
             <div className="space-y-1">
               <label className="text-xs font-medium text-muted-foreground">Tags</label>
@@ -666,6 +678,9 @@ function CircleDetailPage() {
             {circle.university && (
               <p className="text-sm text-muted-foreground">🏫 {circle.university}</p>
             )}
+            {(circle as any).location && (
+              <p className="text-sm text-muted-foreground">📍 {(circle as any).location}</p>
+            )}
 
             {circle.primaryLanguage && (() => {
               const lang = LANGUAGES.find((l) => l.name === circle.primaryLanguage);
@@ -678,6 +693,10 @@ function CircleDetailPage() {
                 {circle.recruitingPeriod && <p className="text-xs text-muted-foreground">Period: {circle.recruitingPeriod}</p>}
                 {circle.recruitingConditions && <p className="text-xs text-muted-foreground">{circle.recruitingConditions}</p>}
               </div>
+            )}
+
+            {(circle as any).membershipFee && (
+              <p className="text-sm text-muted-foreground">💴 Membership fee: <span className="font-medium text-foreground">{(circle as any).membershipFee}</span></p>
             )}
 
             {ownerUsername && (
@@ -704,7 +723,6 @@ function CircleDetailPage() {
             )}
 
             <div className="flex flex-wrap gap-1.5 items-center">
-              {circle.englishFriendly && <span className="chip chip-accent">🌏 English-friendly</span>}
               {circle.tags.map((tag) => (
                 <span key={tag} className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${tagClass(tag)}`}>{tag}</span>
               ))}
@@ -724,17 +742,20 @@ function CircleDetailPage() {
             <Button size="sm" onClick={save} disabled={saving}>{saving ? "Saving…" : "Save"}</Button>
             <Button size="sm" variant="outline" onClick={cancelEditing} disabled={saving}>Cancel</Button>
           </div>
-        ) : canEdit ? (
+        ) : (
           <div className="absolute bottom-4 right-4 flex gap-1.5">
-            <button
-              onClick={startEditing}
-              className="text-xs text-muted-foreground hover:text-foreground border border-border rounded-md px-2.5 py-1 transition-colors"
-            >
-              Edit
-            </button>
+            <ShareButton title={circle.name} />
+            {canEdit && (
+              <button
+                onClick={startEditing}
+                className="text-xs text-muted-foreground hover:text-foreground border border-border rounded-md px-2.5 py-1 transition-colors"
+              >
+                Edit
+              </button>
+            )}
             {(isOwner || isAdmin) && <DeleteRecordButton label={circle.name} onDelete={handleDelete} />}
           </div>
-        ) : null}
+        )}
       </section>
     </div>
   );

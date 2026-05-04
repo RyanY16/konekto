@@ -43,6 +43,7 @@ export type Database = {
           icon_url: string | null;
           tags: string[];
           social_links: Json;
+          membership_fee: string | null;
           created_at: string;
           updated_at: string | null;
         };
@@ -59,14 +60,18 @@ export type Database = {
           category: "Social" | "Career" | "Hackathon" | "Networking";
           date: string;
           location: string;
+          description: string;
           emoji: string;
           going: number;
           tags: string[];
           social_links: Json;
+          owner_id: string | null;
           created_at: string;
+          updated_at: string | null;
         };
-        Insert: Omit<Database["public"]["Tables"]["events"]["Row"], "created_at"> & {
+        Insert: Omit<Database["public"]["Tables"]["events"]["Row"], "created_at" | "updated_at"> & {
           created_at?: string;
+          updated_at?: string;
         };
         Update: Partial<Database["public"]["Tables"]["events"]["Insert"]>;
       };

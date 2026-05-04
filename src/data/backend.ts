@@ -42,16 +42,43 @@ async function fromSupabase<TTable extends PublicTable, TItem>(
   return data.map((row) => mapRow(row as Row<TTable>));
 }
 
+function abortAfter(ms = 20_000): { signal: AbortSignal; cleanup: () => void } {
+  const controller = new AbortController();
+  const tid = setTimeout(() => controller.abort(), ms);
+  return { signal: controller.signal, cleanup: () => clearTimeout(tid) };
+}
+
+function throwAbort(error: any): never {
+  const msg: string = error?.message ?? String(error);
+  if (
+    error?.name === "AbortError" ||
+    msg.toLowerCase().includes("abort") ||
+    msg.toLowerCase().includes("cancelled")
+  ) {
+    throw new Error("Request timed out — please try again.");
+  }
+  throw new Error(msg);
+}
+
 async function insertSupabase<TTable extends PublicTable, TItem>(
   table: TTable,
   values: Insert<TTable>,
   mapRow: (row: Row<TTable>) => TItem,
 ): Promise<TItem> {
   const client = assertSupabase();
-  const { data, error } = await client.from(table).insert(values).select("*").single();
-
-  if (error) throw new Error(error.message);
-  return mapRow(data as Row<TTable>);
+  const { signal, cleanup } = abortAfter();
+  try {
+    const { data, error } = await (
+      client.from(table).insert(values).select("*").maybeSingle() as any
+    ).abortSignal(signal) as { data: Row<TTable> | null; error: any };
+    if (error) throw new Error(error.message);
+    if (!data) throw new Error("Insert succeeded but no row returned — check RLS policies.");
+    return mapRow(data as Row<TTable>);
+  } catch (err) {
+    throwAbort(err);
+  } finally {
+    cleanup();
+  }
 }
 
 async function updateSupabase<TTable extends PublicTable, TItem>(
@@ -61,20 +88,23 @@ async function updateSupabase<TTable extends PublicTable, TItem>(
   mapRow: (row: Row<TTable>) => TItem,
 ): Promise<TItem> {
   const client = assertSupabase();
-  const { data, error } = await client
-    .from(table)
-    .update(values)
-    .eq("id", id)
-    .select("*")
-    .maybeSingle();
-
-  if (error) throw new Error(error.message);
-  if (!data) {
-    throw new Error(
-      `Could not update ${table} record. It may not exist in Supabase, or your Row Level Security policy denied the update.`,
-    );
+  const { signal, cleanup } = abortAfter();
+  try {
+    const { data, error } = await (
+      client.from(table).update(values).eq("id", id).select("*").maybeSingle() as any
+    ).abortSignal(signal) as { data: Row<TTable> | null; error: any };
+    if (error) throw new Error(error.message);
+    if (!data) {
+      throw new Error(
+        `Could not update ${table} record. It may not exist in Supabase, or your Row Level Security policy denied the update.`,
+      );
+    }
+    return mapRow(data as Row<TTable>);
+  } catch (err) {
+    throwAbort(err);
+  } finally {
+    cleanup();
   }
-  return mapRow(data as Row<TTable>);
 }
 
 async function deleteSupabase(table: PublicTable, id: string): Promise<void> {
@@ -102,6 +132,7 @@ function mapCircle(row: Row<"circles">): Circle {
     recruiting: (row as any).recruiting ?? false,
     recruitingPeriod: (row as any).recruiting_period ?? undefined,
     recruitingConditions: (row as any).recruiting_conditions ?? undefined,
+    membershipFee: (row as any).membership_fee ?? undefined,
     socialLinks: normalizeSocialLinks(row.social_links),
     updatedAt: row.updated_at ?? row.created_at,
   };
@@ -114,9 +145,12 @@ function mapEvent(row: Row<"events">): EventItem {
     category: row.category,
     date: row.date,
     location: row.location,
+    description: row.description || undefined,
     emoji: row.emoji,
     going: row.going,
     tags: row.tags ?? [],
+    ownerId: row.owner_id ?? undefined,
+    updatedAt: row.updated_at ?? row.created_at,
     socialLinks: normalizeSocialLinks(row.social_links),
   };
 }
@@ -211,80 +245,133 @@ export async function getGuides(): Promise<Guide[]> {
 export async function addCircle(
   input: Omit<Circle, "id" | "members" | "ownerId"> & { members?: number; ownerId?: string | null; id?: string; iconUrl?: string },
 ) {
-  return insertSupabase(
-    "circles",
-    {
-      id: input.id ?? newId("circle"),
-      name: input.name,
-      category: input.category,
-      description: input.description,
-      members: input.members ?? 1,
-      activity: input.activity,
-      english_friendly: input.englishFriendly,
-      emoji: input.emoji,
-      owner_id: input.ownerId ?? null,
-      icon_url: input.iconUrl ?? null,
-      tags: input.tags,
-      university: input.university ?? "",
-      primary_language: input.primaryLanguage ?? "",
-      recruiting: input.recruiting ?? false,
-      recruiting_period: input.recruitingPeriod ?? "",
-      recruiting_conditions: input.recruitingConditions ?? "",
-      social_links: input.socialLinks ?? {},
-    },
-    mapCircle,
-  );
+  const client = assertSupabase();
+  const values = {
+    id: input.id ?? newId("circle"),
+    name: input.name,
+    category: input.category,
+    description: input.description,
+    members: input.members ?? 1,
+    activity: input.activity,
+    english_friendly: input.englishFriendly ?? false,
+    emoji: input.emoji,
+    owner_id: input.ownerId ?? null,
+    icon_url: input.iconUrl ?? null,
+    tags: input.tags,
+    university: input.university ?? "",
+    location: (input as any).location ?? "",
+    primary_language: input.primaryLanguage ?? "",
+    recruiting: input.recruiting ?? false,
+    recruiting_period: input.recruitingPeriod ?? "",
+    recruiting_conditions: input.recruitingConditions ?? "",
+    membership_fee: input.membershipFee ?? "",
+    social_links: input.socialLinks ?? {},
+  };
+
+  const { signal, cleanup } = abortAfter();
+  try {
+    const { error } = await (client.from("circles").insert(values) as any).abortSignal(signal) as { error: any };
+    if (error) throw new Error(error.message);
+  } catch (err) {
+    throwAbort(err);
+  } finally {
+    cleanup();
+  }
 }
 
 export async function updateCircle(
   id: string,
   input: Omit<Circle, "id" | "members"> & { members?: number },
 ) {
-  return updateSupabase(
-    "circles",
-    id,
-    {
-      name: input.name,
-      category: input.category,
-      description: input.description,
-      members: input.members,
-      activity: input.activity,
-      english_friendly: input.englishFriendly,
-      emoji: input.emoji,
-      icon_url: input.iconUrl ?? null,
-      ...(input.ownerId !== undefined ? { owner_id: input.ownerId } : {}),
-      tags: input.tags,
-      university: input.university ?? "",
-      primary_language: input.primaryLanguage ?? "",
-      recruiting: input.recruiting ?? false,
-      recruiting_period: input.recruitingPeriod ?? "",
-      recruiting_conditions: input.recruitingConditions ?? "",
-      social_links: input.socialLinks ?? {},
-    },
-    mapCircle,
-  );
+  const client = assertSupabase();
+  const values: Record<string, unknown> = {
+    name: input.name,
+    category: input.category,
+    description: input.description,
+    members: input.members,
+    activity: input.activity,
+    emoji: input.emoji,
+    icon_url: input.iconUrl ?? null,
+    ...(input.ownerId !== undefined ? { owner_id: input.ownerId } : {}),
+    tags: input.tags,
+    university: input.university ?? "",
+    location: (input as any).location ?? "",
+    primary_language: input.primaryLanguage ?? "",
+    recruiting: input.recruiting ?? false,
+    recruiting_period: input.recruitingPeriod ?? "",
+    recruiting_conditions: input.recruitingConditions ?? "",
+    membership_fee: input.membershipFee ?? "",
+    social_links: input.socialLinks ?? {},
+  };
+
+  const { signal, cleanup } = abortAfter();
+  try {
+    const { error } = await (client.from("circles").update(values).eq("id", id) as any).abortSignal(signal) as { error: any };
+    if (error) throw new Error(error.message);
+  } catch (err) {
+    throwAbort(err);
+  } finally {
+    cleanup();
+  }
 }
 
 export async function deleteCircle(id: string) {
   return deleteSupabase("circles", id);
 }
 
-export async function addEvent(input: Omit<EventItem, "id" | "going"> & { going?: number }) {
-  return insertSupabase(
-    "events",
-    {
-      id: newId("event"),
-      title: input.title,
-      category: input.category,
-      date: input.date,
-      location: input.location,
-      emoji: input.emoji,
-      going: input.going ?? 1,
-      tags: input.tags,
-      social_links: input.socialLinks ?? {},
-    },
-    mapEvent,
-  );
+export async function addEvent(
+  input: Omit<EventItem, "id" | "going"> & { going?: number; ownerId?: string },
+) {
+  const client = assertSupabase();
+  const values = {
+    id: newId("event"),
+    title: input.title,
+    category: input.category,
+    description: input.description ?? "",
+    date: input.date,
+    location: input.location,
+    emoji: input.emoji,
+    going: input.going ?? 1,
+    tags: input.tags,
+    social_links: input.socialLinks ?? {},
+    owner_id: input.ownerId ?? null,
+  };
+  const { signal, cleanup } = abortAfter();
+  try {
+    const { error } = await (client.from("events").insert(values) as any).abortSignal(signal) as { error: any };
+    if (error) throw new Error(error.message);
+  } catch (err) {
+    throwAbort(err);
+  } finally {
+    cleanup();
+  }
+}
+
+export async function updateEvent(
+  id: string,
+  input: Partial<Omit<EventItem, "id" | "going">>,
+) {
+  const client = assertSupabase();
+  const values: Record<string, unknown> = {};
+  if (input.title !== undefined) values.title = input.title;
+  if (input.category !== undefined) values.category = input.category;
+  if (input.description !== undefined) values.description = input.description;
+  if (input.date !== undefined) values.date = input.date;
+  if (input.location !== undefined) values.location = input.location;
+  if (input.emoji !== undefined) values.emoji = input.emoji;
+  if (input.tags !== undefined) values.tags = input.tags;
+  if (input.socialLinks !== undefined) values.social_links = input.socialLinks;
+  values.updated_at = new Date().toISOString();
+
+  const { signal, cleanup } = abortAfter();
+  try {
+    const { error } = await (client.from("events").update(values).eq("id", id) as any).abortSignal(signal) as { error: any };
+    if (error) throw new Error(error.message);
+  } catch (err) {
+    throwAbort(err);
+  } finally {
+    cleanup();
+  }
 }
 
 export async function deleteEvent(id: string) {
@@ -439,13 +526,26 @@ export async function upsertProfile(
   if (input.socialLinks !== undefined) fields.social_links = input.socialLinks;
   fields.updated_at = new Date().toISOString();
 
-  const { data, error } = await (client.from("users") as any)
-    .upsert(fields, { onConflict: "id" })
-    .select("*")
-    .single();
+  const { signal, cleanup } = abortAfter();
+  try {
+    const { data, error } = await (client.from("users") as any)
+      .upsert(fields, { onConflict: "id" })
+      .select("*")
+      .maybeSingle()
+      .abortSignal(signal);
 
-  if (error) throw new Error(error.message);
-  return mapUser(data as unknown as Row<"users">);
+    if (error) throw new Error(error.message);
+    if (!data) {
+      const { data: refetch } = await (client.from("users") as any).select("*").eq("id", userId).maybeSingle();
+      if (!refetch) throw new Error("Save succeeded but could not read back profile.");
+      return mapUser(refetch as unknown as Row<"users">);
+    }
+    return mapUser(data as unknown as Row<"users">);
+  } catch (err) {
+    throwAbort(err);
+  } finally {
+    cleanup();
+  }
 }
 
 export async function getCircleEditorIds(circleId: string): Promise<string[]> {
@@ -569,8 +669,22 @@ export async function getCircleByHandle(handle: string) {
 }
 
 export async function getEventByHandle(handle: string) {
-  const items = await getEvents();
-  return findByHandle(items, handle, getEventHandle, (item) => item.id);
+  try {
+    if (supabase) {
+      const { data: byId } = await supabase.from("events").select("*").eq("id", handle).maybeSingle();
+      if (byId) return mapEvent(byId as unknown as Row<"events">);
+      const { data: all, error } = await supabase.from("events").select("*").order("created_at");
+      if (!error && all) {
+        const items = all.map((r) => mapEvent(r as unknown as Row<"events">));
+        return findByHandle(items, handle, getEventHandle, (item) => item.id) ?? null;
+      }
+    }
+    const items = await getEvents();
+    return findByHandle(items, handle, getEventHandle, (item) => item.id) ?? null;
+  } catch {
+    const items = await getEvents().catch(() => []);
+    return findByHandle(items, handle, getEventHandle, (item) => item.id) ?? null;
+  }
 }
 
 export async function getDealByHandle(handle: string) {

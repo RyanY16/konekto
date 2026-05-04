@@ -174,7 +174,6 @@ function Dashboard() {
               <p className="text-xs text-muted-foreground">{c.category} · {c.members} members</p>
               <p className="mt-2 text-sm text-muted-foreground line-clamp-2">{c.description}</p>
               <div className="mt-3 flex flex-wrap gap-1.5">
-                {c.englishFriendly && <span className="chip chip-accent">🌏 English-friendly</span>}
                 <span className="chip">{c.activity} activity</span>
               </div>
             </article>
