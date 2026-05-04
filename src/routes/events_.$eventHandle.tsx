@@ -19,8 +19,14 @@ import {
   getProfile,
   getCircleByHandle,
   getCircleHandle,
+  getMyAttendance,
+  requestToAttend,
+  withdrawAttendance,
+  getEventAttendees,
+  updateAttendeeStatus,
 } from "@/data/backend";
 import type { Circle } from "@/data/mock";
+import type { AttendeeStatus, EventAttendee } from "@/data/backend";
 import { LANGUAGES } from "@/data/profile-options";
 import type { EventItem } from "@/data/mock";
 
@@ -79,6 +85,7 @@ type Draft = {
   date: string;
   location: string;
   online: boolean;
+  approvalRequired: boolean;
   cost: string;
   primaryLanguage: string;
   tags: string[];
@@ -98,6 +105,7 @@ function toDraft(e: EventItem): Draft {
     date: e.date,
     location: e.location,
     online: e.online ?? false,
+    approvalRequired: e.approvalRequired ?? false,
     cost: e.cost ?? "",
     primaryLanguage: e.primaryLanguage ?? "",
     tags: e.tags ?? [],
@@ -119,6 +127,10 @@ function EventDetailPage() {
   const [draft, setDraft] = useState<Draft>(event ? toDraft(event) : {} as Draft);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+  const [myStatus, setMyStatus] = useState<AttendeeStatus | null>(null);
+  const [rsvpLoading, setRsvpLoading] = useState(false);
+  const [attendees, setAttendees] = useState<EventAttendee[]>([]);
+  const [attendeesLoaded, setAttendeesLoaded] = useState(false);
 
   const isOwner = !!(user && event?.ownerId && user.id === event.ownerId);
   const canEdit = isOwner || isAdmin;
@@ -137,6 +149,16 @@ function EventDetailPage() {
       setLinkedCircles(results.filter(Boolean) as Circle[]);
     });
   }, [event?.circleIds?.join(",")]);
+
+  useEffect(() => {
+    if (!event?.id || !user || isOwner || isAdmin) return;
+    getMyAttendance(event.id, user.id).then(setMyStatus).catch(() => {});
+  }, [event?.id, user?.id, isOwner, isAdmin]);
+
+  useEffect(() => {
+    if (!event?.id || (!isOwner && !isAdmin)) return;
+    getEventAttendees(event.id).then((a) => { setAttendees(a); setAttendeesLoaded(true); }).catch(() => {});
+  }, [event?.id, isOwner, isAdmin]);
 
   if (!event) {
     return (
@@ -170,6 +192,7 @@ function EventDetailPage() {
         date: draft.date,
         location: draft.location,
         online: draft.online,
+        approvalRequired: draft.approvalRequired,
         emoji: CATEGORY_EMOJI[draft.category] || "📅",
         cost: draft.cost,
         primaryLanguage: draft.primaryLanguage,
@@ -260,17 +283,31 @@ function EventDetailPage() {
               />
             </div>
 
-            <div className="flex items-center gap-2">
-              <input
-                id="edit-online"
-                type="checkbox"
-                checked={draft.online}
-                onChange={(e) => setDraft((d) => ({ ...d, online: e.target.checked }))}
-                className="h-4 w-4 rounded border-input accent-primary"
-              />
-              <label htmlFor="edit-online" className="text-sm font-medium cursor-pointer select-none">
-                Online event
-              </label>
+            <div className="flex flex-wrap gap-x-6 gap-y-2">
+              <div className="flex items-center gap-2">
+                <input
+                  id="edit-online"
+                  type="checkbox"
+                  checked={draft.online}
+                  onChange={(e) => setDraft((d) => ({ ...d, online: e.target.checked }))}
+                  className="h-4 w-4 rounded border-input accent-primary"
+                />
+                <label htmlFor="edit-online" className="text-sm font-medium cursor-pointer select-none">
+                  Online event
+                </label>
+              </div>
+              <div className="flex items-center gap-2">
+                <input
+                  id="edit-approval"
+                  type="checkbox"
+                  checked={draft.approvalRequired}
+                  onChange={(e) => setDraft((d) => ({ ...d, approvalRequired: e.target.checked }))}
+                  className="h-4 w-4 rounded border-input accent-primary"
+                />
+                <label htmlFor="edit-approval" className="text-sm font-medium cursor-pointer select-none">
+                  Approval required
+                </label>
+              </div>
             </div>
 
             <div className="space-y-1">
@@ -457,8 +494,21 @@ function EventDetailPage() {
             <Button size="sm" variant="outline" onClick={cancelEditing} disabled={saving}>Cancel</Button>
           </div>
         ) : (
-          <div className="absolute bottom-4 right-4 flex gap-1.5">
+          <div className="absolute bottom-4 right-4 flex gap-1.5 items-center">
             <ShareButton title={event.title} />
+            {user && !canEdit && (
+              <RsvpButton
+                event={event}
+                userId={user.id}
+                status={myStatus}
+                loading={rsvpLoading}
+                onStatusChange={(s) => {
+                  setMyStatus(s);
+                  router.invalidate();
+                }}
+                setLoading={setRsvpLoading}
+              />
+            )}
             {canEdit && (
               <button
                 onClick={startEditing}
@@ -473,7 +523,165 @@ function EventDetailPage() {
           </div>
         )}
       </section>
+
+      {/* Attendees panel — owners/admins only */}
+      {!editing && (isOwner || isAdmin) && (
+        <section className="card-base p-6 mt-4 space-y-4">
+          <h2 className="font-semibold text-sm">
+            Attendees
+            {event.approvalRequired && (
+              <span className="ml-2 text-xs font-normal text-muted-foreground">(approval required)</span>
+            )}
+          </h2>
+          {!attendeesLoaded && <p className="text-sm text-muted-foreground">Loading…</p>}
+          {attendeesLoaded && attendees.length === 0 && (
+            <p className="text-sm text-muted-foreground">No requests yet.</p>
+          )}
+          {attendeesLoaded && (["pending", "approved", "declined"] as AttendeeStatus[]).map((statusGroup) => {
+            const group = attendees.filter((a) => a.status === statusGroup);
+            if (group.length === 0) return null;
+            const label = statusGroup === "pending" ? "Pending" : statusGroup === "approved" ? "Going" : "Declined";
+            return (
+              <div key={statusGroup}>
+                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">{label} · {group.length}</p>
+                <div className="space-y-2">
+                  {group.map((a) => (
+                    <div key={a.userId} className="flex items-center gap-3">
+                      <div className="h-8 w-8 rounded-full bg-muted flex items-center justify-center text-sm font-medium shrink-0 overflow-hidden">
+                        {a.avatarUrl ? (
+                          <img src={a.avatarUrl} alt={a.displayName} className="h-full w-full object-cover" />
+                        ) : (
+                          a.displayName[0]?.toUpperCase()
+                        )}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        {a.username ? (
+                          <Link
+                            to="/users/$username"
+                            params={{ username: a.username }}
+                            className="text-sm font-medium hover:underline"
+                          >
+                            @{a.username}
+                          </Link>
+                        ) : (
+                          <span className="text-sm font-medium">{a.displayName}</span>
+                        )}
+                      </div>
+                      {event.approvalRequired && statusGroup === "pending" && (
+                        <div className="flex gap-1.5 shrink-0">
+                          <button
+                            onClick={async () => {
+                              await updateAttendeeStatus(event, a.userId, "approved");
+                              setAttendees((prev) => prev.map((x) => x.userId === a.userId ? { ...x, status: "approved" } : x));
+                              router.invalidate();
+                            }}
+                            className="text-xs px-2.5 py-1 rounded-md bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
+                          >
+                            Approve
+                          </button>
+                          <button
+                            onClick={async () => {
+                              await updateAttendeeStatus(event, a.userId, "declined");
+                              setAttendees((prev) => prev.map((x) => x.userId === a.userId ? { ...x, status: "declined" } : x));
+                            }}
+                            className="text-xs px-2.5 py-1 rounded-md border border-border hover:bg-muted transition-colors"
+                          >
+                            Decline
+                          </button>
+                        </div>
+                      )}
+                      {event.approvalRequired && statusGroup === "approved" && (
+                        <button
+                          onClick={async () => {
+                            await updateAttendeeStatus(event, a.userId, "declined");
+                            setAttendees((prev) => prev.map((x) => x.userId === a.userId ? { ...x, status: "declined" } : x));
+                            router.invalidate();
+                          }}
+                          className="text-xs px-2.5 py-1 rounded-md border border-border hover:bg-muted transition-colors shrink-0"
+                        >
+                          Remove
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            );
+          })}
+        </section>
+      )}
     </div>
+  );
+}
+
+function RsvpButton({
+  event,
+  userId,
+  status,
+  loading,
+  onStatusChange,
+  setLoading,
+}: {
+  event: EventItem;
+  userId: string;
+  status: AttendeeStatus | null;
+  loading: boolean;
+  onStatusChange: (s: AttendeeStatus | null) => void;
+  setLoading: (v: boolean) => void;
+}) {
+  if (status === "approved") {
+    return (
+      <button
+        disabled={loading}
+        onClick={async () => {
+          setLoading(true);
+          try { await withdrawAttendance(event.id, userId); onStatusChange(null); }
+          finally { setLoading(false); }
+        }}
+        className="text-xs px-3 py-1 rounded-full bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-400 border border-green-300 dark:border-green-700 hover:bg-green-200 dark:hover:bg-green-900/60 transition-colors"
+      >
+        ✓ Going
+      </button>
+    );
+  }
+  if (status === "pending") {
+    return (
+      <button
+        disabled={loading}
+        onClick={async () => {
+          setLoading(true);
+          try { await withdrawAttendance(event.id, userId); onStatusChange(null); }
+          finally { setLoading(false); }
+        }}
+        className="text-xs px-3 py-1 rounded-full bg-muted text-muted-foreground border border-border hover:bg-muted/80 transition-colors"
+      >
+        ⏳ Pending · Cancel
+      </button>
+    );
+  }
+  if (status === "declined") {
+    return (
+      <span className="text-xs px-3 py-1 rounded-full bg-muted text-muted-foreground border border-border">
+        Not approved
+      </span>
+    );
+  }
+  return (
+    <button
+      disabled={loading}
+      onClick={async () => {
+        setLoading(true);
+        try {
+          await requestToAttend(event, userId);
+          onStatusChange(event.approvalRequired ? "pending" : "approved");
+        } finally {
+          setLoading(false);
+        }
+      }}
+      className="text-xs px-3 py-1 rounded-full bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
+    >
+      {loading ? "…" : event.approvalRequired ? "Request to attend" : "Want to go"}
+    </button>
   );
 }
 

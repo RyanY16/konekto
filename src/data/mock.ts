@@ -42,6 +42,7 @@ export type EventItem = {
   socialLinks?: SocialLinks;
   circleIds?: string[];
   online?: boolean;
+  approvalRequired?: boolean;
 };
 
 export type Deal = {

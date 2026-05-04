@@ -24,6 +24,16 @@ export type Database = {
         };
         Update: Partial<Database["public"]["Tables"]["users"]["Insert"]>;
       };
+      event_attendees: {
+        Row: { event_id: string; user_id: string; status: "pending" | "approved" | "declined"; created_at: string };
+        Insert: { event_id: string; user_id: string; status?: string; created_at?: string };
+        Update: Partial<{ status: string }>;
+      };
+      notifications: {
+        Row: { id: string; user_id: string; type: string; payload: Json; read: boolean; created_at: string };
+        Insert: { id?: string; user_id: string; type: string; payload?: Json; read?: boolean; created_at?: string };
+        Update: Partial<{ read: boolean }>;
+      };
       user_circles: {
         Row: { user_id: string; circle_id: string; joined_at: string };
         Insert: { user_id: string; circle_id: string; joined_at?: string };
@@ -70,6 +80,7 @@ export type Database = {
           owner_id: string | null;
           circle_ids: string[];
           online: boolean;
+          approval_required: boolean;
           created_at: string;
           updated_at: string | null;
         };
@@ -78,6 +89,7 @@ export type Database = {
           updated_at?: string;
           circle_ids?: string[];
           online?: boolean;
+          approval_required?: boolean;
         };
         Update: Partial<Database["public"]["Tables"]["events"]["Insert"]>;
       };

@@ -39,6 +39,7 @@ export default function AddEventDialog() {
   const [location, setLocation] = useState("");
   const [primaryLanguage, setPrimaryLanguage] = useState("");
   const [online, setOnline] = useState(false);
+  const [approvalRequired, setApprovalRequired] = useState(false);
   const formRef = useRef<HTMLFormElement>(null);
 
   function reset() {
@@ -48,6 +49,7 @@ export default function AddEventDialog() {
     setLocation("");
     setPrimaryLanguage("");
     setOnline(false);
+    setApprovalRequired(false);
     setError("");
     formRef.current?.reset();
   }
@@ -75,6 +77,7 @@ export default function AddEventDialog() {
         ownerId: user?.id,
         circleIds: selectedCircleIds,
         online,
+        approvalRequired,
       });
 
       setOpen(false);
@@ -138,18 +141,32 @@ export default function AddEventDialog() {
             <Input name="date" placeholder="e.g. Fri, May 8 · 7:00 PM" required />
           </div>
 
-          {/* Online checkbox */}
-          <div className="flex items-center gap-2">
-            <input
-              id="add-online"
-              type="checkbox"
-              checked={online}
-              onChange={(e) => setOnline(e.target.checked)}
-              className="h-4 w-4 rounded border-input accent-primary"
-            />
-            <label htmlFor="add-online" className="text-sm font-medium cursor-pointer select-none">
-              Online event
-            </label>
+          {/* Online + approval checkboxes */}
+          <div className="flex flex-wrap gap-x-6 gap-y-2">
+            <div className="flex items-center gap-2">
+              <input
+                id="add-online"
+                type="checkbox"
+                checked={online}
+                onChange={(e) => setOnline(e.target.checked)}
+                className="h-4 w-4 rounded border-input accent-primary"
+              />
+              <label htmlFor="add-online" className="text-sm font-medium cursor-pointer select-none">
+                Online event
+              </label>
+            </div>
+            <div className="flex items-center gap-2">
+              <input
+                id="add-approval"
+                type="checkbox"
+                checked={approvalRequired}
+                onChange={(e) => setApprovalRequired(e.target.checked)}
+                className="h-4 w-4 rounded border-input accent-primary"
+              />
+              <label htmlFor="add-approval" className="text-sm font-medium cursor-pointer select-none">
+                Approval required
+              </label>
+            </div>
           </div>
 
           {/* Location with maps preview */}

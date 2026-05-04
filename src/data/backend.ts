@@ -156,6 +156,7 @@ function mapEvent(row: Row<"events">): EventItem {
     socialLinks: normalizeSocialLinks(row.social_links),
     circleIds: row.circle_ids ?? [],
     online: row.online ?? false,
+    approvalRequired: row.approval_required ?? false,
   };
 }
 
@@ -343,6 +344,7 @@ export async function addEvent(
     owner_id: input.ownerId ?? null,
     circle_ids: input.circleIds ?? [],
     online: input.online ?? false,
+    approval_required: input.approvalRequired ?? false,
   };
   const { signal, cleanup } = abortAfter();
   try {
@@ -373,6 +375,7 @@ export async function updateEvent(
   if (input.socialLinks !== undefined) values.social_links = input.socialLinks;
   if (input.circleIds !== undefined) values.circle_ids = input.circleIds;
   if (input.online !== undefined) values.online = input.online;
+  if (input.approvalRequired !== undefined) values.approval_required = input.approvalRequired;
   values.updated_at = new Date().toISOString();
 
   const { signal, cleanup } = abortAfter();
@@ -781,6 +784,173 @@ export async function searchAll(q: string): Promise<SearchResult[]> {
     }));
 
   return [...circles, ...people];
+}
+
+// ─── Event Attendees ────────────────────────────────────────────────────────
+
+export type AttendeeStatus = "pending" | "approved" | "declined";
+
+export type EventAttendee = {
+  userId: string;
+  username: string | null;
+  displayName: string;
+  avatarUrl: string | null;
+  status: AttendeeStatus;
+  createdAt: string;
+};
+
+export async function getMyAttendance(eventId: string, userId: string): Promise<AttendeeStatus | null> {
+  if (!supabase) return null;
+  const { data } = await (supabase.from("event_attendees") as any)
+    .select("status")
+    .eq("event_id", eventId)
+    .eq("user_id", userId)
+    .maybeSingle();
+  return (data?.status as AttendeeStatus) ?? null;
+}
+
+export async function requestToAttend(event: Pick<EventItem, "id" | "title" | "ownerId" | "approvalRequired">, userId: string): Promise<void> {
+  const client = assertSupabase();
+  const status = event.approvalRequired ? "pending" : "approved";
+
+  const { error } = await (client.from("event_attendees") as any)
+    .insert({ event_id: event.id, user_id: userId, status });
+  if (error) throw new Error(error.message);
+
+  if (!event.approvalRequired) {
+    await client.rpc("increment_going" as any, { p_event_id: event.id } as any);
+  }
+
+  if (event.approvalRequired && event.ownerId) {
+    await insertNotification(event.ownerId, "event_request", {
+      eventId: event.id,
+      eventTitle: event.title,
+      requesterId: userId,
+    });
+  }
+}
+
+export async function withdrawAttendance(eventId: string, userId: string): Promise<void> {
+  const client = assertSupabase();
+  const { data: existing } = await (client.from("event_attendees") as any)
+    .select("status")
+    .eq("event_id", eventId)
+    .eq("user_id", userId)
+    .maybeSingle();
+
+  const { error } = await (client.from("event_attendees") as any)
+    .delete()
+    .eq("event_id", eventId)
+    .eq("user_id", userId);
+  if (error) throw new Error(error.message);
+
+  if (existing?.status === "approved") {
+    await client.rpc("decrement_going" as any, { p_event_id: eventId } as any);
+  }
+}
+
+export async function getEventAttendees(eventId: string): Promise<EventAttendee[]> {
+  if (!supabase) return [];
+  const { data } = await (supabase.from("event_attendees") as any)
+    .select("user_id, status, created_at")
+    .eq("event_id", eventId)
+    .order("created_at");
+  if (!data || data.length === 0) return [];
+
+  const ids = data.map((r: any) => r.user_id as string);
+  const profiles = await getProfilesByIds(ids).catch(() => [] as UserProfile[]);
+  const profileMap = new Map(profiles.map((p) => [p.id, p]));
+
+  return data.map((r: any) => {
+    const p = profileMap.get(r.user_id);
+    return {
+      userId: r.user_id,
+      username: p?.username ?? null,
+      displayName: p?.displayName ?? r.user_id,
+      avatarUrl: p?.avatarUrl ?? null,
+      status: r.status as AttendeeStatus,
+      createdAt: r.created_at,
+    };
+  });
+}
+
+export async function updateAttendeeStatus(
+  event: Pick<EventItem, "id" | "title" | "ownerId">,
+  userId: string,
+  newStatus: "approved" | "declined",
+): Promise<void> {
+  const client = assertSupabase();
+
+  const { data: existing } = await (client.from("event_attendees") as any)
+    .select("status")
+    .eq("event_id", event.id)
+    .eq("user_id", userId)
+    .maybeSingle();
+
+  const { error } = await (client.from("event_attendees") as any)
+    .update({ status: newStatus })
+    .eq("event_id", event.id)
+    .eq("user_id", userId);
+  if (error) throw new Error(error.message);
+
+  if (newStatus === "approved" && existing?.status !== "approved") {
+    await client.rpc("increment_going" as any, { p_event_id: event.id } as any);
+  } else if (newStatus === "declined" && existing?.status === "approved") {
+    await client.rpc("decrement_going" as any, { p_event_id: event.id } as any);
+  }
+
+  await insertNotification(userId, newStatus === "approved" ? "event_approved" : "event_declined", {
+    eventId: event.id,
+    eventTitle: event.title,
+  });
+}
+
+// ─── Notifications ───────────────────────────────────────────────────────────
+
+export type AppNotification = {
+  id: string;
+  type: string;
+  payload: Record<string, any>;
+  read: boolean;
+  createdAt: string;
+};
+
+async function insertNotification(userId: string, type: string, payload: Record<string, any>): Promise<void> {
+  if (!supabase) return;
+  await (supabase.from("notifications") as any).insert({ user_id: userId, type, payload });
+}
+
+export async function getNotifications(userId: string): Promise<AppNotification[]> {
+  if (!supabase) return [];
+  const { data } = await (supabase.from("notifications") as any)
+    .select("*")
+    .eq("user_id", userId)
+    .order("created_at", { ascending: false })
+    .limit(30);
+  return (data ?? []).map((r: any) => ({
+    id: r.id,
+    type: r.type,
+    payload: r.payload ?? {},
+    read: r.read,
+    createdAt: r.created_at,
+  }));
+}
+
+export async function getUnreadCount(userId: string): Promise<number> {
+  if (!supabase) return 0;
+  const { count } = await (supabase.from("notifications") as any)
+    .select("*", { count: "exact", head: true })
+    .eq("user_id", userId)
+    .eq("read", false);
+  return count ?? 0;
+}
+
+export async function markAllNotificationsRead(userId: string): Promise<void> {
+  if (!supabase) return;
+  await (supabase.from("notifications") as any)
+    .update({ read: true })
+    .eq("user_id", userId)
+    .eq("read", false);
 }
 
 export async function searchUsers(q: string): Promise<{ id: string; username: string; displayName: string; avatarUrl: string | null }[]> {

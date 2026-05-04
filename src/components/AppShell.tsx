@@ -4,6 +4,7 @@ import type { ComponentType } from "react";
 import { SettingsPopover } from "./SettingsPopover";
 import AuthProvider, { useAuth } from "@/components/AuthProvider";
 import { GlobalSearch } from "@/components/GlobalSearch";
+import { NotificationsDropdown } from "@/components/NotificationsDropdown";
 
 type NavItem = { to: string; label: string; icon: ComponentType<{ className?: string }> };
 
@@ -55,6 +56,7 @@ export function AppShell() {
             </div>
             <div className="flex items-center gap-1 shrink-0">
               <AuthNav isActive={isActive} />
+              <NotificationsButton />
               <SettingsPopover />
               <div className="flex items-center gap-2">
                 <AuthControls />
@@ -123,6 +125,16 @@ function AuthBottomNav({ isActive }: { isActive: (to: string) => boolean }) {
       </div>
     </nav>
   );
+}
+
+function NotificationsButton() {
+  try {
+    const { user } = useAuth();
+    if (!user) return null;
+    return <NotificationsDropdown userId={user.id} />;
+  } catch {
+    return null;
+  }
 }
 
 function AuthControls() {

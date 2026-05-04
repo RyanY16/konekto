@@ -159,6 +159,71 @@ alter table public.events add column if not exists cost text not null default ''
 alter table public.events add column if not exists primary_language text not null default '';
 alter table public.events add column if not exists circle_ids text[] not null default '{}';
 alter table public.events add column if not exists online boolean not null default false;
+alter table public.events add column if not exists approval_required boolean not null default false;
+
+-- ─── Event Attendees ──────────────────────────────────────────────────────────
+create table if not exists public.event_attendees (
+  event_id text not null references public.events(id) on delete cascade,
+  user_id uuid not null references auth.users(id) on delete cascade,
+  status text not null default 'pending' check (status in ('pending', 'approved', 'declined')),
+  created_at timestamptz not null default now(),
+  primary key (event_id, user_id)
+);
+alter table public.event_attendees enable row level security;
+drop policy if exists "Attendees visible to self and event owner" on public.event_attendees;
+create policy "Attendees visible to self and event owner" on public.event_attendees for select
+  using (
+    auth.uid() = user_id
+    or exists (select 1 from public.events where id = event_id and owner_id = auth.uid())
+    or public.is_admin()
+  );
+drop policy if exists "Users can request to attend" on public.event_attendees;
+create policy "Users can request to attend" on public.event_attendees for insert
+  with check (auth.uid() = user_id);
+drop policy if exists "Owner or admin can update attendance" on public.event_attendees;
+create policy "Owner or admin can update attendance" on public.event_attendees for update
+  using (
+    exists (select 1 from public.events where id = event_id and owner_id = auth.uid())
+    or public.is_admin()
+  );
+drop policy if exists "Self or owner can delete attendance" on public.event_attendees;
+create policy "Self or owner can delete attendance" on public.event_attendees for delete
+  using (
+    auth.uid() = user_id
+    or exists (select 1 from public.events where id = event_id and owner_id = auth.uid())
+    or public.is_admin()
+  );
+
+-- ─── Notifications ────────────────────────────────────────────────────────────
+create table if not exists public.notifications (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users(id) on delete cascade,
+  type text not null,
+  payload jsonb not null default '{}'::jsonb,
+  read boolean not null default false,
+  created_at timestamptz not null default now()
+);
+alter table public.notifications enable row level security;
+drop policy if exists "Users can read own notifications" on public.notifications;
+create policy "Users can read own notifications" on public.notifications for select
+  using (auth.uid() = user_id);
+drop policy if exists "Authenticated can insert notifications" on public.notifications;
+create policy "Authenticated can insert notifications" on public.notifications for insert
+  with check (auth.uid() is not null);
+drop policy if exists "Users can update own notifications" on public.notifications;
+create policy "Users can update own notifications" on public.notifications for update
+  using (auth.uid() = user_id);
+
+-- ─── Helper RPCs ─────────────────────────────────────────────────────────────
+create or replace function public.increment_going(p_event_id text)
+returns void language sql security definer as $$
+  update public.events set going = going + 1 where id = p_event_id;
+$$;
+
+create or replace function public.decrement_going(p_event_id text)
+returns void language sql security definer as $$
+  update public.events set going = greatest(going - 1, 0) where id = p_event_id;
+$$;
 alter table public.deals add column if not exists social_links jsonb not null default '{}'::jsonb;
 alter table public.jobs add column if not exists social_links jsonb not null default '{}'::jsonb;
 alter table public.guides add column if not exists social_links jsonb not null default '{}'::jsonb;

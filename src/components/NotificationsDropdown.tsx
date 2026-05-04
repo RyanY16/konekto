@@ -1,0 +1,140 @@
+import { useEffect, useRef, useState } from "react";
+import { Bell } from "lucide-react";
+import { Link } from "@tanstack/react-router";
+import {
+  getNotifications,
+  getUnreadCount,
+  markAllNotificationsRead,
+  getEventHandle,
+} from "@/data/backend";
+import type { AppNotification } from "@/data/backend";
+
+function timeAgo(iso: string): string {
+  const diff = Date.now() - new Date(iso).getTime();
+  const mins = Math.floor(diff / 60_000);
+  if (mins < 1) return "Just now";
+  if (mins < 60) return `${mins}m ago`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs}h ago`;
+  return `${Math.floor(hrs / 24)}d ago`;
+}
+
+function notifLabel(n: AppNotification): { text: string; to?: string } {
+  const p = n.payload;
+  const handle = p.eventId ? `${p.eventId}` : undefined;
+  if (n.type === "event_request") {
+    return {
+      text: `Someone wants to attend "${p.eventTitle}"`,
+      to: handle ? `/events/${handle}` : undefined,
+    };
+  }
+  if (n.type === "event_approved") {
+    return {
+      text: `You're approved for "${p.eventTitle}" 🎉`,
+      to: handle ? `/events/${handle}` : undefined,
+    };
+  }
+  if (n.type === "event_declined") {
+    return {
+      text: `Your request for "${p.eventTitle}" was declined`,
+      to: handle ? `/events/${handle}` : undefined,
+    };
+  }
+  return { text: n.type };
+}
+
+export function NotificationsDropdown({ userId }: { userId: string }) {
+  const [open, setOpen] = useState(false);
+  const [unread, setUnread] = useState(0);
+  const [notifs, setNotifs] = useState<AppNotification[]>([]);
+  const [loaded, setLoaded] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    getUnreadCount(userId).then(setUnread).catch(() => {});
+  }, [userId]);
+
+  useEffect(() => {
+    if (!open || loaded) return;
+    getNotifications(userId).then((ns) => {
+      setNotifs(ns);
+      setLoaded(true);
+      setUnread(0);
+      markAllNotificationsRead(userId).catch(() => {});
+    });
+  }, [open, loaded, userId]);
+
+  useEffect(() => {
+    function handleClick(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    }
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, []);
+
+  return (
+    <div ref={ref} className="relative">
+      <button
+        onClick={() => setOpen((v) => !v)}
+        className="relative p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+        aria-label="Notifications"
+      >
+        <Bell className="h-5 w-5" />
+        {unread > 0 && (
+          <span className="absolute top-1 right-1 h-4 w-4 flex items-center justify-center rounded-full bg-primary text-primary-foreground text-[10px] font-bold">
+            {unread > 9 ? "9+" : unread}
+          </span>
+        )}
+      </button>
+
+      {open && (
+        <div className="absolute right-0 mt-1 w-80 rounded-xl border border-border bg-popover shadow-pop z-50 overflow-hidden">
+          <div className="flex items-center justify-between px-4 py-3 border-b border-border">
+            <span className="text-sm font-semibold">Notifications</span>
+            {notifs.some((n) => !n.read) && (
+              <button
+                onClick={() => {
+                  markAllNotificationsRead(userId);
+                  setNotifs((ns) => ns.map((n) => ({ ...n, read: true })));
+                }}
+                className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+              >
+                Mark all read
+              </button>
+            )}
+          </div>
+
+          <div className="max-h-[22rem] overflow-y-auto">
+            {!loaded && (
+              <div className="p-4 space-y-3">
+                {[...Array(3)].map((_, i) => (
+                  <div key={i} className="h-10 bg-muted rounded animate-pulse" />
+                ))}
+              </div>
+            )}
+            {loaded && notifs.length === 0 && (
+              <p className="text-sm text-muted-foreground text-center py-8">No notifications yet</p>
+            )}
+            {loaded && notifs.map((n) => {
+              const { text, to } = notifLabel(n);
+              const inner = (
+                <div className={`px-4 py-3 flex gap-3 items-start hover:bg-muted transition-colors ${!n.read ? "bg-primary/5" : ""}`}>
+                  <div className={`mt-0.5 h-2 w-2 rounded-full shrink-0 ${!n.read ? "bg-primary" : "bg-transparent"}`} />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm leading-snug">{text}</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">{timeAgo(n.createdAt)}</p>
+                  </div>
+                </div>
+              );
+              return to ? (
+                <Link key={n.id} to={to as any} onClick={() => setOpen(false)}>{inner}</Link>
+              ) : (
+                <div key={n.id}>{inner}</div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
