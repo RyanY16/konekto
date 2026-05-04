@@ -55,7 +55,6 @@ export default function AddEventDialog() {
 
     try {
       const cat = String(form.get("category") ?? EVENT_CATEGORIES[0]);
-      const emojiInput = String(form.get("emoji") ?? "").trim();
 
       await addEvent({
         title: String(form.get("title") ?? "").trim(),
@@ -63,7 +62,7 @@ export default function AddEventDialog() {
         category: cat as (typeof EVENT_CATEGORIES)[number],
         date: String(form.get("date") ?? "").trim(),
         location,
-        emoji: emojiInput || CATEGORY_EMOJI[cat] || "📅",
+        emoji: CATEGORY_EMOJI[cat] || "📅",
         tags: selectedTags,
         cost: String(form.get("cost") ?? "").trim() || undefined,
         primaryLanguage: primaryLanguage || undefined,
@@ -110,26 +109,20 @@ export default function AddEventDialog() {
             <Textarea name="description" placeholder="What's this event about?" rows={4} />
           </div>
 
-          {/* Category + Emoji */}
-          <div className="grid grid-cols-2 gap-3">
-            <div className={field}>
-              <label className={lbl}>Category</label>
-              <select
-                name="category"
-                className={sel}
-                required
-                value={category}
-                onChange={(e) => setCategory(e.target.value)}
-              >
-                {EVENT_CATEGORIES.map((c) => (
-                  <option key={c} value={c}>{CATEGORY_EMOJI[c]} {c}</option>
-                ))}
-              </select>
-            </div>
-            <div className={field}>
-              <label className={lbl}>Emoji</label>
-              <Input name="emoji" placeholder={CATEGORY_EMOJI[category] ?? "📅"} maxLength={4} />
-            </div>
+          {/* Category */}
+          <div className={field}>
+            <label className={lbl}>Category</label>
+            <select
+              name="category"
+              className={sel}
+              required
+              value={category}
+              onChange={(e) => setCategory(e.target.value)}
+            >
+              {EVENT_CATEGORIES.map((c) => (
+                <option key={c} value={c}>{CATEGORY_EMOJI[c]} {c}</option>
+              ))}
+            </select>
           </div>
 
           {/* Date & time */}

@@ -2,6 +2,13 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState } from "react";
 import { Users, MapPin, Calendar, Search } from "lucide-react";
 import { events as mockEvents } from "@/data/mock";
+
+const CATEGORY_EMOJI: Record<string, string> = {
+  Social: "🥂",
+  Career: "💼",
+  Hackathon: "⚡",
+  Networking: "🚀",
+};
 import { PageHeader } from "@/components/PageHeader";
 import { SaveButton } from "@/components/SaveButton";
 import AddEventDialog from "@/components/AddEventDialog";
@@ -157,7 +164,7 @@ function EventsPage() {
               aria-label={`View ${e.title}`}
             />
             <div className="h-28 bg-gradient-to-br from-primary-soft to-accent-soft flex items-center justify-center text-5xl shrink-0">
-              {e.emoji}
+              {CATEGORY_EMOJI[e.category] || "📅"}
             </div>
             <div className="p-5 flex flex-col flex-1">
               <div className="flex items-center justify-between">

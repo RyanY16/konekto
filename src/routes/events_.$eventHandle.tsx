@@ -74,7 +74,6 @@ type Draft = {
   category: string;
   date: string;
   location: string;
-  emoji: string;
   cost: string;
   primaryLanguage: string;
   tags: string[];
@@ -92,7 +91,6 @@ function toDraft(e: EventItem): Draft {
     category: e.category,
     date: e.date,
     location: e.location,
-    emoji: e.emoji,
     cost: e.cost ?? "",
     primaryLanguage: e.primaryLanguage ?? "",
     tags: e.tags ?? [],
@@ -154,7 +152,7 @@ function EventDetailPage() {
         category: draft.category as EventItem["category"],
         date: draft.date,
         location: draft.location,
-        emoji: draft.emoji || CATEGORY_EMOJI[draft.category] || "📅",
+        emoji: CATEGORY_EMOJI[draft.category] || "📅",
         cost: draft.cost,
         primaryLanguage: draft.primaryLanguage,
         tags: draft.tags,
@@ -221,28 +219,17 @@ function EventDetailPage() {
               />
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1">
-                <label className="text-xs font-medium text-muted-foreground">Category</label>
-                <select
-                  value={draft.category}
-                  onChange={(e) => setDraft((d) => ({ ...d, category: e.target.value }))}
-                  className={sel}
-                >
-                  {EVENT_CATEGORIES.map((c) => (
-                    <option key={c} value={c}>{CATEGORY_EMOJI[c]} {c}</option>
-                  ))}
-                </select>
-              </div>
-              <div className="space-y-1">
-                <label className="text-xs font-medium text-muted-foreground">Emoji</label>
-                <Input
-                  value={draft.emoji}
-                  onChange={(e) => setDraft((d) => ({ ...d, emoji: e.target.value }))}
-                  placeholder={CATEGORY_EMOJI[draft.category] ?? "📅"}
-                  maxLength={4}
-                />
-              </div>
+            <div className="space-y-1">
+              <label className="text-xs font-medium text-muted-foreground">Category</label>
+              <select
+                value={draft.category}
+                onChange={(e) => setDraft((d) => ({ ...d, category: e.target.value }))}
+                className={sel}
+              >
+                {EVENT_CATEGORIES.map((c) => (
+                  <option key={c} value={c}>{CATEGORY_EMOJI[c]} {c}</option>
+                ))}
+              </select>
             </div>
 
             <div className="space-y-1">
@@ -335,7 +322,7 @@ function EventDetailPage() {
           <>
             <div className="flex items-center gap-4">
               <div className="w-16 h-16 rounded-xl bg-gradient-to-br from-primary-soft to-accent-soft flex items-center justify-center text-4xl shrink-0">
-                {event.emoji}
+                {CATEGORY_EMOJI[event.category] || "📅"}
               </div>
               <span className="chip chip-primary">{event.category}</span>
             </div>
