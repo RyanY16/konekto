@@ -35,6 +35,8 @@ export type EventItem = {
   emoji: string;
   going: number;
   tags: string[];
+  cost?: string;
+  primaryLanguage?: string;
   ownerId?: string;
   updatedAt?: string;
   socialLinks?: SocialLinks;

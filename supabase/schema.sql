@@ -155,6 +155,8 @@ alter table public.events add column if not exists social_links jsonb not null d
 alter table public.events add column if not exists description text not null default '';
 alter table public.events add column if not exists owner_id uuid references auth.users(id);
 alter table public.events add column if not exists updated_at timestamptz;
+alter table public.events add column if not exists cost text not null default '';
+alter table public.events add column if not exists primary_language text not null default '';
 alter table public.deals add column if not exists social_links jsonb not null default '{}'::jsonb;
 alter table public.jobs add column if not exists social_links jsonb not null default '{}'::jsonb;
 alter table public.guides add column if not exists social_links jsonb not null default '{}'::jsonb;

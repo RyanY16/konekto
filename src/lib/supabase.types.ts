@@ -65,6 +65,8 @@ export type Database = {
           going: number;
           tags: string[];
           social_links: Json;
+          cost: string | null;
+          primary_language: string | null;
           owner_id: string | null;
           created_at: string;
           updated_at: string | null;

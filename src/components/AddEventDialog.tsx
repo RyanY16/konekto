@@ -2,7 +2,7 @@
 
 import { useState, useRef, type FormEvent } from "react";
 import { Button } from "@/components/ui/button";
-import { Plus, Globe, Instagram, Linkedin, MessageCircle } from "lucide-react";
+import { Plus, Globe, Instagram, Linkedin, MessageCircle, MapPin, ExternalLink } from "lucide-react";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -11,6 +11,7 @@ import { socialLinksFromForm } from "@/lib/social-links";
 import { addEvent } from "@/data/backend";
 import { useRouter } from "@tanstack/react-router";
 import { useAuth } from "@/components/AuthProvider";
+import { LANGUAGES } from "@/data/profile-options";
 
 const EVENT_CATEGORIES = ["Social", "Career", "Hackathon", "Networking"] as const;
 
@@ -21,6 +22,10 @@ const CATEGORY_EMOJI: Record<string, string> = {
   Networking: "🚀",
 };
 
+function mapsUrl(location: string) {
+  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(location)}`;
+}
+
 export default function AddEventDialog() {
   const router = useRouter();
   const { user } = useAuth();
@@ -29,11 +34,15 @@ export default function AddEventDialog() {
   const [saving, setSaving] = useState(false);
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [category, setCategory] = useState<string>(EVENT_CATEGORIES[0]);
+  const [location, setLocation] = useState("");
+  const [primaryLanguage, setPrimaryLanguage] = useState("");
   const formRef = useRef<HTMLFormElement>(null);
 
   function reset() {
     setSelectedTags([]);
     setCategory(EVENT_CATEGORIES[0]);
+    setLocation("");
+    setPrimaryLanguage("");
     setError("");
     formRef.current?.reset();
   }
@@ -53,9 +62,11 @@ export default function AddEventDialog() {
         description: String(form.get("description") ?? "").trim() || undefined,
         category: cat as (typeof EVENT_CATEGORIES)[number],
         date: String(form.get("date") ?? "").trim(),
-        location: String(form.get("location") ?? "").trim(),
+        location,
         emoji: emojiInput || CATEGORY_EMOJI[cat] || "📅",
         tags: selectedTags,
+        cost: String(form.get("cost") ?? "").trim() || undefined,
+        primaryLanguage: primaryLanguage || undefined,
         socialLinks: socialLinksFromForm(form),
         ownerId: user?.id,
       });
@@ -87,16 +98,19 @@ export default function AddEventDialog() {
         </DialogHeader>
 
         <form ref={formRef} onSubmit={handleSubmit} className="space-y-5">
+          {/* Title */}
           <div className={field}>
             <label className={lbl}>Title</label>
             <Input name="title" placeholder="e.g. Spring Networking Mixer" required />
           </div>
 
+          {/* Description */}
           <div className={field}>
             <label className={lbl}>Description</label>
             <Textarea name="description" placeholder="What's this event about?" rows={4} />
           </div>
 
+          {/* Category + Emoji */}
           <div className="grid grid-cols-2 gap-3">
             <div className={field}>
               <label className={lbl}>Category</label>
@@ -114,29 +128,69 @@ export default function AddEventDialog() {
             </div>
             <div className={field}>
               <label className={lbl}>Emoji</label>
-              <Input
-                name="emoji"
-                placeholder={CATEGORY_EMOJI[category] ?? "📅"}
-                maxLength={4}
-              />
+              <Input name="emoji" placeholder={CATEGORY_EMOJI[category] ?? "📅"} maxLength={4} />
             </div>
           </div>
 
+          {/* Date & time */}
           <div className={field}>
             <label className={lbl}>Date &amp; time</label>
             <Input name="date" placeholder="e.g. Fri, May 8 · 7:00 PM" required />
           </div>
 
+          {/* Location with maps preview */}
           <div className={field}>
             <label className={lbl}>Location</label>
-            <Input name="location" placeholder="e.g. Shibuya, Tokyo Big Sight, Online" required />
+            <div className="relative">
+              <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+              <Input
+                value={location}
+                onChange={(e) => setLocation(e.target.value)}
+                placeholder="e.g. Tokyo Big Sight, Shibuya, Online"
+                className="pl-9"
+                required
+              />
+            </div>
+            {location.trim() && (
+              <a
+                href={mapsUrl(location)}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1 text-xs text-primary hover:underline mt-0.5"
+              >
+                <ExternalLink className="h-3 w-3" /> Preview on Google Maps
+              </a>
+            )}
           </div>
 
+          {/* Cost */}
+          <div className={field}>
+            <label className={lbl}>Cost</label>
+            <Input name="cost" placeholder="e.g. Free, ¥1,000, ¥500 at door" />
+          </div>
+
+          {/* Language */}
+          <div className={field}>
+            <label className={lbl}>Primary language</label>
+            <select
+              className={sel}
+              value={primaryLanguage}
+              onChange={(e) => setPrimaryLanguage(e.target.value)}
+            >
+              <option value="">— Select language —</option>
+              {LANGUAGES.map((l) => (
+                <option key={l.name} value={l.name}>{l.flag} {l.name}</option>
+              ))}
+            </select>
+          </div>
+
+          {/* Tags */}
           <div className={field}>
             <label className={lbl}>Tags</label>
             <TagPicker value={selectedTags} onChange={setSelectedTags} />
           </div>
 
+          {/* Social links */}
           <div className={field}>
             <label className={lbl}>Social links</label>
             <div className="space-y-2">

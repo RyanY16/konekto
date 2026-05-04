@@ -149,6 +149,8 @@ function mapEvent(row: Row<"events">): EventItem {
     emoji: row.emoji,
     going: row.going,
     tags: row.tags ?? [],
+    cost: row.cost || undefined,
+    primaryLanguage: row.primary_language || undefined,
     ownerId: row.owner_id ?? undefined,
     updatedAt: row.updated_at ?? row.created_at,
     socialLinks: normalizeSocialLinks(row.social_links),
@@ -333,6 +335,8 @@ export async function addEvent(
     emoji: input.emoji,
     going: input.going ?? 1,
     tags: input.tags,
+    cost: input.cost ?? "",
+    primary_language: input.primaryLanguage ?? "",
     social_links: input.socialLinks ?? {},
     owner_id: input.ownerId ?? null,
   };
@@ -360,6 +364,8 @@ export async function updateEvent(
   if (input.location !== undefined) values.location = input.location;
   if (input.emoji !== undefined) values.emoji = input.emoji;
   if (input.tags !== undefined) values.tags = input.tags;
+  if (input.cost !== undefined) values.cost = input.cost;
+  if (input.primaryLanguage !== undefined) values.primary_language = input.primaryLanguage;
   if (input.socialLinks !== undefined) values.social_links = input.socialLinks;
   values.updated_at = new Date().toISOString();
 

@@ -1,6 +1,6 @@
 import { Link, createFileRoute, useRouter } from "@tanstack/react-router";
 import { useState, useEffect } from "react";
-import { Globe, Instagram, Linkedin, MessageCircle } from "lucide-react";
+import { Globe, Instagram, Linkedin, MessageCircle, MapPin, ExternalLink } from "lucide-react";
 import { tagClass } from "@/lib/tag-class";
 import { PageHeader } from "@/components/PageHeader";
 import { SocialLinks } from "@/components/SocialLinks";
@@ -17,6 +17,7 @@ import {
   updateEvent,
   getProfile,
 } from "@/data/backend";
+import { LANGUAGES } from "@/data/profile-options";
 import type { EventItem } from "@/data/mock";
 
 const EVENT_CATEGORIES = ["Social", "Career", "Hackathon", "Networking"] as const;
@@ -27,6 +28,10 @@ const CATEGORY_EMOJI: Record<string, string> = {
   Hackathon: "⚡",
   Networking: "🚀",
 };
+
+function mapsUrl(location: string) {
+  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(location)}`;
+}
 
 function relativeTime(iso: string | undefined): string | null {
   if (!iso) return null;
@@ -70,6 +75,8 @@ type Draft = {
   date: string;
   location: string;
   emoji: string;
+  cost: string;
+  primaryLanguage: string;
   tags: string[];
   website: string;
   instagram: string;
@@ -86,6 +93,8 @@ function toDraft(e: EventItem): Draft {
     date: e.date,
     location: e.location,
     emoji: e.emoji,
+    cost: e.cost ?? "",
+    primaryLanguage: e.primaryLanguage ?? "",
     tags: e.tags ?? [],
     website: sl.website ?? "",
     instagram: sl.instagram ?? "",
@@ -146,6 +155,8 @@ function EventDetailPage() {
         date: draft.date,
         location: draft.location,
         emoji: draft.emoji || CATEGORY_EMOJI[draft.category] || "📅",
+        cost: draft.cost,
+        primaryLanguage: draft.primaryLanguage,
         tags: draft.tags,
         socialLinks: {
           website: draft.website || undefined,
@@ -169,6 +180,10 @@ function EventDetailPage() {
   }
 
   const sel = `h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring`;
+
+  const langInfo = event.primaryLanguage
+    ? LANGUAGES.find((l) => l.name === event.primaryLanguage)
+    : null;
 
   return (
     <div>
@@ -241,11 +256,48 @@ function EventDetailPage() {
 
             <div className="space-y-1">
               <label className="text-xs font-medium text-muted-foreground">Location</label>
+              <div className="relative">
+                <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+                <Input
+                  value={draft.location}
+                  onChange={(e) => setDraft((d) => ({ ...d, location: e.target.value }))}
+                  placeholder="e.g. Tokyo Big Sight, Shibuya, Online"
+                  className="pl-9"
+                />
+              </div>
+              {draft.location.trim() && (
+                <a
+                  href={mapsUrl(draft.location)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1 text-xs text-primary hover:underline mt-0.5"
+                >
+                  <ExternalLink className="h-3 w-3" /> Preview on Google Maps
+                </a>
+              )}
+            </div>
+
+            <div className="space-y-1">
+              <label className="text-xs font-medium text-muted-foreground">Cost</label>
               <Input
-                value={draft.location}
-                onChange={(e) => setDraft((d) => ({ ...d, location: e.target.value }))}
-                placeholder="e.g. Shibuya, Tokyo Big Sight, Online"
+                value={draft.cost}
+                onChange={(e) => setDraft((d) => ({ ...d, cost: e.target.value }))}
+                placeholder="e.g. Free, ¥1,000, ¥500 at door"
               />
+            </div>
+
+            <div className="space-y-1">
+              <label className="text-xs font-medium text-muted-foreground">Primary language</label>
+              <select
+                value={draft.primaryLanguage}
+                onChange={(e) => setDraft((d) => ({ ...d, primaryLanguage: e.target.value }))}
+                className={sel}
+              >
+                <option value="">— Select language —</option>
+                {LANGUAGES.map((l) => (
+                  <option key={l.name} value={l.name}>{l.flag} {l.name}</option>
+                ))}
+              </select>
             </div>
 
             <div className="space-y-1">
@@ -258,41 +310,21 @@ function EventDetailPage() {
               <div className="space-y-2">
                 <div className="relative">
                   <Globe className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
-                  <Input
-                    value={draft.website}
-                    onChange={(e) => setDraft((d) => ({ ...d, website: e.target.value }))}
-                    placeholder="https://yoursite.com"
-                    className="pl-9"
-                  />
+                  <Input value={draft.website} onChange={(e) => setDraft((d) => ({ ...d, website: e.target.value }))} placeholder="https://yoursite.com" className="pl-9" />
                 </div>
                 <div className="relative">
                   <Instagram className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
                   <span className="absolute left-9 top-1/2 -translate-y-1/2 text-sm text-muted-foreground select-none pointer-events-none">@</span>
-                  <Input
-                    value={draft.instagram.replace(/^@/, "")}
-                    onChange={(e) => setDraft((d) => ({ ...d, instagram: e.target.value.replace(/^@/, "") }))}
-                    placeholder="handle"
-                    className="pl-14"
-                  />
+                  <Input value={draft.instagram.replace(/^@/, "")} onChange={(e) => setDraft((d) => ({ ...d, instagram: e.target.value.replace(/^@/, "") }))} placeholder="handle" className="pl-14" />
                 </div>
                 <div className="relative">
                   <Linkedin className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
-                  <Input
-                    value={draft.linkedin}
-                    onChange={(e) => setDraft((d) => ({ ...d, linkedin: e.target.value }))}
-                    placeholder="linkedin.com/in/yourprofile"
-                    className="pl-9"
-                  />
+                  <Input value={draft.linkedin} onChange={(e) => setDraft((d) => ({ ...d, linkedin: e.target.value }))} placeholder="linkedin.com/in/yourprofile" className="pl-9" />
                 </div>
                 <div className="relative">
                   <MessageCircle className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
                   <span className="absolute left-9 top-1/2 -translate-y-1/2 text-sm text-muted-foreground select-none pointer-events-none">@</span>
-                  <Input
-                    value={draft.line.replace(/^@/, "")}
-                    onChange={(e) => setDraft((d) => ({ ...d, line: e.target.value.replace(/^@/, "") }))}
-                    placeholder="LINE ID"
-                    className="pl-14"
-                  />
+                  <Input value={draft.line.replace(/^@/, "")} onChange={(e) => setDraft((d) => ({ ...d, line: e.target.value.replace(/^@/, "") }))} placeholder="LINE ID" className="pl-14" />
                 </div>
               </div>
             </div>
@@ -305,16 +337,30 @@ function EventDetailPage() {
               <div className="w-16 h-16 rounded-xl bg-gradient-to-br from-primary-soft to-accent-soft flex items-center justify-center text-4xl shrink-0">
                 {event.emoji}
               </div>
-              <div>
-                <span className="chip chip-primary">{event.category}</span>
-              </div>
+              <span className="chip chip-primary">{event.category}</span>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <Detail label="Date" value={event.date} />
-              <Detail label="Location" value={event.location} />
+              <Detail label="Date & time" value={event.date} />
               <Detail label="Going" value={`${event.going} people`} />
+              {event.cost && <Detail label="Cost" value={event.cost} />}
             </div>
+
+            {/* Location with maps link */}
+            <a
+              href={mapsUrl(event.location)}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-2 text-sm text-foreground hover:text-primary transition-colors group"
+            >
+              <MapPin className="h-4 w-4 text-muted-foreground shrink-0" />
+              <span className="font-medium">{event.location}</span>
+              <ExternalLink className="h-3.5 w-3.5 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+            </a>
+
+            {langInfo && (
+              <p className="text-sm text-muted-foreground">{langInfo.flag} {langInfo.name}</p>
+            )}
 
             {ownerUsername && (
               <p className="text-sm text-muted-foreground">
@@ -364,10 +410,7 @@ function EventDetailPage() {
               </button>
             )}
             {canEdit && (
-              <DeleteRecordButton
-                label={event.title}
-                onDelete={handleDelete}
-              />
+              <DeleteRecordButton label={event.title} onDelete={handleDelete} />
             )}
           </div>
         )}
