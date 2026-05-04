@@ -261,7 +261,7 @@ function CirclesPage() {
                   <span>{relativeTime(c.updatedAt)}</span>
                 )}
               </div>
-              <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-primary text-primary-foreground shrink-0 group-hover:bg-primary/90 transition-colors">View →</span>
+              <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-primary text-primary-foreground shrink-0">View →</span>
             </div>
           </article>
         ))}

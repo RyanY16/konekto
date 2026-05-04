@@ -6,258 +6,382 @@ import { Label } from "@/components/ui/label";
 import { TagPicker } from "@/components/TagPicker";
 import { UniversityPicker } from "@/components/UniversityPicker";
 import { useAuth } from "@/components/AuthProvider";
-import { getProfileByUsername, checkEmailExists } from "@/data/backend";
+import { supabase } from "@/lib/supabase";
+import { getProfileByUsername, upsertProfile } from "@/data/backend";
+import { Eye, EyeOff, CheckCircle2, Loader2 } from "lucide-react";
 
 export const Route = createFileRoute("/signup")({
   head: () => ({ meta: [{ title: "Sign up — Konekto" }] }),
   component: SignUpPage,
 });
 
+const YEAR_OPTIONS = [
+  "1st year", "2nd year", "3rd year", "4th year",
+  "Masters", "PhD", "Exchange student", "Alumni",
+];
+
 function SignUpPage() {
   const navigate = useNavigate();
-  const { signUp } = useAuth();
+  const { signUp, user } = useAuth();
 
   const [step, setStep] = useState<1 | 2 | 3>(1);
-  const [fullName, setFullName] = useState("");
-  const [username, setUsername] = useState("");
+
+  // Step 1
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [university, setUniversity] = useState("");
-  const [selectedInterests, setSelectedInterests] = useState<string[]>([]);
-  const [error, setError] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [done, setDone] = useState(false);
-  const [usernameStatus, setUsernameStatus] = useState<"idle" | "checking" | "taken" | "available">("idle");
-  const usernameCheckRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const [emailStatus, setEmailStatus] = useState<"idle" | "checking" | "taken" | "available">("idle");
-  const emailCheckRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [showPassword, setShowPassword] = useState(false);
+  const [step1Error, setStep1Error] = useState("");
+  const [step1Loading, setStep1Loading] = useState(false);
+  const [userId, setUserId] = useState<string | null>(null);
 
+  // Step 2 (verification)
+  const [checkLoading, setCheckLoading] = useState(false);
+  const [checkError, setCheckError] = useState("");
+
+  // Step 3 (profile)
+  const [displayName, setDisplayName] = useState("");
+  const [username, setUsername] = useState("");
+  const [university, setUniversity] = useState("");
+  const [year, setYear] = useState("");
+  const [interests, setInterests] = useState<string[]>([]);
+  const [usernameStatus, setUsernameStatus] = useState<"idle" | "checking" | "taken" | "available">("idle");
+  const usernameTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [profileLoading, setProfileLoading] = useState(false);
+  const [profileError, setProfileError] = useState("");
+
+  // If already logged in and lands here, go home
+  useEffect(() => {
+    if (user) navigate({ to: "/" });
+  }, [user]);
+
+  // Listen for email verification in same browser (step 2)
+  useEffect(() => {
+    if (step !== 2 || !supabase) return;
+    const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (_event === "SIGNED_IN" && session?.user) {
+        setUserId(session.user.id);
+        setStep(3);
+      }
+    });
+    return () => sub?.subscription.unsubscribe();
+  }, [step]);
+
+  // Username uniqueness check
   useEffect(() => {
     const u = username.trim();
     if (!u) { setUsernameStatus("idle"); return; }
     setUsernameStatus("checking");
-    if (usernameCheckRef.current) clearTimeout(usernameCheckRef.current);
-    usernameCheckRef.current = setTimeout(async () => {
-      const existing = await getProfileByUsername(u);
+    if (usernameTimer.current) clearTimeout(usernameTimer.current);
+    usernameTimer.current = setTimeout(async () => {
+      const existing = await getProfileByUsername(u).catch(() => null);
       setUsernameStatus(existing ? "taken" : "available");
     }, 400);
   }, [username]);
 
-  useEffect(() => {
-    const e = email.trim();
-    if (!e || !e.includes("@")) { setEmailStatus("idle"); return; }
-    setEmailStatus("checking");
-    if (emailCheckRef.current) clearTimeout(emailCheckRef.current);
-    emailCheckRef.current = setTimeout(async () => {
-      const exists = await checkEmailExists(e);
-      setEmailStatus(exists ? "taken" : "available");
-    }, 400);
-  }, [email]);
-
-  const handleNext = async () => {
-    if (step === 1) {
-      if (!fullName.trim() || !username.trim() || !email.trim()) {
-        setError("Please fill in all fields.");
-        return;
-      }
-      if (usernameStatus === "taken") {
-        setError("That username is already taken.");
-        return;
-      }
-      if (usernameStatus === "checking") {
-        setError("Still checking username availability, please wait.");
-        return;
-      }
-      if (emailStatus === "taken") {
-        setError("An account with that email already exists.");
-        return;
-      }
-      if (emailStatus === "checking") {
-        setError("Still checking email, please wait.");
-        return;
-      }
-      setError("");
-      setStep(2);
-    } else if (step === 2) {
-      if (password.length < 8) {
-        setError("Password must be at least 8 characters.");
-        return;
-      }
-      setError("");
-      setStep(3);
-    }
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
+  // ── Step 1: create account ────────────────────────────────────────────────
+  async function handleCreateAccount(e: React.FormEvent) {
     e.preventDefault();
-    setError("");
-    setLoading(true);
-    try {
-      await signUp(email, password, {
-        display_name: fullName,
-        username: username.trim().toLowerCase(),
-        university,
-        interests: selectedInterests,
-      });
-
-      setDone(true);
-    } catch (err: any) {
-      setError(err?.message ?? "Something went wrong. Please try again.");
-    } finally {
-      setLoading(false);
+    if (password.length < 8) {
+      setStep1Error("Password must be at least 8 characters.");
+      return;
     }
-  };
-
-  if (done) {
-    return (
-      <div className="min-h-[80vh] flex items-center justify-center p-4">
-        <div className="w-full max-w-sm text-center">
-          <div className="h-16 w-16 rounded-full bg-accent-soft flex items-center justify-center mx-auto mb-4 text-3xl">✉️</div>
-          <h1 className="text-2xl font-bold tracking-tight">Check your email</h1>
-          <p className="mt-2 text-sm text-muted-foreground">
-            We sent a confirmation link to <strong>{email}</strong>. Click it to activate your account.
-          </p>
-          <Button className="mt-6 w-full" onClick={() => navigate({ to: "/login" })}>
-            Go to login
-          </Button>
-        </div>
-      </div>
-    );
+    setStep1Error("");
+    setStep1Loading(true);
+    try {
+      const result = await signUp(email.trim(), password);
+      if (result?.id) setUserId(result.id);
+      setStep(2);
+    } catch (err: any) {
+      setStep1Error(err?.message ?? "Something went wrong. Please try again.");
+    } finally {
+      setStep1Loading(false);
+    }
   }
 
+  // ── Step 2: check if verified ─────────────────────────────────────────────
+  async function handleCheckVerification() {
+    if (!supabase) return;
+    setCheckLoading(true);
+    setCheckError("");
+    try {
+      const { data } = await supabase.auth.getSession();
+      if (data.session?.user) {
+        setUserId(data.session.user.id);
+        setStep(3);
+      } else {
+        setCheckError("Email not verified yet — check your inbox and click the link.");
+      }
+    } finally {
+      setCheckLoading(false);
+    }
+  }
+
+  // ── Step 3: save profile ──────────────────────────────────────────────────
+  async function handleSaveProfile(e: React.FormEvent) {
+    e.preventDefault();
+    if (!displayName.trim()) { setProfileError("Please enter your name."); return; }
+    if (!username.trim()) { setProfileError("Please choose a username."); return; }
+    if (usernameStatus === "taken") { setProfileError("That username is taken."); return; }
+    if (usernameStatus === "checking") { setProfileError("Still checking username, please wait."); return; }
+
+    const uid = userId ?? (supabase ? (await supabase.auth.getUser()).data.user?.id : null);
+    if (!uid) { setProfileError("Session expired — please refresh and try again."); return; }
+
+    setProfileLoading(true);
+    setProfileError("");
+    try {
+      await upsertProfile(uid, {
+        displayName: displayName.trim(),
+        username: username.trim().toLowerCase(),
+        university,
+        year,
+        interests,
+      });
+      navigate({ to: "/" });
+    } catch (err: any) {
+      setProfileError(err?.message ?? "Could not save profile.");
+    } finally {
+      setProfileLoading(false);
+    }
+  }
+
+  const passwordStrength = password.length === 0 ? null
+    : password.length < 8 ? "weak"
+    : password.length < 12 ? "ok"
+    : "strong";
+
+  const strengthColor = passwordStrength === "weak" ? "bg-destructive"
+    : passwordStrength === "ok" ? "bg-yellow-400"
+    : "bg-green-500";
+
+  const strengthWidth = passwordStrength === "weak" ? "w-1/3"
+    : passwordStrength === "ok" ? "w-2/3"
+    : "w-full";
+
   return (
-    <div className="min-h-[80vh] flex items-center justify-center p-4">
+    <div className="min-h-screen flex items-center justify-center p-4 bg-background">
       <div className="w-full max-w-sm">
+        {/* Logo */}
         <div className="text-center mb-8">
-          <div className="h-12 w-12 rounded-2xl bg-primary flex items-center justify-center text-primary-foreground font-bold text-xl mx-auto mb-4">K</div>
-          <h1 className="text-2xl font-bold tracking-tight">Create your account</h1>
-          <p className="mt-1 text-sm text-muted-foreground">Step {step} of 3</p>
+          <Link to="/">
+            <div className="h-12 w-12 rounded-2xl bg-primary flex items-center justify-center text-primary-foreground font-bold text-xl mx-auto mb-4 hover:opacity-90 transition-opacity">
+              K
+            </div>
+          </Link>
+          <h1 className="text-2xl font-bold tracking-tight">
+            {step === 1 && "Create your account"}
+            {step === 2 && "Check your email"}
+            {step === 3 && "Set up your profile"}
+          </h1>
+          <p className="mt-1 text-sm text-muted-foreground">
+            {step === 1 && "Join thousands of students across Japan"}
+            {step === 2 && `We sent a link to ${email}`}
+            {step === 3 && "Almost there — tell us a bit about yourself"}
+          </p>
         </div>
 
-        <Link to="/" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground mb-4">
-          ← Back to home
-        </Link>
-
-        {/* Step indicators */}
-        <div className="flex gap-1.5 mb-6">
+        {/* Progress bar */}
+        <div className="flex gap-1.5 mb-8">
           {[1, 2, 3].map((s) => (
-            <div
-              key={s}
-              className={`h-1 flex-1 rounded-full transition-colors ${s <= step ? "bg-primary" : "bg-muted"}`}
-            />
+            <div key={s} className={`h-1 flex-1 rounded-full transition-all duration-300 ${s <= step ? "bg-primary" : "bg-muted"}`} />
           ))}
         </div>
 
-        <form onSubmit={step < 3 ? (e) => { e.preventDefault(); handleNext(); } : handleSubmit} className="space-y-4" noValidate>
-          {step === 1 && (
-            <>
-              <div className="space-y-1.5">
-                <Label htmlFor="fullName">Full name</Label>
-                <Input id="fullName" value={fullName} onChange={(e) => setFullName(e.target.value)} placeholder="Yuki Tanaka" autoFocus />
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="username">Username</Label>
-                <div className="relative">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground select-none pointer-events-none">@</span>
-                  <Input
-                    id="username"
-                    value={username}
-                    onChange={(e) => setUsername(e.target.value.replace(/[^a-zA-Z0-9_]/g, "").toLowerCase())}
-                    placeholder="yukitanaka"
-                    className={`pl-7 ${usernameStatus === "taken" ? "border-destructive focus-visible:ring-destructive" : usernameStatus === "available" ? "border-green-500 focus-visible:ring-green-500" : ""}`}
-                    autoComplete="username"
-                  />
-                </div>
-                {usernameStatus === "checking" && <p className="text-xs text-muted-foreground">Checking availability…</p>}
-                {usernameStatus === "taken" && <p className="text-xs text-destructive">@{username} is already taken</p>}
-                {usernameStatus === "available" && <p className="text-xs text-green-600 dark:text-green-400">@{username} is available</p>}
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="email">Email</Label>
-                <Input
-                  id="email"
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="you@example.com"
-                  autoComplete="email"
-                  className={emailStatus === "taken" ? "border-destructive focus-visible:ring-destructive" : emailStatus === "available" ? "border-green-500 focus-visible:ring-green-500" : ""}
-                />
-                {emailStatus === "checking" && <p className="text-xs text-muted-foreground">Checking…</p>}
-                {emailStatus === "taken" && <p className="text-xs text-destructive">An account with this email already exists</p>}
-                {emailStatus === "available" && <p className="text-xs text-green-600 dark:text-green-400">Email is available</p>}
-              </div>
-            </>
-          )}
+        {/* ── Step 1 ──────────────────────────────────────────────────────── */}
+        {step === 1 && (
+          <form onSubmit={handleCreateAccount} className="space-y-4" noValidate>
+            <div className="space-y-1.5">
+              <Label htmlFor="email">Email</Label>
+              <Input
+                id="email"
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="you@example.com"
+                autoComplete="email"
+                autoFocus
+                required
+              />
+            </div>
 
-          {step === 2 && (
-            <>
-              <div className="space-y-1.5">
-                <Label htmlFor="password">Password</Label>
+            <div className="space-y-1.5">
+              <Label htmlFor="password">Password</Label>
+              <div className="relative">
                 <Input
                   id="password"
-                  type="password"
+                  type={showPassword ? "text" : "password"}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="At least 8 characters"
                   autoComplete="new-password"
-                  autoFocus
+                  className="pr-10"
+                  required
                 />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword((v) => !v)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                  tabIndex={-1}
+                >
+                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
               </div>
-              <p className="text-xs text-muted-foreground">Use at least 8 characters.</p>
-            </>
-          )}
+              {password.length > 0 && (
+                <div className="space-y-1">
+                  <div className="h-1 rounded-full bg-muted overflow-hidden">
+                    <div className={`h-full rounded-full transition-all duration-300 ${strengthColor} ${strengthWidth}`} />
+                  </div>
+                  <p className={`text-xs ${passwordStrength === "weak" ? "text-destructive" : passwordStrength === "ok" ? "text-yellow-600 dark:text-yellow-400" : "text-green-600 dark:text-green-400"}`}>
+                    {passwordStrength === "weak" ? "Too short" : passwordStrength === "ok" ? "Good" : "Strong"}
+                  </p>
+                </div>
+              )}
+            </div>
 
-          {step === 3 && (
-            <>
-              <div className="space-y-1.5">
-                <Label htmlFor="university">University</Label>
-                <UniversityPicker value={university} onChange={setUniversity} />
-              </div>
-              <div className="space-y-1.5">
-                <Label>Interests</Label>
-                <TagPicker value={selectedInterests} onChange={setSelectedInterests} />
-              </div>
-            </>
-          )}
+            {step1Error && <p className="text-sm text-destructive">{step1Error}</p>}
 
-          {error && <p className="text-sm text-destructive">{error}</p>}
-
-          <div className="flex gap-2 pt-1">
-            {step > 1 && (
-              <Button type="button" variant="outline" onClick={() => { setStep((step - 1) as 1 | 2 | 3); setError(""); }}>
-                Back
-              </Button>
-            )}
             <Button
               type="submit"
-              className="flex-1"
+              className="w-full"
+              disabled={step1Loading || !email.trim() || password.length < 8}
+            >
+              {step1Loading ? <><Loader2 className="h-4 w-4 animate-spin mr-2" />Creating account…</> : "Continue"}
+            </Button>
+
+            <p className="text-center text-sm text-muted-foreground">
+              Already have an account?{" "}
+              <Link to="/login" className="text-primary font-medium hover:underline">Log in</Link>
+            </p>
+          </form>
+        )}
+
+        {/* ── Step 2 ──────────────────────────────────────────────────────── */}
+        {step === 2 && (
+          <div className="space-y-6 text-center">
+            <div className="h-20 w-20 rounded-full bg-primary/10 flex items-center justify-center mx-auto text-4xl">
+              ✉️
+            </div>
+            <div className="space-y-2">
+              <p className="text-sm text-muted-foreground">
+                Click the confirmation link in your inbox. Once verified, you'll automatically move to the next step.
+              </p>
+              <p className="text-xs text-muted-foreground">
+                Can't find it? Check your spam folder.
+              </p>
+            </div>
+
+            {checkError && <p className="text-sm text-destructive">{checkError}</p>}
+
+            <div className="space-y-2">
+              <Button onClick={handleCheckVerification} className="w-full" disabled={checkLoading}>
+                {checkLoading ? <><Loader2 className="h-4 w-4 animate-spin mr-2" />Checking…</> : "I've verified my email →"}
+              </Button>
+              <button
+                onClick={() => { setStep(1); setStep1Error(""); }}
+                className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+              >
+                ← Use a different email
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* ── Step 3 ──────────────────────────────────────────────────────── */}
+        {step === 3 && (
+          <form onSubmit={handleSaveProfile} className="space-y-4" noValidate>
+            <div className="space-y-1.5">
+              <Label htmlFor="displayName">Full name</Label>
+              <Input
+                id="displayName"
+                value={displayName}
+                onChange={(e) => setDisplayName(e.target.value)}
+                placeholder="Yuki Tanaka"
+                autoFocus
+                required
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="username">Username</Label>
+              <div className="relative">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground select-none pointer-events-none">@</span>
+                <Input
+                  id="username"
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value.replace(/[^a-zA-Z0-9_]/g, "").toLowerCase())}
+                  placeholder="yukitanaka"
+                  autoComplete="username"
+                  className={`pl-7 pr-8 ${
+                    usernameStatus === "taken" ? "border-destructive focus-visible:ring-destructive" :
+                    usernameStatus === "available" ? "border-green-500 focus-visible:ring-green-500" : ""
+                  }`}
+                  required
+                />
+                {usernameStatus === "checking" && (
+                  <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-muted-foreground" />
+                )}
+                {usernameStatus === "available" && (
+                  <CheckCircle2 className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-green-500" />
+                )}
+              </div>
+              {usernameStatus === "taken" && (
+                <p className="text-xs text-destructive">@{username} is already taken</p>
+              )}
+              {usernameStatus === "available" && (
+                <p className="text-xs text-green-600 dark:text-green-400">@{username} is available ✓</p>
+              )}
+            </div>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="university">University</Label>
+              <UniversityPicker value={university} onChange={setUniversity} />
+            </div>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="year">Year</Label>
+              <select
+                id="year"
+                value={year}
+                onChange={(e) => setYear(e.target.value)}
+                className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+              >
+                <option value="">— Select year —</option>
+                {YEAR_OPTIONS.map((y) => (
+                  <option key={y} value={y}>{y}</option>
+                ))}
+              </select>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label>Interests <span className="text-muted-foreground font-normal">(optional)</span></Label>
+              <TagPicker value={interests} onChange={setInterests} />
+            </div>
+
+            {profileError && <p className="text-sm text-destructive">{profileError}</p>}
+
+            <Button
+              type="submit"
+              className="w-full"
               disabled={
-                loading ||
-                (step === 1 && (
-                  !fullName.trim() ||
-                  !username.trim() ||
-                  !email.trim() ||
-                  usernameStatus === "idle" ||
-                  usernameStatus === "checking" ||
-                  usernameStatus === "taken" ||
-                  emailStatus === "idle" ||
-                  emailStatus === "checking" ||
-                  emailStatus === "taken"
-                ))
+                profileLoading ||
+                !displayName.trim() ||
+                !username.trim() ||
+                usernameStatus === "idle" ||
+                usernameStatus === "checking" ||
+                usernameStatus === "taken"
               }
             >
-              {step < 3 ? "Next" : loading ? "Creating account…" : "Create account"}
+              {profileLoading
+                ? <><Loader2 className="h-4 w-4 animate-spin mr-2" />Saving…</>
+                : "Finish — take me in"
+              }
             </Button>
-          </div>
-        </form>
 
-        <p className="mt-6 text-center text-sm text-muted-foreground">
-          Already have an account?{" "}
-          <Link to="/login" className="text-primary font-medium hover:underline">
-            Log in
-          </Link>
-        </p>
+            <p className="text-center text-xs text-muted-foreground">
+              You can update all of this later in your profile settings.
+            </p>
+          </form>
+        )}
       </div>
     </div>
   );
