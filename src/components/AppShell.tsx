@@ -63,7 +63,7 @@ export function AppShell() {
           </div>
         </header>
 
-        <main className="mx-auto max-w-7xl px-4 py-6 pb-24 md:pb-10 animate-fade-up">
+        <main className="mx-auto max-w-7xl px-4 py-6 md:pb-10 animate-fade-up" style={{ paddingBottom: "calc(6rem + env(safe-area-inset-bottom))" }}>
           <Outlet />
         </main>
 
@@ -99,7 +99,10 @@ function AuthNav({ isActive }: { isActive: (to: string) => boolean }) {
 
 function AuthBottomNav({ isActive }: { isActive: (to: string) => boolean }) {
   return (
-    <nav className="md:hidden fixed bottom-0 inset-x-0 z-40 border-t border-border bg-background/95 backdrop-blur-md">
+    <nav
+      className="md:hidden fixed bottom-0 inset-x-0 z-40 border-t border-border bg-background/95 backdrop-blur-md"
+      style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
+    >
       <div className="grid grid-cols-4 h-16">
         {nav.map((item) => {
           const Icon = item.icon;
