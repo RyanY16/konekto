@@ -547,13 +547,27 @@ function EventDetailPage() {
                 <div className="space-y-2">
                   {group.map((a) => (
                     <div key={a.userId} className="flex items-center gap-3">
-                      <div className="h-8 w-8 rounded-full bg-muted flex items-center justify-center text-sm font-medium shrink-0 overflow-hidden">
-                        {a.avatarUrl ? (
-                          <img src={a.avatarUrl} alt={a.displayName} className="h-full w-full object-cover" />
-                        ) : (
-                          a.displayName[0]?.toUpperCase()
-                        )}
-                      </div>
+                      {a.username ? (
+                        <Link
+                          to="/users/$username"
+                          params={{ username: a.username }}
+                          className="h-8 w-8 rounded-full bg-muted flex items-center justify-center text-sm font-medium shrink-0 overflow-hidden hover:ring-2 hover:ring-primary transition-all"
+                        >
+                          {a.avatarUrl ? (
+                            <img src={a.avatarUrl} alt={a.displayName} className="h-full w-full object-cover" />
+                          ) : (
+                            a.displayName[0]?.toUpperCase()
+                          )}
+                        </Link>
+                      ) : (
+                        <div className="h-8 w-8 rounded-full bg-muted flex items-center justify-center text-sm font-medium shrink-0 overflow-hidden">
+                          {a.avatarUrl ? (
+                            <img src={a.avatarUrl} alt={a.displayName} className="h-full w-full object-cover" />
+                          ) : (
+                            a.displayName[0]?.toUpperCase()
+                          )}
+                        </div>
+                      )}
                       <div className="flex-1 min-w-0">
                         {a.username ? (
                           <Link
