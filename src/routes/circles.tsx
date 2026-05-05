@@ -10,6 +10,7 @@ import AddCircleDialog from "@/components/AddCircleDialog";
 import { getCircles, getCircleHandle, getProfilesByIds, deleteAllCircles } from "@/data/backend";
 import { useAuth } from "@/components/AuthProvider";
 import { tagClass } from "@/lib/tag-class";
+import { OwnerBadge } from "@/components/OwnerBadge";
 import { circles as mockCircles } from "@/data/mock";
 
 function relativeTime(iso: string | undefined): string | null {
@@ -38,10 +39,10 @@ export const Route = createFileRoute("/circles")({
     try {
       const cs = await getCircles();
       const ids = [...new Set(cs.map((c) => c.ownerId).filter(Boolean) as string[])];
-      const ownerMap: Record<string, string> = {};
+      const ownerMap: Record<string, { username: string; displayName: string; avatarUrl: string | null }> = {};
       if (ids.length > 0) {
         const profiles = await getProfilesByIds(ids).catch(() => []);
-        profiles.forEach((p) => { ownerMap[p.id] = p.username ?? p.displayName; });
+        profiles.forEach((p) => { ownerMap[p.id] = { username: p.username ?? p.displayName, displayName: p.displayName, avatarUrl: p.avatarUrl }; });
       }
       return { circles: cs, ownerMap };
     } catch {
@@ -281,16 +282,13 @@ function CirclesPage() {
             </div>
 
             <div className="mt-4 pt-4 border-t border-border flex items-center justify-between relative z-10">
-              <div className="flex flex-col gap-0.5 text-xs text-muted-foreground">
+              <div className="flex flex-col gap-1 text-xs text-muted-foreground">
                 {c.ownerId && ownerMap[c.ownerId] && (
-                  <Link
-                    to="/users/$username"
-                    params={{ username: ownerMap[c.ownerId] }}
-                    className="hover:underline relative z-10"
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    👑 @{ownerMap[c.ownerId]}
-                  </Link>
+                  <OwnerBadge
+                    username={ownerMap[c.ownerId].username}
+                    displayName={ownerMap[c.ownerId].displayName}
+                    avatarUrl={ownerMap[c.ownerId].avatarUrl}
+                  />
                 )}
                 {relativeTime(c.updatedAt) && (
                   <span>{relativeTime(c.updatedAt)}</span>

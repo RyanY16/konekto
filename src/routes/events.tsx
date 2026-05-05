@@ -17,6 +17,7 @@ import AddEventDialog from "@/components/AddEventDialog";
 import { getEvents, getEventHandle, getProfilesByIds, deleteAllEvents } from "@/data/backend";
 import { useAuth } from "@/components/AuthProvider";
 import { tagClass } from "@/lib/tag-class";
+import { OwnerBadge } from "@/components/OwnerBadge";
 
 function relativeTime(iso: string | undefined): string | null {
   if (!iso) return null;
@@ -47,10 +48,10 @@ export const Route = createFileRoute("/events")({
       const evs = await getEvents();
       const list = evs;
       const ids = [...new Set(list.map((e) => e.ownerId).filter(Boolean) as string[])];
-      const ownerMap: Record<string, string> = {};
+      const ownerMap: Record<string, { username: string; displayName: string; avatarUrl: string | null }> = {};
       if (ids.length > 0) {
         const profiles = await getProfilesByIds(ids).catch(() => []);
-        profiles.forEach((p) => { ownerMap[p.id] = p.username ?? p.displayName; });
+        profiles.forEach((p) => { ownerMap[p.id] = { username: p.username ?? p.displayName, displayName: p.displayName, avatarUrl: p.avatarUrl }; });
       }
       return { events: list, ownerMap };
     } catch {
@@ -236,14 +237,11 @@ function EventsPage() {
                     <span className="font-medium text-foreground">{e.going}</span> going
                   </div>
                   {e.ownerId && ownerMap[e.ownerId] && (
-                    <Link
-                      to="/users/$username"
-                      params={{ username: ownerMap[e.ownerId] }}
-                      className="text-xs text-muted-foreground hover:underline relative z-10"
-                      onClick={(ev) => ev.stopPropagation()}
-                    >
-                      👑 @{ownerMap[e.ownerId]}
-                    </Link>
+                    <OwnerBadge
+                      username={ownerMap[e.ownerId].username}
+                      displayName={ownerMap[e.ownerId].displayName}
+                      avatarUrl={ownerMap[e.ownerId].avatarUrl}
+                    />
                   )}
                 </div>
                 <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-primary text-primary-foreground shrink-0">

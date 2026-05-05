@@ -22,6 +22,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import TagPicker from "@/components/TagPicker";
 import { DeleteRecordButton } from "@/components/DeleteRecordButton";
+import { OwnerBadge } from "@/components/OwnerBadge";
 import { ShareButton } from "@/components/ShareButton";
 import { useAuth } from "@/components/AuthProvider";
 import {
@@ -111,7 +112,7 @@ function CircleDetailPage() {
   const { user, isAdmin } = useAuth();
   const router = useRouter();
   const [editing, setEditing] = useState(false);
-  const [ownerUsername, setOwnerUsername] = useState<string>("");
+  const [owner, setOwner] = useState<{ username: string; displayName: string; avatarUrl: string | null } | null>(null);
   const [draft, setDraft] = useState<Draft>(circle ? toDraft(circle) : {} as Draft);
   const [pendingIcon, setPendingIcon] = useState<File | null>(null);
   const [iconPreview, setIconPreview] = useState<string | null>(null);
@@ -142,9 +143,11 @@ function CircleDetailPage() {
   useEffect(() => {
     if (!circle?.ownerId) return;
     getProfile(circle.ownerId).then((p) => {
-      const name = p?.username ?? p?.displayName ?? "";
-      setOwnerUsername(name);
-      setDraft((d) => ({ ...d, ownerUsername: name }));
+      if (p) {
+        const name = p.username ?? p.displayName;
+        setOwner({ username: name, displayName: p.displayName, avatarUrl: p.avatarUrl });
+        setDraft((d) => ({ ...d, ownerUsername: name }));
+      }
     });
   }, [circle?.ownerId]);
 
@@ -504,7 +507,7 @@ function CircleDetailPage() {
             <div className="space-y-1">
               <label className="text-xs font-medium text-muted-foreground">Owner</label>
               <p className="text-sm py-1 px-1">
-                {ownerUsername ? <span>@{ownerUsername.replace(/^@/, "")}</span> : <span className="text-muted-foreground">No owner</span>}
+                {owner ? <span>@{owner.username.replace(/^@/, "")}</span> : <span className="text-muted-foreground">No owner</span>}
               </p>
             </div>
 
@@ -699,13 +702,11 @@ function CircleDetailPage() {
               <p className="text-sm text-muted-foreground">💴 Membership fee: <span className="font-medium text-foreground">{(circle as any).membershipFee}</span></p>
             )}
 
-            {ownerUsername && (
-              <p className="text-sm text-muted-foreground">
-                👑 Owned by{" "}
-                <Link to="/users/$username" params={{ username: ownerUsername }} className="font-medium text-foreground hover:underline">
-                  @{ownerUsername}
-                </Link>
-              </p>
+            {owner && (
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <span>👑 Owned by</span>
+                <OwnerBadge username={owner.username} displayName={owner.displayName} avatarUrl={owner.avatarUrl} />
+              </div>
             )}
 
             {editors.length > 0 && (

@@ -14,6 +14,7 @@ import { Textarea } from "@/components/ui/textarea";
 import TagPicker from "@/components/TagPicker";
 import CirclePicker from "@/components/CirclePicker";
 import { DeleteRecordButton } from "@/components/DeleteRecordButton";
+import { OwnerBadge } from "@/components/OwnerBadge";
 import { ShareButton } from "@/components/ShareButton";
 import { useAuth } from "@/components/AuthProvider";
 import {
@@ -175,7 +176,7 @@ function EventDetailPage() {
   const { user, isAdmin } = useAuth();
   const router = useRouter();
   const [editing, setEditing] = useState(false);
-  const [ownerUsername, setOwnerUsername] = useState<string>("");
+  const [owner, setOwner] = useState<{ username: string; displayName: string; avatarUrl: string | null } | null>(null);
   const [linkedCircles, setLinkedCircles] = useState<Circle[]>([]);
   const [draft, setDraft] = useState<Draft>(event ? toDraft(event) : {} as Draft);
   const [saving, setSaving] = useState(false);
@@ -196,7 +197,7 @@ function EventDetailPage() {
   useEffect(() => {
     if (!event?.ownerId) return;
     getProfile(event.ownerId).then((p) => {
-      setOwnerUsername(p?.username ?? p?.displayName ?? "");
+      if (p) setOwner({ username: p.username ?? p.displayName, displayName: p.displayName, avatarUrl: p.avatarUrl });
     });
   }, [event?.ownerId]);
 
@@ -588,17 +589,11 @@ function EventDetailPage() {
               <p className="text-sm text-muted-foreground">{langInfo.flag} {langInfo.name}</p>
             )}
 
-            {ownerUsername && (
-              <p className="text-sm text-muted-foreground">
-                👑 Organized by{" "}
-                <Link
-                  to="/users/$username"
-                  params={{ username: ownerUsername }}
-                  className="font-medium text-foreground hover:underline"
-                >
-                  @{ownerUsername}
-                </Link>
-              </p>
+            {owner && (
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <span>👑 Organized by</span>
+                <OwnerBadge username={owner.username} displayName={owner.displayName} avatarUrl={owner.avatarUrl} />
+              </div>
             )}
 
             {event.tags.length > 0 && (
