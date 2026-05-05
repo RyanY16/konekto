@@ -35,10 +35,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
 
     let mounted = true;
+    let generation = 0;
 
-    async function resolveUser(u: { id: string; email?: string | null } | null) {
+    async function resolveUser(u: { id: string; email?: string | null } | null, gen: number) {
       if (!u) return null;
       const { data: profile } = await supabase!.from("users").select("role, username").eq("id", u.id).maybeSingle();
+      if (!mounted || gen !== generation) return null;
       return {
         id: u.id,
         email: u.email,
@@ -52,9 +54,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // separate getUser() IIFE because it raced against INITIAL_SESSION and could
     // overwrite a valid user with null if the JWT validation request was slow.
     const { data: sub } = supabase.auth.onAuthStateChange(async (_event, session) => {
+      const gen = ++generation;
       const u = session?.user ?? null;
-      const resolved = await resolveUser(u);
-      if (!mounted) return;
+      if (!u) {
+        if (mounted && gen === generation) setUser(null);
+        if (_event === "INITIAL_SESSION") setLoading(false);
+        return;
+      }
+      const resolved = await resolveUser(u, gen);
+      if (!mounted || gen !== generation) return;
       setUser(resolved);
 
       // INITIAL_SESSION is the very first event — use it to unblock the loading state.
@@ -126,8 +134,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   async function signOut() {
     if (!isSupabaseConfigured || !supabase) return;
-    await supabase.auth.signOut();
     setUser(null);
+    supabase.auth.signOut({ scope: "local" }).catch(() => {});
   }
 
   async function refreshUser() {

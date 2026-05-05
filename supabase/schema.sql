@@ -348,7 +348,7 @@ on conflict (id) do update set
   tags = excluded.tags,
   emoji = excluded.emoji;
 
--- Circle editors: users the owner grants edit access to
+-- Circle managers: users the owner grants edit/management access to
 create table if not exists public.circle_editors (
   circle_id text not null references public.circles(id) on delete cascade,
   user_id uuid not null references auth.users(id) on delete cascade,
@@ -372,6 +372,69 @@ drop policy if exists "Owner can remove editors" on public.circle_editors;
 create policy "Owner can remove editors" on public.circle_editors for delete
   using (
     exists (select 1 from public.circles where id = circle_id and owner_id = auth.uid())
+    or public.is_admin()
+  );
+
+-- Circle membership: users who have been approved as members
+create table if not exists public.user_circles (
+  user_id uuid not null references auth.users(id) on delete cascade,
+  circle_id text not null references public.circles(id) on delete cascade,
+  joined_at timestamptz not null default now(),
+  primary key (user_id, circle_id)
+);
+alter table public.user_circles enable row level security;
+drop policy if exists "Members visible to all" on public.user_circles;
+create policy "Members visible to all" on public.user_circles for select using (true);
+drop policy if exists "Users can join circles" on public.user_circles;
+create policy "Users can join circles" on public.user_circles for insert
+  with check (
+    auth.uid() = user_id
+    or exists (select 1 from public.circles where id = circle_id and owner_id = auth.uid())
+    or exists (select 1 from public.circle_editors where circle_id = user_circles.circle_id and user_id = auth.uid())
+    or public.is_admin()
+  );
+drop policy if exists "Users can leave circles" on public.user_circles;
+create policy "Users can leave circles" on public.user_circles for delete
+  using (
+    auth.uid() = user_id
+    or exists (select 1 from public.circles where id = circle_id and owner_id = auth.uid())
+    or exists (select 1 from public.circle_editors where circle_id = user_circles.circle_id and user_id = auth.uid())
+    or public.is_admin()
+  );
+
+-- Circle join requests
+create table if not exists public.circle_join_requests (
+  circle_id text not null references public.circles(id) on delete cascade,
+  user_id uuid not null references auth.users(id) on delete cascade,
+  status text not null default 'pending' check (status in ('pending', 'approved', 'rejected')),
+  message text not null default '',
+  created_at timestamptz not null default now(),
+  primary key (circle_id, user_id)
+);
+alter table public.circle_join_requests enable row level security;
+drop policy if exists "Join requests visible to owner manager requester" on public.circle_join_requests;
+create policy "Join requests visible to owner manager requester" on public.circle_join_requests for select
+  using (
+    auth.uid() = user_id
+    or exists (select 1 from public.circles where id = circle_id and owner_id = auth.uid())
+    or exists (select 1 from public.circle_editors where circle_id = circle_join_requests.circle_id and user_id = auth.uid())
+    or public.is_admin()
+  );
+drop policy if exists "Users can create join requests" on public.circle_join_requests;
+create policy "Users can create join requests" on public.circle_join_requests for insert
+  with check (auth.uid() = user_id);
+drop policy if exists "Owner manager admin can update join requests" on public.circle_join_requests;
+create policy "Owner manager admin can update join requests" on public.circle_join_requests for update
+  using (
+    exists (select 1 from public.circles where id = circle_id and owner_id = auth.uid())
+    or exists (select 1 from public.circle_editors where circle_id = circle_join_requests.circle_id and user_id = auth.uid())
+    or public.is_admin()
+  );
+drop policy if exists "Requester owner admin can delete join request" on public.circle_join_requests;
+create policy "Requester owner admin can delete join request" on public.circle_join_requests for delete
+  using (
+    auth.uid() = user_id
+    or exists (select 1 from public.circles where id = circle_id and owner_id = auth.uid())
     or public.is_admin()
   );
 

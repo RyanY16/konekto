@@ -30,16 +30,27 @@ import {
   getCircleByHandle,
   updateCircle,
   getProfile,
-  getProfileByUsername,
   uploadCircleIcon,
-  getCircleEditors,
-  addCircleEditor,
-  removeCircleEditor,
+  getCircleManagers,
+  addCircleManagerById,
+  removeCircleManager,
   transferCircleOwnership,
-  searchUsers,
+  getCircleMembers,
+  getMyJoinRequest,
+  requestToJoinCircle,
+  withdrawJoinRequest,
+  getCircleJoinRequests,
+  approveJoinRequest,
+  rejectJoinRequest,
+  leaveCircle,
+  removeMember,
+  getJoinedCircleIds,
   type UserProfile,
+  type CircleJoinRequest,
+  type JoinRequestStatus,
 } from "@/data/backend";
 import { CIRCLE_CATEGORIES, ACTIVITY_LEVELS, CATEGORY_EMOJI, LANGUAGES } from "@/data/profile-options";
+import { CIRCLE_TAG_GROUPS } from "@/data/tags";
 import { UniversityPicker } from "@/components/UniversityPicker";
 import type { Circle } from "@/data/mock";
 
@@ -107,6 +118,7 @@ function toDraft(c: Circle): Draft {
   };
 }
 
+
 function CircleDetailPage() {
   const circle = Route.useLoaderData();
   const { user, isAdmin } = useAuth();
@@ -120,14 +132,9 @@ function CircleDetailPage() {
   const [saveError, setSaveError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Editors state
-  const [editors, setEditors] = useState<UserProfile[]>([]);
-  const [editorInput, setEditorInput] = useState("");
-  const [editorError, setEditorError] = useState<string | null>(null);
-  const [editorLoading, setEditorLoading] = useState(false);
-  const [editorSuggestions, setEditorSuggestions] = useState<{ id: string; username: string; displayName: string; avatarUrl: string | null }[]>([]);
-  const [editorSuggestionsOpen, setEditorSuggestionsOpen] = useState(false);
-  const editorSearchRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Managers state
+  const [managers, setManagers] = useState<UserProfile[]>([]);
+  const [promotingId, setPromotingId] = useState<string | null>(null);
   const [transferInput, setTransferInput] = useState("");
   const [transferError, setTransferError] = useState<string | null>(null);
   const [transferring, setTransferring] = useState(false);
@@ -136,9 +143,20 @@ function CircleDetailPage() {
   const [transferSuggestionsOpen, setTransferSuggestionsOpen] = useState(false);
   const transferSearchRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // Members state
+  const [members, setMembers] = useState<UserProfile[]>([]);
+  const [isMember, setIsMember] = useState(false);
+  const [joinStatus, setJoinStatus] = useState<JoinRequestStatus | null>(null);
+  const [joinLoading, setJoinLoading] = useState(false);
+
+  // Pending join requests (for owner/managers)
+  const [pendingRequests, setPendingRequests] = useState<CircleJoinRequest[]>([]);
+  const [requestActionLoading, setRequestActionLoading] = useState<string | null>(null);
+
   const isOwner = !!(user && circle?.ownerId && user.id === circle.ownerId);
-  const isEditor = editors.some((e) => e.id === user?.id);
-  const canEdit = isOwner || isEditor || isAdmin;
+  const isManager = managers.some((m) => m.id === user?.id);
+  const canEdit = isOwner || isManager || isAdmin;
+  const canManageRequests = isOwner || isManager || isAdmin;
 
   useEffect(() => {
     if (!circle?.ownerId) return;
@@ -153,20 +171,32 @@ function CircleDetailPage() {
 
   useEffect(() => {
     if (!circle?.id) return;
-    getCircleEditors(circle.id).then(setEditors);
+    getCircleManagers(circle.id).then(setManagers);
+    getCircleMembers(circle.id).then(setMembers);
   }, [circle?.id]);
 
-  function onEditorInputChange(val: string) {
-    setEditorInput(val);
-    setEditorError(null);
-    if (editorSearchRef.current) clearTimeout(editorSearchRef.current);
-    const q = val.replace(/^@/, "").trim();
-    if (q.length === 0) { setEditorSuggestions([]); setEditorSuggestionsOpen(false); return; }
-    editorSearchRef.current = setTimeout(async () => {
-      const results = await searchUsers(q);
-      setEditorSuggestions(results.filter((r) => !editors.some((e) => e.id === r.id) && r.id !== circle?.ownerId));
-      setEditorSuggestionsOpen(true);
-    }, 180);
+  useEffect(() => {
+    if (!circle?.id || !user) return;
+    getJoinedCircleIds(user.id).then((ids) => setIsMember(ids.includes(circle.id)));
+    getMyJoinRequest(circle.id, user.id).then(setJoinStatus);
+  }, [circle?.id, user?.id]);
+
+  useEffect(() => {
+    if (!circle?.id || !canManageRequests) return;
+    getCircleJoinRequests(circle.id).then(setPendingRequests);
+  }, [circle?.id, canManageRequests]);
+
+  async function handlePromoteToManager(member: UserProfile) {
+    if (!circle) return;
+    setPromotingId(member.id);
+    try {
+      await addCircleManagerById(circle.id, member.id);
+      setManagers(await getCircleManagers(circle.id));
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setPromotingId(null);
+    }
   }
 
   function onTransferInputChange(val: string) {
@@ -182,36 +212,10 @@ function CircleDetailPage() {
     }, 180);
   }
 
-  async function handleAddEditor() {
-    if (!circle || !editorInput.trim()) return;
-    const username = editorInput.trim().replace(/^@/, "");
-    setEditorError(null);
-    setEditorLoading(true);
-    setEditorSuggestionsOpen(false);
-    try {
-      const profile = await getProfileByUsername(username);
-      if (!profile) {
-        setEditorError(`No user found with username @${username}`);
-        return;
-      }
-      if (editors.some((e) => e.id === profile.id)) {
-        setEditorError(`@${username} is already an editor`);
-        return;
-      }
-      await addCircleEditor(circle.id, username);
-      setEditors(await getCircleEditors(circle.id));
-      setEditorInput("");
-    } catch (err) {
-      setEditorError(err instanceof Error ? err.message : "Failed to add editor");
-    } finally {
-      setEditorLoading(false);
-    }
-  }
-
-  async function handleRemoveEditor(userId: string) {
+  async function handleRemoveManager(userId: string) {
     if (!circle) return;
-    await removeCircleEditor(circle.id, userId);
-    setEditors((prev) => prev.filter((e) => e.id !== userId));
+    await removeCircleManager(circle.id, userId);
+    setManagers((prev) => prev.filter((m) => m.id !== userId));
   }
 
   async function handleTransfer() {
@@ -228,6 +232,102 @@ function CircleDetailPage() {
     } finally {
       setTransferring(false);
     }
+  }
+
+  async function handleJoinRequest() {
+    if (!circle || !user) return;
+    setJoinLoading(true);
+    try {
+      await requestToJoinCircle({ id: circle.id, name: circle.name, ownerId: circle.ownerId }, user.id);
+      setJoinStatus("pending");
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setJoinLoading(false);
+    }
+  }
+
+  async function handleWithdraw() {
+    if (!circle || !user) return;
+    setJoinLoading(true);
+    try {
+      await withdrawJoinRequest(circle.id, user.id);
+      setJoinStatus(null);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setJoinLoading(false);
+    }
+  }
+
+  async function handleLeave() {
+    if (!circle || !user) return;
+    setJoinLoading(true);
+    try {
+      if (isManager) {
+        await removeCircleManager(circle.id, user.id);
+        setManagers((prev) => prev.filter((m) => m.id !== user.id));
+      }
+      await leaveCircle(user.id, circle.id);
+      setIsMember(false);
+      setMembers((prev) => prev.filter((m) => m.id !== user.id));
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setJoinLoading(false);
+    }
+  }
+
+  async function handleKickManager(m: UserProfile) {
+    if (!circle) return;
+    setPromotingId(m.id);
+    try {
+      await removeCircleManager(circle.id, m.id);
+      await removeMember(circle.id, m.id);
+      setManagers((prev) => prev.filter((mgr) => mgr.id !== m.id));
+      setMembers((prev) => prev.filter((mem) => mem.id !== m.id));
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setPromotingId(null);
+    }
+  }
+
+  async function handleApprove(req: CircleJoinRequest) {
+    if (!circle) return;
+    setRequestActionLoading(req.userId);
+    try {
+      await approveJoinRequest({ id: circle.id, name: circle.name }, req.userId);
+      const [updatedReqs, updatedMembers] = await Promise.all([
+        getCircleJoinRequests(circle.id),
+        getCircleMembers(circle.id),
+      ]);
+      setPendingRequests(updatedReqs);
+      setMembers(updatedMembers);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setRequestActionLoading(null);
+    }
+  }
+
+  async function handleReject(req: CircleJoinRequest) {
+    if (!circle) return;
+    setRequestActionLoading(req.userId);
+    try {
+      await rejectJoinRequest({ id: circle.id, name: circle.name }, req.userId);
+      getCircleJoinRequests(circle.id).then(setPendingRequests);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setRequestActionLoading(null);
+    }
+  }
+
+  async function handleRemoveMember(userId: string) {
+    if (!circle) return;
+    await removeMember(circle.id, userId);
+    setMembers((prev) => prev.filter((m) => m.id !== userId));
   }
 
   if (!circle) {
@@ -316,7 +416,7 @@ function CircleDetailPage() {
     `h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring ${cls}`;
 
   return (
-    <div>
+    <div className="space-y-4">
       <Link to="/circles" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground mb-4">
         ← Back to circles
       </Link>
@@ -501,7 +601,7 @@ function CircleDetailPage() {
 
             <div className="space-y-1">
               <label className="text-xs font-medium text-muted-foreground">Tags</label>
-              <TagPicker value={draft.tags} onChange={(t) => setDraft((d) => ({ ...d, tags: t }))} />
+              <TagPicker value={draft.tags} onChange={(t) => setDraft((d) => ({ ...d, tags: t }))} groups={CIRCLE_TAG_GROUPS} />
             </div>
 
             <div className="space-y-1">
@@ -555,60 +655,25 @@ function CircleDetailPage() {
               </div>
             </div>
 
-            {/* Editors (owner/admin only, inside edit form) */}
+            {/* Managers (owner/admin only, inside edit form) */}
             {(isOwner || isAdmin) && (
               <div className="space-y-3 pt-2 border-t border-border">
-                <label className="text-xs font-medium text-muted-foreground">Editors</label>
-
-                {editors.length > 0 && (
+                <label className="text-xs font-medium text-muted-foreground">Managers</label>
+                {managers.length === 0 ? (
+                  <p className="text-xs text-muted-foreground">Promote members to manager from the Members section below.</p>
+                ) : (
                   <div className="space-y-1.5">
-                    {editors.map((e) => (
-                      <div key={e.id} className="flex items-center justify-between gap-2">
+                    {managers.map((m) => (
+                      <div key={m.id} className="flex items-center justify-between gap-2">
                         <span className="text-sm">
-                          {e.displayName || e.username}
-                          {e.username && <span className="text-muted-foreground ml-1">@{e.username}</span>}
+                          {m.displayName || m.username}
+                          {m.username && <span className="text-muted-foreground ml-1">@{m.username}</span>}
                         </span>
-                        <button onClick={() => handleRemoveEditor(e.id)} className="text-xs text-destructive hover:underline shrink-0">Remove</button>
+                        <button onClick={() => handleRemoveManager(m.id)} className="text-xs text-destructive hover:underline shrink-0">Remove</button>
                       </div>
                     ))}
                   </div>
                 )}
-
-                <div className="flex gap-2">
-                  <div className="relative flex-1">
-                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground pointer-events-none">@</span>
-                    <input
-                      value={editorInput}
-                      onChange={(e) => onEditorInputChange(e.target.value)}
-                      onKeyDown={(e) => { if (e.key === "Enter") handleAddEditor(); if (e.key === "Escape") setEditorSuggestionsOpen(false); }}
-                      onFocus={() => editorInput.trim() && setEditorSuggestionsOpen(true)}
-                      onBlur={() => setTimeout(() => setEditorSuggestionsOpen(false), 150)}
-                      placeholder="username"
-                      className="w-full pl-7 h-8 rounded-md border border-input bg-transparent px-3 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-                    />
-                    {editorSuggestionsOpen && editorSuggestions.length > 0 && (
-                      <ul className="absolute z-50 mt-1 w-full bg-background border border-border rounded-md shadow-lg max-h-48 overflow-y-auto">
-                        {editorSuggestions.map((s) => (
-                          <li key={s.id}>
-                            <button
-                              type="button"
-                              className="w-full text-left px-3 py-2 text-sm hover:bg-accent flex items-center gap-2"
-                              onMouseDown={(e) => { e.preventDefault(); setEditorInput(s.username); setEditorSuggestionsOpen(false); }}
-                            >
-                              {s.avatarUrl && <img src={s.avatarUrl} alt="" className="w-5 h-5 rounded-full object-cover shrink-0" />}
-                              <span className="font-medium">{s.displayName}</span>
-                              <span className="text-muted-foreground">@{s.username}</span>
-                            </button>
-                          </li>
-                        ))}
-                      </ul>
-                    )}
-                  </div>
-                  <Button size="sm" onClick={handleAddEditor} disabled={editorLoading || !editorInput.trim()}>
-                    {editorLoading ? "Adding…" : "Add"}
-                  </Button>
-                </div>
-                {editorError && <p className="text-xs text-destructive">{editorError}</p>}
 
                 {/* Transfer ownership */}
                 {!showTransfer ? (
@@ -709,14 +774,14 @@ function CircleDetailPage() {
               </div>
             )}
 
-            {editors.length > 0 && (
+            {managers.length > 0 && (
               <p className="text-sm text-muted-foreground">
-                ✏️ Editors:{" "}
-                {editors.map((e, i) => (
-                  <span key={e.id}>
+                🛡️ Managers:{" "}
+                {managers.map((m, i) => (
+                  <span key={m.id}>
                     {i > 0 && <span>, </span>}
-                    <Link to="/users/$username" params={{ username: e.username ?? e.id }} className="font-medium text-foreground hover:underline">
-                      @{e.username ?? e.displayName}
+                    <Link to="/users/$username" params={{ username: m.username ?? m.id }} className="font-medium text-foreground hover:underline">
+                      @{m.username ?? m.displayName}
                     </Link>
                   </span>
                 ))}
@@ -744,8 +809,32 @@ function CircleDetailPage() {
             <Button size="sm" variant="outline" onClick={cancelEditing} disabled={saving}>Cancel</Button>
           </div>
         ) : (
-          <div className="absolute bottom-4 right-4 flex gap-1.5">
+          <div className="absolute bottom-4 right-4 flex gap-1.5 items-center">
             <ShareButton title={circle.name} />
+            {/* Join / leave / request button — not shown to owner/admin */}
+            {user && !isOwner && !isAdmin && (
+              isMember ? (
+                <button
+                  onClick={handleLeave}
+                  disabled={joinLoading}
+                  className="text-xs text-muted-foreground hover:text-destructive border border-border rounded-md px-2.5 py-1 transition-colors"
+                >
+                  {joinLoading ? "…" : "Leave"}
+                </button>
+              ) : joinStatus === "pending" ? (
+                <button
+                  onClick={handleWithdraw}
+                  disabled={joinLoading}
+                  className="text-xs text-muted-foreground hover:text-destructive border border-border rounded-md px-2.5 py-1 transition-colors"
+                >
+                  {joinLoading ? "…" : "Withdraw request"}
+                </button>
+              ) : (
+                <Button size="sm" variant="outline" onClick={handleJoinRequest} disabled={joinLoading}>
+                  {joinLoading ? "…" : "Request to join"}
+                </Button>
+              )
+            )}
             {canEdit && (
               <button
                 onClick={startEditing}
@@ -758,6 +847,141 @@ function CircleDetailPage() {
           </div>
         )}
       </section>
+
+      {/* ── Join requests (owner/managers only) ── */}
+      {!editing && canManageRequests && (
+        <section className="card-base p-6 space-y-3">
+          <h2 className="text-sm font-semibold">
+            Join Requests
+            {pendingRequests.filter((r) => r.status === "pending").length > 0 && (
+              <span className="ml-2 inline-flex items-center justify-center rounded-full bg-primary text-primary-foreground text-[10px] font-bold h-4 px-1.5">
+                {pendingRequests.filter((r) => r.status === "pending").length}
+              </span>
+            )}
+          </h2>
+          {pendingRequests.length === 0 ? (
+            <p className="text-sm text-muted-foreground">No join requests yet</p>
+          ) : (
+            <div className="space-y-2">
+              {pendingRequests.map((req) => {
+                const initials = (req.displayName || req.username || "?").slice(0, 2).toUpperCase();
+                const loading = requestActionLoading === req.userId;
+                const isPending = req.status === "pending";
+                return (
+                  <div key={req.userId} className="flex items-center gap-3">
+                    <Link to="/users/$username" params={{ username: req.username ?? req.userId }} className="flex items-center gap-2 flex-1 min-w-0 hover:opacity-80">
+                      {req.avatarUrl ? (
+                        <img src={req.avatarUrl} alt="" className="w-8 h-8 rounded-full object-cover shrink-0" />
+                      ) : (
+                        <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center text-xs font-semibold shrink-0">{initials}</div>
+                      )}
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium truncate">{req.displayName}</p>
+                        {req.username && <p className="text-xs text-muted-foreground truncate">@{req.username}</p>}
+                      </div>
+                    </Link>
+                    {isPending ? (
+                      <div className="flex gap-1.5 shrink-0">
+                        <Button size="sm" onClick={() => handleApprove(req)} disabled={loading}>
+                          {loading ? "…" : "Approve"}
+                        </Button>
+                        <Button size="sm" variant="outline" onClick={() => handleReject(req)} disabled={loading}>
+                          Decline
+                        </Button>
+                      </div>
+                    ) : (
+                      <span className={`shrink-0 text-xs font-medium px-2 py-0.5 rounded-full ${
+                        req.status === "approved"
+                          ? "bg-green-500/10 text-green-700 dark:text-green-400"
+                          : "bg-muted text-muted-foreground"
+                      }`}>
+                        {req.status === "approved" ? "Approved" : "Declined"}
+                      </span>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </section>
+      )}
+
+      {/* ── Members ── */}
+      {!editing && (
+        <section className="card-base p-6 space-y-3">
+          <h2 className="text-sm font-semibold">Members{members.length > 0 && ` (${members.length})`}</h2>
+          {members.length === 0 ? (
+            <p className="text-sm text-muted-foreground">No members yet — be the first to join!</p>
+          ) : (
+            <div className="space-y-1">
+              {members.map((m) => {
+                const isAlreadyManager = managers.some((mgr) => mgr.id === m.id);
+                const actioning = promotingId === m.id;
+                const initials = (m.displayName || m.username || "?").slice(0, 2).toUpperCase();
+                // managers can kick regular members; only owner/admin can kick other managers
+                const canKick = isAlreadyManager ? (isOwner || isAdmin) : canManageRequests;
+                return (
+                  <div key={m.id} className="flex items-center gap-2 py-1.5 group">
+                    <Link
+                      to="/users/$username"
+                      params={{ username: m.username ?? m.id }}
+                      className="flex items-center gap-2.5 flex-1 min-w-0 hover:opacity-80"
+                    >
+                      {m.avatarUrl ? (
+                        <img src={m.avatarUrl} alt="" className="w-8 h-8 rounded-full object-cover shrink-0" />
+                      ) : (
+                        <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center text-xs font-semibold shrink-0">{initials}</div>
+                      )}
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium leading-tight truncate">{m.displayName || m.username}</p>
+                        {m.username && <p className="text-xs text-muted-foreground truncate">@{m.username}</p>}
+                      </div>
+                    </Link>
+
+                    {/* Manager badge — owner can hover to demote, others see static label */}
+                    {isAlreadyManager && (
+                      isOwner ? (
+                        <button
+                          onClick={() => handleRemoveManager(m.id)}
+                          disabled={actioning}
+                          className="text-xs px-2 py-0.5 rounded-full bg-muted text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-colors shrink-0 group/mgr"
+                        >
+                          <span className="group-hover/mgr:hidden">Manager</span>
+                          <span className="hidden group-hover/mgr:inline">✕ Manager</span>
+                        </button>
+                      ) : (
+                        <span className="text-xs px-2 py-0.5 rounded-full bg-muted text-muted-foreground shrink-0">Manager</span>
+                      )
+                    )}
+
+                    {/* Promote button for regular members (owner only) */}
+                    {isOwner && !isAlreadyManager && (
+                      <button
+                        onClick={() => handlePromoteToManager(m)}
+                        disabled={actioning}
+                        className="opacity-0 group-hover:opacity-100 text-xs text-muted-foreground hover:text-foreground transition-opacity shrink-0"
+                      >
+                        {actioning ? "…" : "Make manager"}
+                      </button>
+                    )}
+
+                    {/* Kick button — removes from circle (and manager role if applicable) */}
+                    {canKick && (
+                      <button
+                        onClick={() => isAlreadyManager ? handleKickManager(m) : handleRemoveMember(m.id)}
+                        disabled={actioning}
+                        className="opacity-0 group-hover:opacity-100 text-xs text-muted-foreground hover:text-destructive border border-transparent hover:border-destructive/40 rounded px-1.5 py-0.5 transition-colors shrink-0"
+                      >
+                        Kick
+                      </button>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </section>
+      )}
     </div>
   );
 }

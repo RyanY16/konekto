@@ -5,8 +5,8 @@ import {
   getNotifications,
   getUnreadCount,
   markAllNotificationsRead,
-  getEventHandle,
 } from "@/data/backend";
+import { toSlug } from "@/lib/slug";
 import type { AppNotification } from "@/data/backend";
 
 function timeAgo(iso: string): string {
@@ -19,28 +19,36 @@ function timeAgo(iso: string): string {
   return `${Math.floor(hrs / 24)}d ago`;
 }
 
-function notifLabel(n: AppNotification): { text: string; to?: string } {
+function notifLabel(n: AppNotification): { icon: string; text: string; to?: string } {
   const p = n.payload;
-  const handle = p.eventId ? `${p.eventId}` : undefined;
+
   if (n.type === "event_request") {
-    return {
-      text: `Someone wants to attend "${p.eventTitle}"`,
-      to: handle ? `/events/${handle}` : undefined,
-    };
+    const to = p.eventId ? `/events/${p.eventId}` : undefined;
+    return { icon: "🙋", text: `Someone requested to attend "${p.eventTitle}"`, to };
   }
   if (n.type === "event_approved") {
-    return {
-      text: `You're approved for "${p.eventTitle}" 🎉`,
-      to: handle ? `/events/${handle}` : undefined,
-    };
+    const to = p.eventId ? `/events/${p.eventId}` : undefined;
+    return { icon: "✅", text: `You're in! Your request for "${p.eventTitle}" was approved`, to };
   }
   if (n.type === "event_declined") {
-    return {
-      text: `Your request for "${p.eventTitle}" was declined`,
-      to: handle ? `/events/${handle}` : undefined,
-    };
+    const to = p.eventId ? `/events/${p.eventId}` : undefined;
+    return { icon: "❌", text: `Your request for "${p.eventTitle}" was declined`, to };
   }
-  return { text: n.type };
+
+  if (n.type === "circle_join_request") {
+    const to = p.circleId ? `/circles/${toSlug(p.circleName) || p.circleId}` : undefined;
+    return { icon: "🙋", text: `Someone wants to join "${p.circleName}"`, to };
+  }
+  if (n.type === "circle_join_approved") {
+    const to = p.circleId ? `/circles/${toSlug(p.circleName) || p.circleId}` : undefined;
+    return { icon: "🎉", text: `You're in! Your request to join "${p.circleName}" was approved`, to };
+  }
+  if (n.type === "circle_join_rejected") {
+    const to = p.circleId ? `/circles/${toSlug(p.circleName) || p.circleId}` : undefined;
+    return { icon: "❌", text: `Your request to join "${p.circleName}" was declined`, to };
+  }
+
+  return { icon: "🔔", text: n.type };
 }
 
 export function NotificationsDropdown({ userId }: { userId: string }) {
@@ -116,14 +124,15 @@ export function NotificationsDropdown({ userId }: { userId: string }) {
               <p className="text-sm text-muted-foreground text-center py-8">No notifications yet</p>
             )}
             {loaded && notifs.map((n) => {
-              const { text, to } = notifLabel(n);
+              const { icon, text, to } = notifLabel(n);
               const inner = (
-                <div className={`px-4 py-3 flex gap-3 items-start hover:bg-muted transition-colors ${!n.read ? "bg-primary/5" : ""}`}>
-                  <div className={`mt-0.5 h-2 w-2 rounded-full shrink-0 ${!n.read ? "bg-primary" : "bg-transparent"}`} />
+                <div className={`px-4 py-3 flex gap-3 items-start transition-colors hover:bg-muted ${!n.read ? "bg-primary/5" : ""}`}>
+                  <span className="text-base leading-none mt-0.5 shrink-0">{icon}</span>
                   <div className="flex-1 min-w-0">
                     <p className="text-sm leading-snug">{text}</p>
                     <p className="text-xs text-muted-foreground mt-0.5">{timeAgo(n.createdAt)}</p>
                   </div>
+                  {!n.read && <div className="mt-1.5 h-2 w-2 rounded-full bg-primary shrink-0" />}
                 </div>
               );
               return to ? (

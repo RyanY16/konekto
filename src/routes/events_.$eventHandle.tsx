@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import TagPicker from "@/components/TagPicker";
+import { CIRCLE_TAG_GROUPS } from "@/data/tags";
 import CirclePicker from "@/components/CirclePicker";
 import { DeleteRecordButton } from "@/components/DeleteRecordButton";
 import { OwnerBadge } from "@/components/OwnerBadge";
@@ -510,7 +511,7 @@ function EventDetailPage() {
 
             <div className="space-y-1">
               <label className="text-xs font-medium text-muted-foreground">Tags</label>
-              <TagPicker value={draft.tags} onChange={(t) => setDraft((d) => ({ ...d, tags: t }))} />
+              <TagPicker value={draft.tags} onChange={(t) => setDraft((d) => ({ ...d, tags: t }))} groups={CIRCLE_TAG_GROUPS} />
             </div>
 
             {user && (

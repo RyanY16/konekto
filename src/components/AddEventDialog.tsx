@@ -9,6 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import TagPicker from "@/components/TagPicker";
+import { CIRCLE_TAG_GROUPS } from "@/data/tags";
 import CirclePicker from "@/components/CirclePicker";
 import { socialLinksFromForm } from "@/lib/social-links";
 import { addEvent } from "@/data/backend";
@@ -345,7 +346,7 @@ export default function AddEventDialog() {
           {/* Tags */}
           <div className={field}>
             <label className={lbl}>Tags {opt}</label>
-            <TagPicker value={selectedTags} onChange={setSelectedTags} />
+            <TagPicker value={selectedTags} onChange={setSelectedTags} groups={CIRCLE_TAG_GROUPS} />
           </div>
 
           {/* Circles */}

@@ -578,7 +578,7 @@ export async function upsertProfile(
   }
 }
 
-export async function getCircleEditorIds(circleId: string): Promise<string[]> {
+export async function getCircleManagerIds(circleId: string): Promise<string[]> {
   if (!supabase) return [];
   const { data } = await (supabase.from("circle_editors") as any)
     .select("user_id")
@@ -610,14 +610,14 @@ export async function getMyEditableCircles(userId: string): Promise<Circle[]> {
   return all.map((r) => mapCircle(r as unknown as Row<"circles">));
 }
 
-export async function getCircleEditors(circleId: string): Promise<UserProfile[]> {
+export async function getCircleManagers(circleId: string): Promise<UserProfile[]> {
   if (!supabase) return [];
-  const ids = await getCircleEditorIds(circleId);
+  const ids = await getCircleManagerIds(circleId);
   if (ids.length === 0) return [];
   return getProfilesByIds(ids);
 }
 
-export async function addCircleEditor(circleId: string, username: string): Promise<void> {
+export async function addCircleManager(circleId: string, username: string): Promise<void> {
   const client = assertSupabase();
   const profile = await getProfileByUsername(username);
   if (!profile) throw new Error(`No user found with username @${username}`);
@@ -626,7 +626,14 @@ export async function addCircleEditor(circleId: string, username: string): Promi
   if (error) throw new Error(error.message);
 }
 
-export async function removeCircleEditor(circleId: string, userId: string): Promise<void> {
+export async function addCircleManagerById(circleId: string, userId: string): Promise<void> {
+  const client = assertSupabase();
+  const { error } = await (client.from("circle_editors") as any)
+    .insert({ circle_id: circleId, user_id: userId });
+  if (error) throw new Error(error.message);
+}
+
+export async function removeCircleManager(circleId: string, userId: string): Promise<void> {
   const client = assertSupabase();
   const { error } = await (client.from("circle_editors") as any)
     .delete()
@@ -639,9 +646,9 @@ export async function transferCircleOwnership(circleId: string, username: string
   const client = assertSupabase();
   const profile = await getProfileByUsername(username);
   if (!profile) throw new Error(`No user found with username @${username}`);
-  const { error } = await client
+  const { error } = await (client
     .from("circles")
-    .update({ owner_id: profile.id } as any)
+    .update({ owner_id: profile.id } as any) as any)
     .eq("id", circleId);
   if (error) throw new Error(error.message);
 }
@@ -654,11 +661,21 @@ export async function getJoinedCircleIds(userId: string): Promise<string[]> {
   return (data ?? []).map((r: { circle_id: string }) => r.circle_id);
 }
 
+export async function getCircleMembers(circleId: string): Promise<UserProfile[]> {
+  if (!supabase) return [];
+  const { data } = await (supabase.from("user_circles") as any)
+    .select("user_id")
+    .eq("circle_id", circleId);
+  if (!data || data.length === 0) return [];
+  const ids = data.map((r: any) => r.user_id as string);
+  return getProfilesByIds(ids);
+}
+
 export async function joinCircle(userId: string, circleId: string): Promise<void> {
   const client = assertSupabase();
   const { error } = await (client.from("user_circles") as any)
     .insert({ user_id: userId, circle_id: circleId });
-  if (error) throw new Error(error.message);
+  if (error && !error.message.includes("duplicate")) throw new Error(error.message);
 }
 
 export async function leaveCircle(userId: string, circleId: string): Promise<void> {
@@ -668,6 +685,132 @@ export async function leaveCircle(userId: string, circleId: string): Promise<voi
     .eq("user_id", userId)
     .eq("circle_id", circleId);
   if (error) throw new Error(error.message);
+}
+
+export async function removeMember(circleId: string, userId: string): Promise<void> {
+  const client = assertSupabase();
+  const { error } = await (client.from("user_circles") as any)
+    .delete()
+    .eq("circle_id", circleId)
+    .eq("user_id", userId);
+  if (error) throw new Error(error.message);
+}
+
+// ─── Circle Join Requests ────────────────────────────────────────────────────
+
+export type JoinRequestStatus = "pending" | "approved" | "rejected";
+
+export type CircleJoinRequest = {
+  userId: string;
+  username: string | null;
+  displayName: string;
+  avatarUrl: string | null;
+  status: JoinRequestStatus;
+  createdAt: string;
+};
+
+export async function getMyJoinRequest(circleId: string, userId: string): Promise<JoinRequestStatus | null> {
+  if (!supabase) return null;
+  const { data } = await (supabase.from("circle_join_requests") as any)
+    .select("status")
+    .eq("circle_id", circleId)
+    .eq("user_id", userId)
+    .maybeSingle();
+  return (data?.status as JoinRequestStatus) ?? null;
+}
+
+export async function requestToJoinCircle(
+  circle: { id: string; name: string; ownerId?: string },
+  userId: string,
+): Promise<void> {
+  const client = assertSupabase();
+  const { error } = await (client.from("circle_join_requests") as any)
+    .insert({ circle_id: circle.id, user_id: userId, status: "pending" });
+  if (error) throw new Error(error.message);
+
+  if (circle.ownerId) {
+    await (client.from("notifications") as any).insert({
+      user_id: circle.ownerId,
+      type: "circle_join_request",
+      payload: { circleId: circle.id, circleName: circle.name, requesterId: userId },
+    });
+  }
+}
+
+export async function withdrawJoinRequest(circleId: string, userId: string): Promise<void> {
+  const client = assertSupabase();
+  const { error } = await (client.from("circle_join_requests") as any)
+    .delete()
+    .eq("circle_id", circleId)
+    .eq("user_id", userId);
+  if (error) throw new Error(error.message);
+}
+
+export async function getCircleJoinRequests(circleId: string): Promise<CircleJoinRequest[]> {
+  if (!supabase) return [];
+  const { data } = await (supabase.from("circle_join_requests") as any)
+    .select("user_id, status, created_at")
+    .eq("circle_id", circleId)
+    .order("created_at", { ascending: false });
+  if (!data || data.length === 0) return [];
+
+  const ids = data.map((r: any) => r.user_id as string);
+  const profiles = await getProfilesByIds(ids).catch(() => [] as UserProfile[]);
+  const profileMap = new Map(profiles.map((p) => [p.id, p]));
+
+  return data.map((r: any) => {
+    const p = profileMap.get(r.user_id);
+    return {
+      userId: r.user_id,
+      username: p?.username ?? null,
+      displayName: p?.displayName ?? r.user_id,
+      avatarUrl: p?.avatarUrl ?? null,
+      status: r.status as JoinRequestStatus,
+      createdAt: r.created_at,
+    };
+  });
+}
+
+export async function approveJoinRequest(
+  circle: { id: string; name: string },
+  requesterId: string,
+): Promise<void> {
+  const client = assertSupabase();
+  const { error: memberError } = await (client.from("user_circles") as any)
+    .insert({ user_id: requesterId, circle_id: circle.id });
+  if (memberError && !memberError.message.includes("duplicate")) throw new Error(memberError.message);
+
+  await (client.from("circle_join_requests") as any)
+    .delete()
+    .eq("circle_id", circle.id)
+    .eq("user_id", requesterId);
+
+  const { data: circleRow } = await (client.from("circles") as any).select("members").eq("id", circle.id).maybeSingle();
+  const newCount = (circleRow?.members ?? 0) + 1;
+  await (client.from("circles") as any).update({ members: newCount }).eq("id", circle.id);
+
+  await (client.from("notifications") as any).insert({
+    user_id: requesterId,
+    type: "circle_join_approved",
+    payload: { circleId: circle.id, circleName: circle.name },
+  });
+}
+
+export async function rejectJoinRequest(
+  circle: { id: string; name: string },
+  requesterId: string,
+): Promise<void> {
+  const client = assertSupabase();
+  await (client.from("circle_join_requests") as any)
+    .delete()
+    .eq("circle_id", circle.id)
+    .eq("user_id", requesterId);
+
+  await (client.from("notifications") as any).insert({
+    user_id: requesterId,
+    type: "circle_join_rejected",
+    payload: { circleId: circle.id, circleName: circle.name },
+  });
 }
 
 export async function uploadCircleIcon(circleId: string, file: File): Promise<string> {

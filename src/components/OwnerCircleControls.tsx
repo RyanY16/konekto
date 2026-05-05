@@ -4,6 +4,7 @@ import React, { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { DeleteRecordButton } from "@/components/DeleteRecordButton";
 import TagPicker from "@/components/TagPicker";
+import { CIRCLE_TAG_GROUPS } from "@/data/tags";
 import { useAuth } from "@/components/AuthProvider";
 import { deleteCircle, updateCircle } from "@/data/backend";
 import { useRouter } from "@tanstack/react-router";
@@ -47,7 +48,7 @@ export default function OwnerCircleControls({ circle }: { circle: any }) {
     <div className="flex items-center gap-2">
       {editing ? (
         <>
-          <TagPicker value={selectedTags} onChange={setSelectedTags} />
+          <TagPicker value={selectedTags} onChange={setSelectedTags} groups={CIRCLE_TAG_GROUPS} />
           <Button onClick={handleSave} disabled={saving}>{saving ? "Saving..." : "Save"}</Button>
           <Button variant="ghost" onClick={() => setEditing(false)}>Cancel</Button>
         </>

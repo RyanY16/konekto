@@ -12,6 +12,7 @@ import { addCircle, uploadCircleIcon } from "@/data/backend";
 import { useRouter } from "@tanstack/react-router";
 import { useAuth } from "@/components/AuthProvider";
 import { CIRCLE_CATEGORIES, ACTIVITY_LEVELS, CATEGORY_EMOJI, LANGUAGES, COUNTRIES } from "@/data/profile-options";
+import { CIRCLE_TAG_GROUPS } from "@/data/tags";
 import { UniversityPicker } from "@/components/UniversityPicker";
 import EmojiPicker from "@/components/EmojiPicker";
 
@@ -281,7 +282,7 @@ export default function AddCircleDialog() {
           {/* Tags */}
           <div className={field}>
             <label className={lbl}>Tags {opt}</label>
-            <TagPicker value={selectedTags} onChange={setSelectedTags} />
+            <TagPicker value={selectedTags} onChange={setSelectedTags} groups={CIRCLE_TAG_GROUPS} />
           </div>
 
           {/* Social links */}

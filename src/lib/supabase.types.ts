@@ -39,6 +39,16 @@ export type Database = {
         Insert: { user_id: string; circle_id: string; joined_at?: string };
         Update: never;
       };
+      circle_editors: {
+        Row: { circle_id: string; user_id: string };
+        Insert: { circle_id: string; user_id: string };
+        Update: never;
+      };
+      circle_join_requests: {
+        Row: { circle_id: string; user_id: string; status: "pending" | "approved" | "rejected"; message: string; created_at: string };
+        Insert: { circle_id: string; user_id: string; status?: string; message?: string; created_at?: string };
+        Update: Partial<{ status: string; message: string }>;
+      };
       circles: {
         Row: {
           id: string;
