@@ -1,4 +1,4 @@
-import { createFileRoute, Link, notFound } from "@tanstack/react-router";
+import { createFileRoute, Link, notFound, useRouter } from "@tanstack/react-router";
 import { getProfileByUsername, getCircles, getJoinedCircleIds, getCircleHandle } from "@/data/backend";
 import { MapPin } from "lucide-react";
 import { tagClass } from "@/lib/tag-class";
@@ -20,8 +20,8 @@ export const Route = createFileRoute("/users_/$username")({
   notFoundComponent: () => (
     <div className="text-center py-16">
       <h1 className="text-2xl font-bold">User not found</h1>
-      <Link to="/circles" className="mt-4 inline-block text-sm font-semibold text-primary hover:underline">
-        Back to circles
+      <Link to="/" className="mt-4 inline-block text-sm font-semibold text-primary hover:underline">
+        Back to home
       </Link>
     </div>
   ),
@@ -30,6 +30,7 @@ export const Route = createFileRoute("/users_/$username")({
 
 function UserProfilePage() {
   const { profile, circles } = Route.useLoaderData();
+  const router = useRouter();
 
   const initials = (profile.displayName || profile.username || "?")[0].toUpperCase();
 
@@ -76,7 +77,7 @@ function UserProfilePage() {
             </div>
 
             {profile.bio && (
-              <p className="mt-3 text-sm text-foreground/80 leading-relaxed">{profile.bio}</p>
+              <p className="mt-3 text-sm text-foreground/80 leading-relaxed whitespace-pre-wrap">{profile.bio}</p>
             )}
           </div>
         </div>
@@ -127,9 +128,12 @@ function UserProfilePage() {
         </section>
       )}
 
-      <Link to="/circles" className="inline-block text-sm font-semibold text-primary hover:underline">
-        ← Back to circles
-      </Link>
+      <button
+        onClick={() => router.history.back()}
+        className="inline-block text-sm font-semibold text-primary hover:underline"
+      >
+        ← Back
+      </button>
     </div>
   );
 }
