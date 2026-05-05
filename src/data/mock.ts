@@ -16,6 +16,7 @@ export type Circle = {
   emoji: string;
   tags: string[];
   university?: string;
+  country?: string;
   primaryLanguage?: string;
   recruiting?: boolean;
   recruitingPeriod?: string;

@@ -201,4 +201,13 @@ export const GOAL_GROUPS: readonly GoalGroup[] = [
 
 export const GOALS = GOAL_GROUPS.flatMap((g) => g.items).filter((v, i, a) => a.indexOf(v) === i) as unknown as readonly string[];
 
+export const COUNTRIES = [
+  "Japan",
+  "Australia", "Brazil", "Canada", "China", "France", "Germany",
+  "India", "Indonesia", "Italy", "Malaysia", "Mexico", "Netherlands",
+  "New Zealand", "Philippines", "Singapore", "South Korea", "Spain",
+  "Taiwan", "Thailand", "United Kingdom", "United States", "Vietnam",
+  "Other",
+] as const;
+
 export type Goal = string;

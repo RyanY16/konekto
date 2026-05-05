@@ -11,8 +11,9 @@ import { socialLinksFromForm } from "@/lib/social-links";
 import { addCircle, uploadCircleIcon } from "@/data/backend";
 import { useRouter } from "@tanstack/react-router";
 import { useAuth } from "@/components/AuthProvider";
-import { CIRCLE_CATEGORIES, ACTIVITY_LEVELS, CATEGORY_EMOJI, LANGUAGES } from "@/data/profile-options";
+import { CIRCLE_CATEGORIES, ACTIVITY_LEVELS, CATEGORY_EMOJI, LANGUAGES, COUNTRIES } from "@/data/profile-options";
 import { UniversityPicker } from "@/components/UniversityPicker";
+import EmojiPicker from "@/components/EmojiPicker";
 
 export default function AddCircleDialog() {
   const router = useRouter();
@@ -22,7 +23,9 @@ export default function AddCircleDialog() {
   const [saving, setSaving] = useState(false);
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [category, setCategory] = useState<string>(CIRCLE_CATEGORIES[0]);
+  const [emoji, setEmoji] = useState<string>(CATEGORY_EMOJI[CIRCLE_CATEGORIES[0]] ?? "👥");
   const [university, setUniversity] = useState("");
+  const [country, setCountry] = useState("Japan");
   const [primaryLanguage, setPrimaryLanguage] = useState("");
   const [recruiting, setRecruiting] = useState(false);
   const [pendingIcon, setPendingIcon] = useState<File | null>(null);
@@ -42,7 +45,9 @@ export default function AddCircleDialog() {
     setIconPreview(null);
     setSelectedTags([]);
     setCategory(CIRCLE_CATEGORIES[0]);
+    setEmoji(CATEGORY_EMOJI[CIRCLE_CATEGORIES[0]] ?? "👥");
     setUniversity("");
+    setCountry("Japan");
     setPrimaryLanguage("");
     setRecruiting(false);
     setError("");
@@ -71,8 +76,9 @@ export default function AddCircleDialog() {
         description: String(form.get("description") ?? "").trim(),
         activity: String(form.get("activity") ?? "Weekly") as "Daily" | "Weekly" | "Monthly" | "Occasionally",
         englishFriendly: form.get("englishFriendly") === "on",
-        emoji: CATEGORY_EMOJI[cat] ?? "👥",
+        emoji,
         university: university.trim() || undefined,
+        country: country || "Japan",
         location: String(form.get("location") ?? "").trim() || undefined,
         primaryLanguage: primaryLanguage || undefined,
         recruiting,
@@ -98,6 +104,8 @@ export default function AddCircleDialog() {
   const sel = "h-10 w-full rounded-md border border-input bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring";
   const lbl = "text-xs font-medium text-muted-foreground";
   const field = "space-y-1.5";
+  const req = <span className="text-destructive ml-0.5">*</span>;
+  const opt = <span className="font-normal text-muted-foreground/60 ml-1">(optional)</span>;
 
   return (
     <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) reset(); }}>
@@ -114,7 +122,7 @@ export default function AddCircleDialog() {
         <form ref={formRef} onSubmit={handleSubmit} className="space-y-5">
           {/* Icon upload */}
           <div className={field}>
-            <label className={lbl}>Circle icon</label>
+            <label className={lbl}>Circle icon {opt}</label>
             <div className="flex items-center gap-4">
               <button
                 type="button"
@@ -157,21 +165,24 @@ export default function AddCircleDialog() {
             />
           </div>
 
-          {/* Name */}
+          {/* Name + Emoji */}
           <div className={field}>
-            <label className={lbl}>Circle name</label>
-            <Input name="name" placeholder="e.g. Tokyo Tech Society" required />
+            <label className={lbl}>Circle name {req}</label>
+            <div className="flex gap-2">
+              <EmojiPicker value={emoji} onChange={setEmoji} />
+              <Input name="name" placeholder="e.g. Tokyo Tech Society" required className="flex-1" />
+            </div>
           </div>
 
           {/* Description */}
           <div className={field}>
-            <label className={lbl}>Description</label>
+            <label className={lbl}>Description {req}</label>
             <Textarea name="description" placeholder="What does this circle do?" rows={6} required />
           </div>
 
           {/* University */}
           <div className={field}>
-            <label className={lbl}>University</label>
+            <label className={lbl}>University {opt}</label>
             <UniversityPicker
               value={university}
               onChange={setUniversity}
@@ -179,15 +190,29 @@ export default function AddCircleDialog() {
             />
           </div>
 
+          {/* Country */}
+          <div className={field}>
+            <label className={lbl}>Country {req}</label>
+            <select
+              className={sel}
+              value={country}
+              onChange={(e) => setCountry(e.target.value)}
+            >
+              {COUNTRIES.map((c) => (
+                <option key={c} value={c}>{c}</option>
+              ))}
+            </select>
+          </div>
+
           {/* Specific location */}
           <div className={field}>
-            <label className={lbl}>Specific location</label>
+            <label className={lbl}>Specific location {opt}</label>
             <Input name="location" placeholder="e.g. Building 14 Room 203, Main Campus Gate" />
           </div>
 
           {/* Primary language */}
           <div className={field}>
-            <label className={lbl}>Primary language</label>
+            <label className={lbl}>Primary language {opt}</label>
             <select
               className={sel}
               value={primaryLanguage}
@@ -214,11 +239,11 @@ export default function AddCircleDialog() {
             {recruiting && (
               <div className="mt-2 space-y-2 pl-6">
                 <div className={field}>
-                  <label className={lbl}>Recruiting period</label>
+                  <label className={lbl}>Recruiting period {opt}</label>
                   <Input name="recruitingPeriod" placeholder="e.g. April – June 2025" />
                 </div>
                 <div className={field}>
-                  <label className={lbl}>Conditions / requirements</label>
+                  <label className={lbl}>Conditions / requirements {opt}</label>
                   <Textarea name="recruitingConditions" placeholder="Any requirements to join?" rows={2} />
                 </div>
               </div>
@@ -227,26 +252,26 @@ export default function AddCircleDialog() {
 
           {/* Membership fee */}
           <div className={field}>
-            <label className={lbl}>Membership fee</label>
+            <label className={lbl}>Membership fee {opt}</label>
             <Input name="membershipFee" placeholder="e.g. Free, ¥3,000/year, ¥500/month" />
           </div>
 
           {/* Category / Activity */}
           <div className="grid grid-cols-2 gap-3">
             <div className={field}>
-              <label className={lbl}>Category</label>
+              <label className={lbl}>Category {req}</label>
               <select
                 name="category"
                 className={sel}
                 required
                 value={category}
-                onChange={(e) => setCategory(e.target.value)}
+                onChange={(e) => { setCategory(e.target.value); setEmoji(CATEGORY_EMOJI[e.target.value] ?? "👥"); }}
               >
                 {CIRCLE_CATEGORIES.map((c) => <option key={c} value={c}>{CATEGORY_EMOJI[c]} {c}</option>)}
               </select>
             </div>
             <div className={field}>
-              <label className={lbl}>Activity</label>
+              <label className={lbl}>Activity {req}</label>
               <select name="activity" className={sel}>
                 {ACTIVITY_LEVELS.map((a) => <option key={a} value={a}>{a}</option>)}
               </select>
@@ -255,13 +280,13 @@ export default function AddCircleDialog() {
 
           {/* Tags */}
           <div className={field}>
-            <label className={lbl}>Tags</label>
+            <label className={lbl}>Tags {opt}</label>
             <TagPicker value={selectedTags} onChange={setSelectedTags} />
           </div>
 
           {/* Social links */}
           <div className={field}>
-            <label className={lbl}>Social links</label>
+            <label className={lbl}>Social links {opt}</label>
             <div className="space-y-2">
               <div className="relative">
                 <Globe className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />

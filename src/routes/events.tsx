@@ -1,6 +1,8 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useRouter } from "@tanstack/react-router";
 import { useState } from "react";
-import { Users, MapPin, Calendar, Search } from "lucide-react";
+import { Users, MapPin, Calendar, Search, Trash2 } from "lucide-react";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
+import { Button } from "@/components/ui/button";
 import { events as mockEvents } from "@/data/mock";
 
 const CATEGORY_EMOJI: Record<string, string> = {
@@ -12,7 +14,7 @@ const CATEGORY_EMOJI: Record<string, string> = {
 import { PageHeader } from "@/components/PageHeader";
 import { SaveButton } from "@/components/SaveButton";
 import AddEventDialog from "@/components/AddEventDialog";
-import { getEvents, getEventHandle, getProfilesByIds } from "@/data/backend";
+import { getEvents, getEventHandle, getProfilesByIds, deleteAllEvents } from "@/data/backend";
 import { useAuth } from "@/components/AuthProvider";
 import { tagClass } from "@/lib/tag-class";
 
@@ -86,8 +88,10 @@ function EventsSkeleton() {
 }
 
 function EventsPage() {
-  const { user } = useAuth();
+  const { user, isAdmin } = useAuth();
   const { events: allEvents, ownerMap } = Route.useLoaderData();
+  const router = useRouter();
+  const [deletingAll, setDeletingAll] = useState(false);
   const [cat, setCat] = useState<(typeof cats)[number]>("All");
   const [q, setQ] = useState("");
 
@@ -113,7 +117,38 @@ function EventsPage() {
           title="What's happening."
           subtitle="From hanami picnics to career fairs — your weekend plans, sorted."
         />
-        <div className="mt-1 shrink-0">
+        <div className="mt-1 shrink-0 flex items-center gap-2">
+          {isAdmin && (
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button variant="destructive" size="sm" className="gap-1.5">
+                  <Trash2 className="h-3.5 w-3.5" /> Delete all
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Delete all events?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    This permanently deletes every event. This cannot be undone.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel disabled={deletingAll}>Cancel</AlertDialogCancel>
+                  <AlertDialogAction
+                    disabled={deletingAll}
+                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                    onClick={async (e) => {
+                      e.preventDefault();
+                      setDeletingAll(true);
+                      try { await deleteAllEvents(); router.invalidate(); } finally { setDeletingAll(false); }
+                    }}
+                  >
+                    {deletingAll ? "Deleting…" : "Delete all"}
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          )}
           {user ? (
             <AddEventDialog />
           ) : (

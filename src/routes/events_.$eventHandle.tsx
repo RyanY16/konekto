@@ -1,6 +1,10 @@
 import { Link, createFileRoute, useRouter } from "@tanstack/react-router";
 import { useState, useEffect } from "react";
-import { Globe, Instagram, Linkedin, MessageCircle, MapPin, ExternalLink } from "lucide-react";
+import { Globe, Instagram, Linkedin, MessageCircle, MapPin, ExternalLink, CalendarIcon } from "lucide-react";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { format, parse } from "date-fns";
+import type { DateRange } from "react-day-picker";
 import { tagClass } from "@/lib/tag-class";
 import { PageHeader } from "@/components/PageHeader";
 import { SocialLinks } from "@/components/SocialLinks";
@@ -41,6 +45,55 @@ const CATEGORY_EMOJI: Record<string, string> = {
 
 function mapsUrl(location: string) {
   return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(location)}`;
+}
+
+const TIME_OPTIONS: string[] = [];
+for (let h = 0; h < 24; h++) {
+  for (const m of [0, 30]) {
+    const hour12 = h % 12 === 0 ? 12 : h % 12;
+    const ampm = h < 12 ? "AM" : "PM";
+    TIME_OPTIONS.push(`${hour12}:${String(m).padStart(2, "0")} ${ampm}`);
+  }
+}
+
+function formatDateRange(range: DateRange | undefined, startTime: string, endTime: string, isRange: boolean): string {
+  if (!range?.from) return "";
+  const from = format(range.from, "EEE, MMM d");
+  if (isRange && range.to && range.to.getTime() !== range.from.getTime()) {
+    const to = format(range.to, "MMM d");
+    return `${from}–${to} · ${startTime} – ${endTime}`;
+  }
+  return `${from} · ${startTime} – ${endTime}`;
+}
+
+function parseDateString(dateStr: string): { range: DateRange | undefined; startTime: string; endTime: string; multiDay: boolean } {
+  const tryParseDate = (s: string): Date | undefined => {
+    const cleaned = s.replace(/^[A-Za-z]+, /, "").trim();
+    for (const fmt of ["MMM d, yyyy", "MMM d"]) {
+      try {
+        const d = parse(cleaned, fmt, new Date());
+        if (!isNaN(d.getTime())) return d;
+      } catch {}
+    }
+    return undefined;
+  };
+
+  // Multi-day: "EEE, MMM d–MMM d · H:MM XM – H:MM XM" (accepts en-dash or hyphen)
+  const multi = dateStr.match(/^(.+?)[-–](.+?)\s[·•]\s(\d+:\d+ [AP]M)\s[-–]\s(\d+:\d+ [AP]M)$/);
+  if (multi) {
+    const from = tryParseDate(multi[1]);
+    const to = tryParseDate(multi[2]);
+    return { range: from ? { from, to } : undefined, startTime: multi[3], endTime: multi[4], multiDay: true };
+  }
+
+  // Single day: "EEE, MMM d · H:MM XM – H:MM XM"
+  const single = dateStr.match(/^(.+?)\s[·•]\s(\d+:\d+ [AP]M)\s[-–]\s(\d+:\d+ [AP]M)$/);
+  if (single) {
+    const from = tryParseDate(single[1]);
+    return { range: from ? { from, to: undefined } : undefined, startTime: single[2], endTime: single[3], multiDay: false };
+  }
+
+  return { range: undefined, startTime: "7:00 PM", endTime: "9:00 PM", multiDay: false };
 }
 
 function relativeTime(iso: string | undefined): string | null {
@@ -127,6 +180,11 @@ function EventDetailPage() {
   const [draft, setDraft] = useState<Draft>(event ? toDraft(event) : {} as Draft);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+  const [editDateRange, setEditDateRange] = useState<DateRange | undefined>(undefined);
+  const [editStartTime, setEditStartTime] = useState("7:00 PM");
+  const [editEndTime, setEditEndTime] = useState("9:00 PM");
+  const [editMultiDay, setEditMultiDay] = useState(false);
+  const [editDatePickerOpen, setEditDatePickerOpen] = useState(false);
   const [myStatus, setMyStatus] = useState<AttendeeStatus | null>(null);
   const [rsvpLoading, setRsvpLoading] = useState(false);
   const [attendees, setAttendees] = useState<EventAttendee[]>([]);
@@ -172,7 +230,17 @@ function EventDetailPage() {
   }
 
   function startEditing() {
-    setDraft(toDraft(event!));
+    const d = toDraft(event!);
+    setDraft(d);
+    const parsed = parseDateString(d.date);
+    setEditDateRange(parsed.range);
+    setEditStartTime(parsed.startTime);
+    setEditEndTime(parsed.endTime);
+    const isMultiDay = parsed.multiDay || !!(
+      parsed.range?.from && parsed.range?.to &&
+      parsed.range.to.getTime() !== parsed.range.from.getTime()
+    );
+    setEditMultiDay(isMultiDay);
     setSaveError(null);
     setEditing(true);
   }
@@ -185,11 +253,12 @@ function EventDetailPage() {
     setSaving(true);
     setSaveError(null);
     try {
+      const dateStr = formatDateRange(editDateRange, editStartTime, editEndTime, editMultiDay) || draft.date;
       await updateEvent(event!.id, {
         title: draft.title,
         description: draft.description,
         category: draft.category as EventItem["category"],
-        date: draft.date,
+        date: dateStr,
         location: draft.location,
         online: draft.online,
         approvalRequired: draft.approvalRequired,
@@ -274,13 +343,93 @@ function EventDetailPage() {
               </select>
             </div>
 
-            <div className="space-y-1">
-              <label className="text-xs font-medium text-muted-foreground">Date &amp; time</label>
-              <Input
-                value={draft.date}
-                onChange={(e) => setDraft((d) => ({ ...d, date: e.target.value }))}
-                placeholder="e.g. Fri, May 8 · 7:00 PM"
-              />
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-muted-foreground">Date &amp; Time</label>
+
+              {/* Multi-day toggle */}
+              <div className="flex items-center gap-2 mb-1">
+                <input
+                  id="edit-multiday"
+                  type="checkbox"
+                  checked={editMultiDay}
+                  onChange={(e) => {
+                    setEditMultiDay(e.target.checked);
+                    if (!e.target.checked) setEditDateRange((r) => r ? { from: r.from, to: undefined } : undefined);
+                  }}
+                  className="h-4 w-4 rounded border-input accent-primary"
+                />
+                <label htmlFor="edit-multiday" className="text-sm font-medium cursor-pointer select-none">
+                  Multi-day event
+                </label>
+              </div>
+
+              {/* Date picker */}
+              <Popover open={editDatePickerOpen} onOpenChange={setEditDatePickerOpen}>
+                <PopoverTrigger asChild>
+                  <button
+                    type="button"
+                    className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm text-left flex items-center gap-2 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                  >
+                    <CalendarIcon className="h-4 w-4 text-muted-foreground shrink-0" />
+                    <span className={editDateRange?.from ? "" : "text-muted-foreground"}>
+                      {editDateRange?.from
+                        ? editMultiDay && editDateRange.to && editDateRange.to.getTime() !== editDateRange.from.getTime()
+                          ? `${format(editDateRange.from, "MMM d")} – ${format(editDateRange.to, "MMM d, yyyy")}`
+                          : format(editDateRange.from, "EEE, MMM d, yyyy")
+                        : "Select date…"}
+                    </span>
+                  </button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  {editMultiDay ? (
+                    <>
+                      <Calendar
+                        mode="range"
+                        selected={editDateRange}
+                        onSelect={(val: DateRange | undefined) => setEditDateRange(val)}
+                        initialFocus
+                      />
+                      <div className="p-2 border-t flex justify-end">
+                        <Button size="sm" type="button" onClick={() => setEditDatePickerOpen(false)}>Done</Button>
+                      </div>
+                    </>
+                  ) : (
+                    <Calendar
+                      mode="single"
+                      selected={editDateRange?.from}
+                      onSelect={(val: Date | undefined) => {
+                        setEditDateRange(val ? { from: val, to: undefined } : undefined);
+                        setEditDatePickerOpen(false);
+                      }}
+                      initialFocus
+                    />
+                  )}
+                </PopoverContent>
+              </Popover>
+
+              {/* Time selects */}
+              <div className="flex gap-2 mt-2">
+                <div className="flex-1 space-y-1">
+                  <span className="text-xs text-muted-foreground">Start Time</span>
+                  <select
+                    className={sel}
+                    value={editStartTime}
+                    onChange={(e) => setEditStartTime(e.target.value)}
+                  >
+                    {TIME_OPTIONS.map((t) => <option key={t} value={t}>{t}</option>)}
+                  </select>
+                </div>
+                <div className="flex-1 space-y-1">
+                  <span className="text-xs text-muted-foreground">End Time</span>
+                  <select
+                    className={sel}
+                    value={editEndTime}
+                    onChange={(e) => setEditEndTime(e.target.value)}
+                  >
+                    {TIME_OPTIONS.map((t) => <option key={t} value={t}>{t}</option>)}
+                  </select>
+                </div>
+              </div>
             </div>
 
             <div className="flex flex-wrap gap-x-6 gap-y-2">

@@ -17,6 +17,7 @@ type AuthContextValue = {
   profileIncomplete: boolean;
   signIn: (email: string, password: string) => Promise<void>;
   signUp: (email: string, password: string, metadata?: Record<string, unknown>) => Promise<{ id: string } | undefined>;
+  signInWithGoogle: () => Promise<void>;
   signOut: () => Promise<void>;
   refreshUser: () => Promise<void>;
 };
@@ -108,7 +109,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       options: metadata ? { data: metadata } : undefined,
     });
     if (error) throw error;
+    if (data.user && data.user.identities?.length === 0) {
+      throw new Error("An account with this email already exists. Try logging in instead.");
+    }
     return data.user ?? undefined;
+  }
+
+  async function signInWithGoogle() {
+    if (!isSupabaseConfigured || !supabase) throw new Error("Supabase not configured");
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: "google",
+      options: { redirectTo: `${window.location.origin}/signup` },
+    });
+    if (error) throw error;
   }
 
   async function signOut() {
@@ -134,7 +147,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const profileIncomplete = !!(user && !user.username);
 
   return (
-    <AuthContext.Provider value={{ user, loading, isAdmin, profileIncomplete, signIn, signUp, signOut, refreshUser }}>
+    <AuthContext.Provider value={{ user, loading, isAdmin, profileIncomplete, signIn, signUp, signInWithGoogle, signOut, refreshUser }}>
       {children}
     </AuthContext.Provider>
   );

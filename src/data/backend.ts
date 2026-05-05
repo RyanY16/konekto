@@ -128,6 +128,7 @@ function mapCircle(row: Row<"circles">): Circle {
     ownerId: (row as any).owner_id ?? undefined,
     tags: row.tags ?? [],
     university: (row as any).university ?? undefined,
+    country: (row as any).country ?? undefined,
     primaryLanguage: (row as any).primary_language ?? undefined,
     recruiting: (row as any).recruiting ?? false,
     recruitingPeriod: (row as any).recruiting_period ?? undefined,
@@ -264,6 +265,7 @@ export async function addCircle(
     icon_url: input.iconUrl ?? null,
     tags: input.tags,
     university: input.university ?? "",
+    country: input.country ?? "Japan",
     location: (input as any).location ?? "",
     primary_language: input.primaryLanguage ?? "",
     recruiting: input.recruiting ?? false,
@@ -300,6 +302,7 @@ export async function updateCircle(
     ...(input.ownerId !== undefined ? { owner_id: input.ownerId } : {}),
     tags: input.tags,
     university: input.university ?? "",
+    country: input.country ?? "Japan",
     location: (input as any).location ?? "",
     primary_language: input.primaryLanguage ?? "",
     recruiting: input.recruiting ?? false,
@@ -322,6 +325,12 @@ export async function updateCircle(
 
 export async function deleteCircle(id: string) {
   return deleteSupabase("circles", id);
+}
+
+export async function deleteAllCircles() {
+  const client = assertSupabase();
+  const { error } = await (client.from("circles").delete().neq("id", "") as any);
+  if (error) throw new Error(error.message);
 }
 
 export async function addEvent(
@@ -391,6 +400,12 @@ export async function updateEvent(
 
 export async function deleteEvent(id: string) {
   return deleteSupabase("events", id);
+}
+
+export async function deleteAllEvents() {
+  const client = assertSupabase();
+  const { error } = await (client.from("events").delete().neq("id", "") as any);
+  if (error) throw new Error(error.message);
 }
 
 export async function addDeal(input: Omit<Deal, "id">) {

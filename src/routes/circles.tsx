@@ -1,11 +1,13 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useRouter } from "@tanstack/react-router";
 import { useState, useMemo } from "react";
-import { Search, MapPin } from "lucide-react";
+import { Search, MapPin, Trash2 } from "lucide-react";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
+import { Button } from "@/components/ui/button";
 import { LANGUAGES } from "@/data/profile-options";
 import { PageHeader } from "@/components/PageHeader";
 import { SaveButton } from "@/components/SaveButton";
 import AddCircleDialog from "@/components/AddCircleDialog";
-import { getCircles, getCircleHandle, getProfilesByIds } from "@/data/backend";
+import { getCircles, getCircleHandle, getProfilesByIds, deleteAllCircles } from "@/data/backend";
 import { useAuth } from "@/components/AuthProvider";
 import { tagClass } from "@/lib/tag-class";
 import { circles as mockCircles } from "@/data/mock";
@@ -77,6 +79,8 @@ const categories = ["All", "Tech", "Music", "Career", "Outdoors", "Arts"];
 function CirclesPage() {
   const { user, isAdmin } = useAuth();
   const { circles: allCircles, ownerMap } = Route.useLoaderData();
+  const router = useRouter();
+  const [deletingAll, setDeletingAll] = useState(false);
   const [cat, setCat] = useState("All");
   const [q, setQ] = useState("");
   const [uniFilter, setUniFilter] = useState("All");
@@ -118,7 +122,38 @@ function CirclesPage() {
           title="Find your circles."
           subtitle="From hackathons to hiking clubs — discover the communities that fit you."
         />
-        <div className="mt-1 shrink-0">
+        <div className="mt-1 shrink-0 flex items-center gap-2">
+          {isAdmin && (
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button variant="destructive" size="sm" className="gap-1.5">
+                  <Trash2 className="h-3.5 w-3.5" /> Delete all
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Delete all circles?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    This permanently deletes every circle. This cannot be undone.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel disabled={deletingAll}>Cancel</AlertDialogCancel>
+                  <AlertDialogAction
+                    disabled={deletingAll}
+                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                    onClick={async (e) => {
+                      e.preventDefault();
+                      setDeletingAll(true);
+                      try { await deleteAllCircles(); router.invalidate(); } finally { setDeletingAll(false); }
+                    }}
+                  >
+                    {deletingAll ? "Deleting…" : "Delete all"}
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          )}
           {user ? (
             <AddCircleDialog />
           ) : (
