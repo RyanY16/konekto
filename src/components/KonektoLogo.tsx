@@ -10,9 +10,10 @@ function readScheme(): Scheme {
 }
 
 export function useColorScheme(): Scheme {
-  const [scheme, setScheme] = useState<Scheme>(readScheme);
+  const [scheme, setScheme] = useState<Scheme>("blue");
 
   useEffect(() => {
+    setScheme(readScheme());
     const obs = new MutationObserver(() => setScheme(readScheme()));
     obs.observe(document.documentElement, { attributes: true, attributeFilter: ["class"] });
     return () => obs.disconnect();
