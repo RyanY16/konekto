@@ -50,8 +50,8 @@ export const Route = createRootRoute({
     ],
     links: [
       { rel: "stylesheet", href: appCss },
-      { rel: "icon", href: "/logo-icon-orange.png", type: "image/png" },
-      { rel: "apple-touch-icon", href: "/logo-icon-orange.png" },
+      { rel: "icon", href: "/logo-icon-blue.png", type: "image/png" },
+      { rel: "apple-touch-icon", href: "/logo-icon-blue.png" },
       {
         rel: "preconnect",
         href: "https://fonts.googleapis.com",
@@ -73,7 +73,7 @@ const themeScript = `
   var prefersDark=window.matchMedia('(prefers-color-scheme: dark)').matches;
   if(t==='dark'||(t!=='light'&&prefersDark)){document.documentElement.classList.add('dark');}
   var c=localStorage.getItem('konekto-color');
-  if(c==='blue'){document.documentElement.classList.add('scheme-blue');}
+  if(c!=='default'){document.documentElement.classList.add('scheme-blue');}
 })();
 `.trim();
 

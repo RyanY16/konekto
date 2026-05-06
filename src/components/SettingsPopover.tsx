@@ -9,9 +9,9 @@ const COLOR_KEY = "konekto-color";
 const THEME_KEY = "konekto-theme";
 
 function getInitialColor(): ColorScheme {
-  if (typeof window === "undefined") return "default";
+  if (typeof window === "undefined") return "blue";
   const s = localStorage.getItem(COLOR_KEY);
-  return s === "blue" ? "blue" : "default";
+  return s === "default" ? "default" : "blue";
 }
 
 function getInitialTheme(): "light" | "dark" {
