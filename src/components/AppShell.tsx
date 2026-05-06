@@ -6,6 +6,7 @@ import { SettingsPopover } from "./SettingsPopover";
 import AuthProvider, { useAuth } from "@/components/AuthProvider";
 import { GlobalSearch } from "@/components/GlobalSearch";
 import { NotificationsDropdown } from "@/components/NotificationsDropdown";
+import { KonektoLogo } from "@/components/KonektoLogo";
 
 type NavItem = { to: string; label: string; icon: ComponentType<{ className?: string }> };
 
@@ -21,11 +22,9 @@ const BARE_ROUTES = ["/login", "/signup"];
 
 function Logo() {
   return (
-    <Link to="/" className="flex items-center gap-2">
-      <div className="h-8 w-8 rounded-xl bg-primary flex items-center justify-center text-primary-foreground font-bold">
-        K
-      </div>
-      <span className="text-lg font-semibold tracking-tight">Konekto</span>
+    <Link to="/" className="flex items-center gap-2 shrink-0">
+      <KonektoLogo variant="icon" className="h-8 w-8" />
+      <span className="text-lg font-semibold tracking-tight hidden sm:inline">Konekto</span>
     </Link>
   );
 }

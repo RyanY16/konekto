@@ -9,6 +9,7 @@ import { useAuth } from "@/components/AuthProvider";
 import { supabase } from "@/lib/supabase";
 import { getProfileByUsername, upsertProfile } from "@/data/backend";
 import { Eye, EyeOff, CheckCircle2, Loader2 } from "lucide-react";
+import { KonektoLogo } from "@/components/KonektoLogo";
 
 export const Route = createFileRoute("/signup")({
   head: () => ({ meta: [{ title: "Sign up — Konekto" }] }),
@@ -186,9 +187,7 @@ function SignUpPage() {
         {/* Logo */}
         <div className="text-center mb-8">
           <Link to="/">
-            <div className="h-12 w-12 rounded-2xl bg-primary flex items-center justify-center text-primary-foreground font-bold text-xl mx-auto mb-4 hover:opacity-90 transition-opacity">
-              K
-            </div>
+            <KonektoLogo variant="full" className="h-20 w-20 mx-auto mb-4 hover:opacity-90 transition-opacity" />
           </Link>
           <h1 className="text-2xl font-bold tracking-tight">
             {step === 1 && "Create your account"}

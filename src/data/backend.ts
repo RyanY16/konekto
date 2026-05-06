@@ -661,14 +661,26 @@ export async function getJoinedCircleIds(userId: string): Promise<string[]> {
   return (data ?? []).map((r: { circle_id: string }) => r.circle_id);
 }
 
-export async function getCircleMembers(circleId: string): Promise<UserProfile[]> {
+export type CircleMember = UserProfile & { title: string };
+
+export async function getCircleMembers(circleId: string): Promise<CircleMember[]> {
   if (!supabase) return [];
   const { data } = await (supabase.from("user_circles") as any)
-    .select("user_id")
+    .select("user_id, title")
     .eq("circle_id", circleId);
   if (!data || data.length === 0) return [];
-  const ids = data.map((r: any) => r.user_id as string);
-  return getProfilesByIds(ids);
+  const titleMap = new Map<string, string>(data.map((r: any) => [r.user_id as string, (r.title as string) ?? "Member"]));
+  const profiles = await getProfilesByIds([...titleMap.keys()]);
+  return profiles.map((p) => ({ ...p, title: titleMap.get(p.id) ?? "Member" }));
+}
+
+export async function updateMemberTitle(circleId: string, userId: string, title: string): Promise<void> {
+  const client = assertSupabase();
+  const { error } = await (client.from("user_circles") as any)
+    .update({ title: title.trim() || "Member" })
+    .eq("circle_id", circleId)
+    .eq("user_id", userId);
+  if (error) throw new Error(error.message);
 }
 
 export async function joinCircle(userId: string, circleId: string): Promise<void> {

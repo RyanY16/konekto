@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useAuth } from "@/components/AuthProvider";
 import { Loader2 } from "lucide-react";
+import { KonektoLogo } from "@/components/KonektoLogo";
 
 export const Route = createFileRoute("/login")({
   head: () => ({ meta: [{ title: "Log in — Konekto" }] }),
@@ -51,7 +52,7 @@ function LogInPage() {
     <div className="min-h-[80vh] flex items-center justify-center p-4">
       <div className="w-full max-w-sm">
         <div className="text-center mb-8">
-          <div className="h-12 w-12 rounded-2xl bg-primary flex items-center justify-center text-primary-foreground font-bold text-xl mx-auto mb-4">K</div>
+          <KonektoLogo variant="full" className="h-20 w-20 mx-auto mb-4" />
           <h1 className="text-2xl font-bold tracking-tight">Welcome back</h1>
           <p className="mt-1 text-sm text-muted-foreground">Log in to your Konekto account</p>
         </div>

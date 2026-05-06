@@ -50,6 +50,8 @@ export const Route = createRootRoute({
     ],
     links: [
       { rel: "stylesheet", href: appCss },
+      { rel: "icon", href: "/logo-icon-orange.png", type: "image/png" },
+      { rel: "apple-touch-icon", href: "/logo-icon-orange.png" },
       {
         rel: "preconnect",
         href: "https://fonts.googleapis.com",

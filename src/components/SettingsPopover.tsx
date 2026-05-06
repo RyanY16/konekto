@@ -28,8 +28,8 @@ function applyScheme(color: ColorScheme, theme: "light" | "dark") {
 }
 
 const SCHEMES: { id: ColorScheme; label: string; colors: string[] }[] = [
-  { id: "default", label: "Orange", colors: ["#f97316", "#6ee7b7"] },
-  { id: "blue",    label: "Blue",   colors: ["#60a5fa", "#7C3AED"] },
+  { id: "default", label: "Orange", colors: ["#F4895A", "#E0569E", "#9B59E8"] },
+  { id: "blue",    label: "Blue",  colors: ["#6ECFEA", "#6098E8", "#7B5CE6"] },
 ];
 
 export function SettingsPopover() {

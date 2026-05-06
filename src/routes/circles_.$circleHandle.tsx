@@ -45,7 +45,9 @@ import {
   leaveCircle,
   removeMember,
   getJoinedCircleIds,
+  updateMemberTitle,
   type UserProfile,
+  type CircleMember,
   type CircleJoinRequest,
   type JoinRequestStatus,
 } from "@/data/backend";
@@ -144,10 +146,12 @@ function CircleDetailPage() {
   const transferSearchRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Members state
-  const [members, setMembers] = useState<UserProfile[]>([]);
+  const [members, setMembers] = useState<CircleMember[]>([]);
   const [isMember, setIsMember] = useState(false);
   const [joinStatus, setJoinStatus] = useState<JoinRequestStatus | null>(null);
   const [joinLoading, setJoinLoading] = useState(false);
+  const [editingTitleId, setEditingTitleId] = useState<string | null>(null);
+  const [titleDraft, setTitleDraft] = useState("");
 
   // Pending join requests (for owner/managers)
   const [pendingRequests, setPendingRequests] = useState<CircleJoinRequest[]>([]);
@@ -186,7 +190,7 @@ function CircleDetailPage() {
     getCircleJoinRequests(circle.id).then(setPendingRequests);
   }, [circle?.id, canManageRequests]);
 
-  async function handlePromoteToManager(member: UserProfile) {
+  async function handlePromoteToManager(member: CircleMember) {
     if (!circle) return;
     setPromotingId(member.id);
     try {
@@ -278,7 +282,20 @@ function CircleDetailPage() {
     }
   }
 
-  async function handleKickManager(m: UserProfile) {
+  async function handleSaveTitle(userId: string) {
+    if (!circle) return;
+    const trimmed = titleDraft.trim() || "Member";
+    try {
+      await updateMemberTitle(circle.id, userId, trimmed);
+      setMembers((prev) => prev.map((m) => m.id === userId ? { ...m, title: trimmed } : m));
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setEditingTitleId(null);
+    }
+  }
+
+  async function handleKickManager(m: CircleMember) {
     if (!circle) return;
     setPromotingId(m.id);
     try {
@@ -920,6 +937,8 @@ function CircleDetailPage() {
                 const initials = (m.displayName || m.username || "?").slice(0, 2).toUpperCase();
                 // managers can kick regular members; only owner/admin can kick other managers
                 const canKick = isAlreadyManager ? (isOwner || isAdmin) : canManageRequests;
+                const canEditTitle = isOwner || (isManager && m.id === user?.id);
+                const isEditingTitle = editingTitleId === m.id;
                 return (
                   <div key={m.id} className="flex items-center gap-2 py-1.5 group">
                     <Link
@@ -937,6 +956,37 @@ function CircleDetailPage() {
                         {m.username && <p className="text-xs text-muted-foreground truncate">@{m.username}</p>}
                       </div>
                     </Link>
+
+                    {/* Title — inline edit for owner (any) or manager (own row) */}
+                    {isEditingTitle ? (
+                      <div className="flex items-center gap-1 shrink-0">
+                        <input
+                          autoFocus
+                          className="h-6 w-28 rounded border border-input bg-background px-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-ring"
+                          value={titleDraft}
+                          onChange={(e) => setTitleDraft(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") handleSaveTitle(m.id);
+                            if (e.key === "Escape") setEditingTitleId(null);
+                          }}
+                        />
+                        <button
+                          onClick={() => handleSaveTitle(m.id)}
+                          className="text-xs text-primary hover:text-primary/80"
+                        >Save</button>
+                        <button
+                          onClick={() => setEditingTitleId(null)}
+                          className="text-xs text-muted-foreground hover:text-foreground"
+                        >✕</button>
+                      </div>
+                    ) : (
+                      <span
+                        onClick={canEditTitle ? () => { setEditingTitleId(m.id); setTitleDraft(m.title); } : undefined}
+                        className={`text-xs px-2 py-0.5 rounded-full bg-muted text-muted-foreground shrink-0 ${canEditTitle ? "cursor-pointer hover:bg-accent" : ""}`}
+                      >
+                        {m.title || "Member"}
+                      </span>
+                    )}
 
                     {/* Manager badge — owner can hover to demote, others see static label */}
                     {isAlreadyManager && (
