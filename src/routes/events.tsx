@@ -72,8 +72,6 @@ const SORT_OPTIONS: { value: SortKey; label: string }[] = [
   { value: "popular",   label: "Most popular" },
 ];
 
-const TODAY = new Date().toISOString().slice(0, 10);
-
 function EventsSkeleton() {
   return (
     <div className="animate-pulse space-y-6">
@@ -110,7 +108,7 @@ function EventsPage() {
 
   const filtered = useMemo(() => {
     const base = allEvents.filter((e) => {
-      const isPast = e.startDate ? e.startDate < TODAY : false;
+      const isPast = e.startDate ? new Date(e.startDate) < new Date() : false;
       if (!showPast && isPast) return false;
       if (cat !== "All" && e.category !== cat) return false;
       if (q) {
@@ -247,9 +245,9 @@ function EventsPage() {
               className="absolute inset-0 rounded-[inherit]"
               aria-label={`View ${e.title}`}
             />
-            <div className={`h-28 flex items-center justify-center text-5xl shrink-0 relative ${e.startDate && e.startDate < TODAY ? "bg-muted/80 grayscale" : "bg-gradient-to-br from-primary-soft to-accent-soft"}`}>
+            <div className={`h-28 flex items-center justify-center text-5xl shrink-0 relative ${e.startDate && new Date(e.startDate) < new Date() ? "bg-muted/80 grayscale" : "bg-gradient-to-br from-primary-soft to-accent-soft"}`}>
               {CATEGORY_EMOJI[e.category] || "📅"}
-              {e.startDate && e.startDate < TODAY && (
+              {e.startDate && new Date(e.startDate) < new Date() && (
                 <span className="absolute top-2 left-2 text-[10px] font-semibold uppercase tracking-wide bg-muted-foreground/20 text-muted-foreground px-1.5 py-0.5 rounded">Past</span>
               )}
             </div>

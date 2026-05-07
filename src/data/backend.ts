@@ -356,8 +356,8 @@ export async function addEvent(
     circle_ids: input.circleIds ?? [],
     online: input.online ?? false,
     approval_required: input.approvalRequired ?? false,
-    start_date: (input as any).startDate ?? null,
   };
+  if ((input as any).startDate) (values as any).start_date = (input as any).startDate;
   const { signal, cleanup } = abortAfter();
   try {
     const { error } = await (client.from("events").insert(values) as any).abortSignal(signal) as { error: any };

@@ -88,19 +88,19 @@ export const circles: Circle[] = [
 
 export const events: EventItem[] = [
   // Upcoming
-  { id: "e1", title: "International Welcome Mixer", category: "Social", date: "Fri, May 8 · 7:00 PM – 10:00 PM", location: "Shibuya", emoji: "🥂", going: 124, tags: ["international-friendly", "free"], startDate: "2026-05-08" },
-  { id: "e2", title: "Spring Career Forum 2026", category: "Career", date: "Sat, May 16 · 10:00 AM – 6:00 PM", location: "Tokyo Big Sight", emoji: "💼", going: 1820, tags: ["shukatsu", "tech", "finance"], startDate: "2026-05-16" },
-  { id: "e3", title: "48h AI Hackathon", category: "Hackathon", date: "Sat, May 23 · 9:00 AM – Mon, May 25 · 9:00 AM", location: "Roppongi Hills", emoji: "⚡", going: 312, tags: ["coding", "ai", "prizes"], startDate: "2026-05-23" },
-  { id: "e4", title: "Startup Founders Meetup", category: "Networking", date: "Wed, May 13 · 6:30 PM – 9:00 PM", location: "Otemachi", emoji: "🚀", going: 78, tags: ["startup", "networking"], startDate: "2026-05-13" },
-  { id: "e6", title: "Goldman Sachs Info Session", category: "Career", date: "Tue, May 12 · 7:00 PM – 8:30 PM", location: "Online", emoji: "🏦", going: 430, tags: ["finance", "shukatsu"], startDate: "2026-05-12" },
+  { id: "e1", title: "International Welcome Mixer", category: "Social", date: "Fri, May 8 · 7:00 PM – 10:00 PM", location: "Shibuya", emoji: "🥂", going: 124, tags: ["international-friendly", "free"], startDate: "2026-05-08T19:00:00.000Z" },
+  { id: "e2", title: "Spring Career Forum 2026", category: "Career", date: "Sat, May 16 · 10:00 AM – 6:00 PM", location: "Tokyo Big Sight", emoji: "💼", going: 1820, tags: ["shukatsu", "tech", "finance"], startDate: "2026-05-16T01:00:00.000Z" },
+  { id: "e3", title: "48h AI Hackathon", category: "Hackathon", date: "Sat, May 23 · 9:00 AM – Mon, May 25 · 9:00 AM", location: "Roppongi Hills", emoji: "⚡", going: 312, tags: ["coding", "ai", "prizes"], startDate: "2026-05-23T00:00:00.000Z" },
+  { id: "e4", title: "Startup Founders Meetup", category: "Networking", date: "Wed, May 13 · 6:30 PM – 9:00 PM", location: "Otemachi", emoji: "🚀", going: 78, tags: ["startup", "networking"], startDate: "2026-05-13T09:30:00.000Z" },
+  { id: "e6", title: "Goldman Sachs Info Session", category: "Career", date: "Tue, May 12 · 7:00 PM – 8:30 PM", location: "Online", emoji: "🏦", going: 430, tags: ["finance", "shukatsu"], startDate: "2026-05-12T10:00:00.000Z" },
   // Past
-  { id: "e5", title: "Hanami Picnic @ Yoyogi", category: "Social", date: "Sun, Apr 5 · 12:00 PM – 5:00 PM", location: "Yoyogi Park", emoji: "🌸", going: 243, tags: ["outdoors", "free"], startDate: "2026-04-05" },
-  { id: "e7", title: "Spring Networking Night", category: "Networking", date: "Fri, Apr 18 · 7:00 PM – 10:00 PM", location: "Ginza", emoji: "🤝", going: 91, tags: ["networking", "Career and Networking"], startDate: "2026-04-18" },
-  { id: "e8", title: "Web3 & Crypto Workshop", category: "Hackathon", date: "Sat, Apr 26 · 10:00 AM – 6:00 PM", location: "Shibuya Stream", emoji: "🔗", going: 178, tags: ["Computer Science", "Technology"], startDate: "2026-04-26" },
-  { id: "e9", title: "JLPT N2 Study Kickoff", category: "Social", date: "Sun, Apr 13 · 2:00 PM – 5:00 PM", location: "Waseda University", emoji: "📚", going: 64, tags: ["Language Exchange", "Learn Japanese"], startDate: "2026-04-13" },
-  { id: "e10", title: "Sakura Run 5K", category: "Social", date: "Sun, Mar 29 · 8:00 AM – 11:00 AM", location: "Shinjuku Gyoen", emoji: "🏃", going: 312, tags: ["Fitness and Training", "Outdoors and Adventure"], startDate: "2026-03-29" },
-  { id: "e11", title: "Tokyo Intern Fair", category: "Career", date: "Sat, Mar 14 · 10:00 AM – 5:00 PM", location: "Tokyo International Forum", emoji: "💼", going: 2100, tags: ["Career and Networking", "Business / Career"], startDate: "2026-03-14" },
-  { id: "e12", title: "Game Jam 24h", category: "Hackathon", date: "Sat, Mar 7 · 10:00 AM – Sun, Mar 8 · 10:00 AM", location: "Akihabara", emoji: "🎮", going: 88, tags: ["Video Games", "Gaming"], startDate: "2026-03-07" },
+  { id: "e5", title: "Hanami Picnic @ Yoyogi", category: "Social", date: "Sun, Apr 5 · 12:00 PM – 5:00 PM", location: "Yoyogi Park", emoji: "🌸", going: 243, tags: ["outdoors", "free"], startDate: "2026-04-05T03:00:00.000Z" },
+  { id: "e7", title: "Spring Networking Night", category: "Networking", date: "Fri, Apr 18 · 7:00 PM – 10:00 PM", location: "Ginza", emoji: "🤝", going: 91, tags: ["networking", "Career and Networking"], startDate: "2026-04-18T10:00:00.000Z" },
+  { id: "e8", title: "Web3 & Crypto Workshop", category: "Hackathon", date: "Sat, Apr 26 · 10:00 AM – 6:00 PM", location: "Shibuya Stream", emoji: "🔗", going: 178, tags: ["Computer Science", "Technology"], startDate: "2026-04-26T01:00:00.000Z" },
+  { id: "e9", title: "JLPT N2 Study Kickoff", category: "Social", date: "Sun, Apr 13 · 2:00 PM – 5:00 PM", location: "Waseda University", emoji: "📚", going: 64, tags: ["Language Exchange", "Learn Japanese"], startDate: "2026-04-13T05:00:00.000Z" },
+  { id: "e10", title: "Sakura Run 5K", category: "Social", date: "Sun, Mar 29 · 8:00 AM – 11:00 AM", location: "Shinjuku Gyoen", emoji: "🏃", going: 312, tags: ["Fitness and Training", "Outdoors and Adventure"], startDate: "2026-03-28T23:00:00.000Z" },
+  { id: "e11", title: "Tokyo Intern Fair", category: "Career", date: "Sat, Mar 14 · 10:00 AM – 5:00 PM", location: "Tokyo International Forum", emoji: "💼", going: 2100, tags: ["Career and Networking", "Business / Career"], startDate: "2026-03-14T01:00:00.000Z" },
+  { id: "e12", title: "Game Jam 24h", category: "Hackathon", date: "Sat, Mar 7 · 10:00 AM – Sun, Mar 8 · 10:00 AM", location: "Akihabara", emoji: "🎮", going: 88, tags: ["Video Games", "Gaming"], startDate: "2026-03-07T01:00:00.000Z" },
 ];
 
 export const deals: Deal[] = [

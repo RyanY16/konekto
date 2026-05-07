@@ -261,7 +261,15 @@ function EventDetailPage() {
         description: draft.description,
         category: draft.category as EventItem["category"],
         date: dateStr,
-        startDate: editDateRange?.from ? editDateRange.from.toISOString().slice(0, 10) : undefined,
+        startDate: editDateRange?.from ? (() => {
+          const match = editStartTime?.match(/^(\d+):(\d+)\s*(AM|PM)$/i);
+          if (!match) return editDateRange.from.toISOString();
+          let h = parseInt(match[1]); const m = parseInt(match[2]);
+          if (match[3].toUpperCase() === "PM" && h !== 12) h += 12;
+          if (match[3].toUpperCase() === "AM" && h === 12) h = 0;
+          const d = new Date(editDateRange.from); d.setHours(h, m, 0, 0);
+          return d.toISOString();
+        })() : undefined,
         location: draft.location,
         online: draft.online,
         approvalRequired: draft.approvalRequired,
