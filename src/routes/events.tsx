@@ -1,6 +1,6 @@
 import { createFileRoute, Link, useRouter } from "@tanstack/react-router";
-import { useState } from "react";
-import { Users, MapPin, Calendar, Search, Trash2 } from "lucide-react";
+import { useState, useMemo } from "react";
+import { Users, MapPin, Calendar, Search, Trash2, ArrowUpDown } from "lucide-react";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { events as mockEvents } from "@/data/mock";
@@ -65,6 +65,15 @@ export const Route = createFileRoute("/events")({
 
 const cats = ["All", "Social", "Career", "Hackathon", "Networking"] as const;
 
+type SortKey = "date-asc" | "date-desc" | "popular";
+const SORT_OPTIONS: { value: SortKey; label: string }[] = [
+  { value: "date-asc",  label: "Date ↑ (soonest first)" },
+  { value: "date-desc", label: "Date ↓ (latest first)" },
+  { value: "popular",   label: "Most popular" },
+];
+
+const TODAY = new Date().toISOString().slice(0, 10);
+
 function EventsSkeleton() {
   return (
     <div className="animate-pulse space-y-6">
@@ -96,20 +105,37 @@ function EventsPage() {
   const [deletingAll, setDeletingAll] = useState(false);
   const [cat, setCat] = useState<(typeof cats)[number]>("All");
   const [q, setQ] = useState("");
+  const [showPast, setShowPast] = useState(false);
+  const [sortKey, setSortKey] = useState<SortKey>("date-asc");
 
-  const filtered = allEvents.filter((e) => {
-    if (cat !== "All" && e.category !== cat) return false;
-    if (q) {
-      const ql = q.toLowerCase();
-      const matches =
-        e.title.toLowerCase().includes(ql) ||
-        e.location.toLowerCase().includes(ql) ||
-        (e.description ?? "").toLowerCase().includes(ql) ||
-        e.tags.some((t) => t.toLowerCase().includes(ql));
-      if (!matches) return false;
-    }
-    return true;
-  });
+  const filtered = useMemo(() => {
+    const base = allEvents.filter((e) => {
+      const isPast = e.startDate ? e.startDate < TODAY : false;
+      if (!showPast && isPast) return false;
+      if (cat !== "All" && e.category !== cat) return false;
+      if (q) {
+        const ql = q.toLowerCase();
+        const matches =
+          e.title.toLowerCase().includes(ql) ||
+          e.location.toLowerCase().includes(ql) ||
+          (e.description ?? "").toLowerCase().includes(ql) ||
+          e.tags.some((t) => t.toLowerCase().includes(ql));
+        if (!matches) return false;
+      }
+      return true;
+    });
+
+    return [...base].sort((a, b) => {
+      switch (sortKey) {
+        case "date-asc":
+          return (a.startDate ?? "9999").localeCompare(b.startDate ?? "9999");
+        case "date-desc":
+          return (b.startDate ?? "0000").localeCompare(a.startDate ?? "0000");
+        case "popular":
+          return b.going - a.going;
+      }
+    });
+  }, [allEvents, cat, q, showPast, sortKey]);
 
   return (
     <div>
@@ -189,6 +215,27 @@ function EventsPage() {
             </button>
           ))}
         </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="relative flex items-center">
+            <ArrowUpDown className="absolute left-3 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
+            <select
+              value={sortKey}
+              onChange={(e) => setSortKey(e.target.value as SortKey)}
+              className="h-9 rounded-full border border-border bg-card pl-8 pr-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring appearance-none"
+            >
+              {SORT_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+            </select>
+          </div>
+          <label className="flex items-center gap-2 cursor-pointer select-none px-3.5 py-1.5 rounded-full text-sm font-medium border border-border bg-card hover:bg-muted transition-colors">
+            <input
+              type="checkbox"
+              checked={showPast}
+              onChange={(e) => setShowPast(e.target.checked)}
+              className="h-3.5 w-3.5 accent-primary"
+            />
+            Show past events
+          </label>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -200,8 +247,11 @@ function EventsPage() {
               className="absolute inset-0 rounded-[inherit]"
               aria-label={`View ${e.title}`}
             />
-            <div className="h-28 bg-gradient-to-br from-primary-soft to-accent-soft flex items-center justify-center text-5xl shrink-0">
+            <div className={`h-28 flex items-center justify-center text-5xl shrink-0 relative ${e.startDate && e.startDate < TODAY ? "bg-muted/80 grayscale" : "bg-gradient-to-br from-primary-soft to-accent-soft"}`}>
               {CATEGORY_EMOJI[e.category] || "📅"}
+              {e.startDate && e.startDate < TODAY && (
+                <span className="absolute top-2 left-2 text-[10px] font-semibold uppercase tracking-wide bg-muted-foreground/20 text-muted-foreground px-1.5 py-0.5 rounded">Past</span>
+              )}
             </div>
             <div className="p-5 flex flex-col flex-1">
               <div className="flex items-center justify-between">

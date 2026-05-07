@@ -261,6 +261,7 @@ function EventDetailPage() {
         description: draft.description,
         category: draft.category as EventItem["category"],
         date: dateStr,
+        startDate: editDateRange?.from ? editDateRange.from.toISOString().slice(0, 10) : undefined,
         location: draft.location,
         online: draft.online,
         approvalRequired: draft.approvalRequired,

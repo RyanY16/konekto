@@ -159,6 +159,7 @@ function mapEvent(row: Row<"events">): EventItem {
     circleIds: row.circle_ids ?? [],
     online: row.online ?? false,
     approvalRequired: row.approval_required ?? false,
+    startDate: (row as any).start_date ?? undefined,
   };
 }
 
@@ -355,6 +356,7 @@ export async function addEvent(
     circle_ids: input.circleIds ?? [],
     online: input.online ?? false,
     approval_required: input.approvalRequired ?? false,
+    start_date: (input as any).startDate ?? null,
   };
   const { signal, cleanup } = abortAfter();
   try {
@@ -386,6 +388,7 @@ export async function updateEvent(
   if (input.circleIds !== undefined) values.circle_ids = input.circleIds;
   if (input.online !== undefined) values.online = input.online;
   if (input.approvalRequired !== undefined) values.approval_required = input.approvalRequired;
+  if ((input as any).startDate !== undefined) values.start_date = (input as any).startDate;
   values.updated_at = new Date().toISOString();
 
   const { signal, cleanup } = abortAfter();

@@ -160,6 +160,7 @@ alter table public.events add column if not exists primary_language text not nul
 alter table public.events add column if not exists circle_ids text[] not null default '{}';
 alter table public.events add column if not exists online boolean not null default false;
 alter table public.events add column if not exists approval_required boolean not null default false;
+alter table public.events add column if not exists start_date date;
 
 -- ─── Event Attendees ──────────────────────────────────────────────────────────
 create table if not exists public.event_attendees (

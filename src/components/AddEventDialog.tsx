@@ -118,7 +118,8 @@ export default function AddEventDialog() {
         circleIds: selectedCircleIds,
         online,
         approvalRequired,
-      });
+        startDate: dateRange?.from ? dateRange.from.toISOString().slice(0, 10) : undefined,
+      } as any);
 
       setOpen(false);
       reset();
