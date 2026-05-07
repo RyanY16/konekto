@@ -135,6 +135,7 @@ function mapCircle(row: Row<"circles">): Circle {
     recruitingConditions: (row as any).recruiting_conditions ?? undefined,
     membershipFee: (row as any).membership_fee ?? undefined,
     socialLinks: normalizeSocialLinks(row.social_links),
+    createdAt: row.created_at,
     updatedAt: row.updated_at ?? row.created_at,
   };
 }
@@ -515,6 +516,14 @@ export async function getProfile(userId: string): Promise<UserProfile | null> {
   return mapUser(data as unknown as Row<"users">);
 }
 
+export async function getCurrentUserInterests(): Promise<string[]> {
+  if (!supabase) return [];
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return [];
+  const profile = await getProfile(user.id);
+  return profile?.interests ?? [];
+}
+
 export async function getProfilesByIds(ids: string[]): Promise<UserProfile[]> {
   if (!supabase || ids.length === 0) return [];
   const { data } = await supabase.from("users").select("*").in("id", ids);
@@ -665,11 +674,21 @@ export type CircleMember = UserProfile & { title: string };
 
 export async function getCircleMembers(circleId: string): Promise<CircleMember[]> {
   if (!supabase) return [];
-  const { data } = await (supabase.from("user_circles") as any)
+  // Try selecting with title; fall back to user_id only if the column doesn't exist yet
+  let rows: { user_id: string; title?: string }[] | null = null;
+  const { data: withTitle, error } = await (supabase.from("user_circles") as any)
     .select("user_id, title")
     .eq("circle_id", circleId);
-  if (!data || data.length === 0) return [];
-  const titleMap = new Map<string, string>(data.map((r: any) => [r.user_id as string, (r.title as string) ?? "Member"]));
+  if (!error) {
+    rows = withTitle;
+  } else {
+    const { data: withoutTitle } = await (supabase.from("user_circles") as any)
+      .select("user_id")
+      .eq("circle_id", circleId);
+    rows = withoutTitle;
+  }
+  if (!rows || rows.length === 0) return [];
+  const titleMap = new Map<string, string>(rows.map((r) => [r.user_id, r.title ?? "Member"]));
   const profiles = await getProfilesByIds([...titleMap.keys()]);
   return profiles.map((p) => ({ ...p, title: titleMap.get(p.id) ?? "Member" }));
 }

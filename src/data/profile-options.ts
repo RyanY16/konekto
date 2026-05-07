@@ -23,34 +23,10 @@ export type CareerField = (typeof CAREER_FIELDS)[number];
 
 export type InterestGroup = { label: string; items: readonly string[] };
 
-export const INTEREST_GROUPS: readonly InterestGroup[] = [
-  {
-    label: "Tech",
-    items: ["AI / Machine Learning", "Software Engineering", "Web Development", "Data Science", "Cybersecurity", "Robotics", "Game Development", "Blockchain / Web3"],
-  },
-  {
-    label: "Business & Finance",
-    items: ["Finance / Investment", "Startups / Entrepreneurship", "Consulting", "Marketing", "E-commerce"],
-  },
-  {
-    label: "Health & Wellness",
-    items: ["Gym / Fitness", "Hiking / Outdoors", "Yoga / Meditation", "Nutrition", "Sports"],
-  },
-  {
-    label: "Arts & Culture",
-    items: ["Music", "Film", "Anime / Manga", "Photography", "Design / Art", "Writing", "Gaming"],
-  },
-  {
-    label: "Social & Languages",
-    items: ["Language Learning", "Japanese Culture", "Volunteering", "Networking", "Travel", "Food"],
-  },
-  {
-    label: "Research & Academia",
-    items: ["Research", "Politics / Policy", "Law", "Education", "Medicine / Healthcare"],
-  },
-] as const;
+export { TAG_GROUPS as INTEREST_GROUPS } from "@/data/tags";
 
-export const INTERESTS = INTEREST_GROUPS.flatMap((g) => g.items);
+import { TAGS } from "@/data/tags";
+export const INTERESTS = TAGS;
 
 export const CIRCLE_CATEGORIES = [
   "Tech", "Music", "Career", "Outdoors", "Arts", "Sports",

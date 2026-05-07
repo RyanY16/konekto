@@ -380,6 +380,7 @@ create table if not exists public.user_circles (
   user_id uuid not null references auth.users(id) on delete cascade,
   circle_id text not null references public.circles(id) on delete cascade,
   joined_at timestamptz not null default now(),
+  title text not null default 'Member',
   primary key (user_id, circle_id)
 );
 alter table public.user_circles enable row level security;

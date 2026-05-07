@@ -12,7 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import TagPicker from "@/components/TagPicker";
-import { CIRCLE_TAG_GROUPS } from "@/data/tags";
+import { CIRCLE_TAG_GROUPS, filterValidTags } from "@/data/tags";
 import CirclePicker from "@/components/CirclePicker";
 import { DeleteRecordButton } from "@/components/DeleteRecordButton";
 import { OwnerBadge } from "@/components/OwnerBadge";
@@ -597,9 +597,9 @@ function EventDetailPage() {
               </div>
             )}
 
-            {event.tags.length > 0 && (
+            {filterValidTags(event.tags).length > 0 && (
               <div className="flex flex-wrap gap-1.5">
-                {event.tags.map((tag) => (
+                {filterValidTags(event.tags).map((tag) => (
                   <span key={tag} className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${tagClass(tag)}`}>
                     {tag}
                   </span>

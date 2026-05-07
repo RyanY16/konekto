@@ -15,6 +15,7 @@ import { PageHeader } from "@/components/PageHeader";
 import { SaveButton } from "@/components/SaveButton";
 import AddEventDialog from "@/components/AddEventDialog";
 import { getEvents, getEventHandle, getProfilesByIds, deleteAllEvents } from "@/data/backend";
+import { filterValidTags } from "@/data/tags";
 import { useAuth } from "@/components/AuthProvider";
 import { tagClass } from "@/lib/tag-class";
 import { OwnerBadge } from "@/components/OwnerBadge";
@@ -221,9 +222,9 @@ function EventsPage() {
                   {e.online && <span className="ml-1 text-xs text-blue-600 dark:text-blue-400 font-medium">· Online</span>}
                 </p>
               </div>
-              {e.tags.length > 0 && (
+              {filterValidTags(e.tags).length > 0 && (
                 <div className="mt-3 flex flex-wrap gap-1.5">
-                  {e.tags.map((tag) => (
+                  {filterValidTags(e.tags).map((tag) => (
                     <span key={tag} className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${tagClass(tag)}`}>
                       {tag}
                     </span>

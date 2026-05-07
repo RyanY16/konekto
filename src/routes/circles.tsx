@@ -1,13 +1,14 @@
 import { createFileRoute, Link, useRouter } from "@tanstack/react-router";
 import { useState, useMemo } from "react";
-import { Search, MapPin, Trash2 } from "lucide-react";
+import { Search, MapPin, Trash2, ArrowUpDown } from "lucide-react";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { LANGUAGES } from "@/data/profile-options";
 import { PageHeader } from "@/components/PageHeader";
 import { SaveButton } from "@/components/SaveButton";
 import AddCircleDialog from "@/components/AddCircleDialog";
-import { getCircles, getCircleHandle, getProfilesByIds, deleteAllCircles } from "@/data/backend";
+import { getCircles, getCircleHandle, getProfilesByIds, deleteAllCircles, getCurrentUserInterests } from "@/data/backend";
+import { filterValidTags } from "@/data/tags";
 import { useAuth } from "@/components/AuthProvider";
 import { tagClass } from "@/lib/tag-class";
 import { OwnerBadge } from "@/components/OwnerBadge";
@@ -37,16 +38,16 @@ export const Route = createFileRoute("/circles")({
   staleTime: 30_000,
   loader: async () => {
     try {
-      const cs = await getCircles();
+      const [cs, userInterests] = await Promise.all([getCircles(), getCurrentUserInterests().catch(() => [])]);
       const ids = [...new Set(cs.map((c) => c.ownerId).filter(Boolean) as string[])];
       const ownerMap: Record<string, { username: string; displayName: string; avatarUrl: string | null }> = {};
       if (ids.length > 0) {
         const profiles = await getProfilesByIds(ids).catch(() => []);
         profiles.forEach((p) => { ownerMap[p.id] = { username: p.username ?? p.displayName, displayName: p.displayName, avatarUrl: p.avatarUrl }; });
       }
-      return { circles: cs, ownerMap };
+      return { circles: cs, ownerMap, userInterests };
     } catch {
-      return { circles: mockCircles, ownerMap: {} };
+      return { circles: mockCircles, ownerMap: {}, userInterests: [] };
     }
   },
   pendingComponent: CirclesSkeleton,
@@ -77,9 +78,24 @@ function CirclesSkeleton() {
 
 const categories = ["All", "Tech", "Music", "Career", "Outdoors", "Arts"];
 
+type SortKey = "relevant" | "newest" | "updated" | "az" | "popular";
+
+const SORT_OPTIONS: { value: SortKey; label: string }[] = [
+  { value: "relevant", label: "Most relevant" },
+  { value: "newest",   label: "Newest" },
+  { value: "updated",  label: "Recently updated" },
+  { value: "az",       label: "A → Z" },
+  { value: "popular",  label: "Most members" },
+];
+
+function tagOverlap(circleTags: string[], userInterests: string[]): number {
+  const userSet = new Set(userInterests);
+  return circleTags.filter((t) => userSet.has(t)).length;
+}
+
 function CirclesPage() {
   const { user, isAdmin } = useAuth();
-  const { circles: allCircles, ownerMap } = Route.useLoaderData();
+  const { circles: allCircles, ownerMap, userInterests } = Route.useLoaderData();
   const router = useRouter();
   const [deletingAll, setDeletingAll] = useState(false);
   const [cat, setCat] = useState("All");
@@ -87,6 +103,7 @@ function CirclesPage() {
   const [uniFilter, setUniFilter] = useState("All");
   const [langFilter, setLangFilter] = useState("All");
   const [recruitingOnly, setRecruitingOnly] = useState(false);
+  const [sortKey, setSortKey] = useState<SortKey>(userInterests.length > 0 ? "relevant" : "newest");
 
   const universities = useMemo(() => {
     const set = new Set(allCircles.map((c) => (c as any).university).filter(Boolean) as string[]);
@@ -98,22 +115,39 @@ function CirclesPage() {
     return ["All", ...Array.from(set).sort()];
   }, [allCircles]);
 
-  const filtered = allCircles.filter((c) => {
-    if (cat !== "All" && c.category !== cat) return false;
-    if (uniFilter !== "All" && (c as any).university !== uniFilter) return false;
-    if (langFilter !== "All" && (c as any).primaryLanguage !== langFilter) return false;
-    if (recruitingOnly && !(c as any).recruiting) return false;
-    if (q) {
-      const ql = q.toLowerCase();
-      const matches =
-        c.name.toLowerCase().includes(ql) ||
-        c.description.toLowerCase().includes(ql) ||
-        (c as any).location?.toLowerCase().includes(ql) ||
-        c.tags.some((t) => t.toLowerCase().includes(ql));
-      if (!matches) return false;
-    }
-    return true;
-  });
+  const filtered = useMemo(() => {
+    const base = allCircles.filter((c) => {
+      if (cat !== "All" && c.category !== cat) return false;
+      if (uniFilter !== "All" && (c as any).university !== uniFilter) return false;
+      if (langFilter !== "All" && (c as any).primaryLanguage !== langFilter) return false;
+      if (recruitingOnly && !(c as any).recruiting) return false;
+      if (q) {
+        const ql = q.toLowerCase();
+        const matches =
+          c.name.toLowerCase().includes(ql) ||
+          c.description.toLowerCase().includes(ql) ||
+          (c as any).location?.toLowerCase().includes(ql) ||
+          c.tags.some((t) => t.toLowerCase().includes(ql));
+        if (!matches) return false;
+      }
+      return true;
+    });
+
+    return [...base].sort((a, b) => {
+      switch (sortKey) {
+        case "relevant":
+          return tagOverlap(b.tags, userInterests) - tagOverlap(a.tags, userInterests);
+        case "newest":
+          return (b.createdAt ?? "").localeCompare(a.createdAt ?? "");
+        case "updated":
+          return (b.updatedAt ?? "").localeCompare(a.updatedAt ?? "");
+        case "az":
+          return a.name.localeCompare(b.name);
+        case "popular":
+          return b.members - a.members;
+      }
+    });
+  }, [allCircles, cat, uniFilter, langFilter, recruitingOnly, q, sortKey, userInterests]);
 
   return (
     <div>
@@ -195,8 +229,18 @@ function CirclesPage() {
             </button>
           ))}
         </div>
-        {/* Secondary filters */}
+        {/* Sort + secondary filters */}
         <div className="flex flex-wrap items-center gap-2">
+          <div className="relative flex items-center">
+            <ArrowUpDown className="absolute left-3 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
+            <select
+              value={sortKey}
+              onChange={(e) => setSortKey(e.target.value as SortKey)}
+              className="h-9 rounded-full border border-border bg-card pl-8 pr-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring appearance-none"
+            >
+              {SORT_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+            </select>
+          </div>
           {universities.length > 2 && (
             <select
               value={uniFilter}
@@ -266,9 +310,9 @@ function CirclesPage() {
             <p className="mt-2 text-sm text-muted-foreground line-clamp-2">{c.description}</p>
 
             {/* Tags */}
-            {c.tags.length > 0 && (
+            {filterValidTags(c.tags).length > 0 && (
               <div className="mt-3 flex flex-wrap gap-1.5">
-                {c.tags.map((tag) => (
+                {filterValidTags(c.tags).map((tag) => (
                   <span key={tag} className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${tagClass(tag)}`}>
                     {tag}
                   </span>

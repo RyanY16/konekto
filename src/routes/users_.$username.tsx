@@ -4,6 +4,7 @@ import { MapPin } from "lucide-react";
 import { tagClass } from "@/lib/tag-class";
 import { SocialLinks } from "@/components/SocialLinks";
 import { NATIONALITIES } from "@/data/profile-options";
+import { filterValidTags } from "@/data/tags";
 
 export const Route = createFileRoute("/users_/$username")({
   loader: async ({ params }) => {
@@ -90,9 +91,9 @@ function UserProfilePage() {
         )}
 
         {/* Interests */}
-        {profile.interests && profile.interests.length > 0 && (
+        {filterValidTags(profile.interests ?? []).length > 0 && (
           <div className="mt-5 flex flex-wrap gap-1.5">
-            {profile.interests.map((tag) => (
+            {filterValidTags(profile.interests ?? []).map((tag) => (
               <span key={tag} className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${tagClass(tag)}`}>{tag}</span>
             ))}
           </div>

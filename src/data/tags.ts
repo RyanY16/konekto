@@ -1,34 +1,51 @@
-export const CIRCLE_TAG_GROUPS = [
+export const TAG_GROUPS = [
   {
-    label: "Tech",
-    items: ["coding", "ai", "tech", "engineering", "research", "robotics", "blockchain", "cybersecurity"],
+    label: "Technology",
+    items: ["Computer Science", "Data Science and AI", "Cybersecurity", "Robotics and Hardware", "Hackathons"],
   },
   {
-    label: "Business & Career",
-    items: ["finance", "shukatsu", "career", "startup", "networking", "consulting", "marketing"],
+    label: "Business / Career",
+    items: ["Consulting", "Finance and Economics", "Startups", "Marketing", "Content Creation", "Career and Networking"],
   },
   {
-    label: "Social & Community",
-    items: ["international-friendly", "language-exchange", "volunteer", "free", "travel", "food", "japanese-culture"],
+    label: "International / Cultural Exchange",
+    items: ["Learn English", "Learn Japanese", "Cultural Exchange", "Language Exchange"],
   },
   {
-    label: "Arts & Creative",
-    items: ["music", "performance", "film", "design", "photography", "anime", "writing", "gaming"],
+    label: "Sports",
+    items: ["Fitness and Training", "Team Sports", "Martial Arts", "Water Sports", "Winter Sports", "Outdoors and Adventure"],
   },
   {
-    label: "Outdoors & Health",
-    items: ["outdoors", "sports", "wellness", "hiking", "yoga"],
+    label: "Arts",
+    items: ["Anime and Manga", "Cosplay", "Movies", "Literature and Writing", "Theatre and Performance", "Dance", "Music", "Photography and Videography", "Japanese Culture", "Visual Arts and Design"],
   },
   {
-    label: "Events",
-    items: ["competition", "prizes", "workshop", "hackathon"],
+    label: "Gaming",
+    items: ["Video Games", "eSports", "Rhythm Games", "Vtubers", "Board Games", "Trading Card Games"],
+  },
+  {
+    label: "Community",
+    items: ["Volunteering", "Activism", "Community Events", "Sustainability", "LGBTQ+", "Religion"],
+  },
+  {
+    label: "Academic",
+    items: ["Science", "Engineering", "Social Sciences", "Medicine", "Law and Politics", "Education"],
   },
   {
     label: "Lifestyle",
-    items: ["fashion", "lifestyle", "study-group"],
+    items: ["Cooking", "Fashion", "Travel", "Beauty", "Cars", "Food and Drink", "Karaoke", "Café"],
   },
 ] as const;
 
-export const TAGS = CIRCLE_TAG_GROUPS.flatMap((g) => g.items as readonly string[]);
+export const TAGS = TAG_GROUPS.flatMap((g) => g.items as readonly string[]);
+
+export const VALID_TAGS = new Set(TAGS);
+
+export function filterValidTags(tags: string[]): string[] {
+  return tags.filter((t) => VALID_TAGS.has(t));
+}
+
+// Keep these aliases so existing imports don't break
+export const CIRCLE_TAG_GROUPS = TAG_GROUPS;
 
 export default TAGS;
