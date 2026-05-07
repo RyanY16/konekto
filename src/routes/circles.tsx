@@ -3,7 +3,7 @@ import { useState, useMemo } from "react";
 import { Search, MapPin, Trash2, ArrowUpDown } from "lucide-react";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
-import { LANGUAGES } from "@/data/profile-options";
+import { LANGUAGES, CIRCLE_CATEGORIES } from "@/data/profile-options";
 import { PageHeader } from "@/components/PageHeader";
 import { SaveButton } from "@/components/SaveButton";
 import AddCircleDialog from "@/components/AddCircleDialog";
@@ -76,7 +76,7 @@ function CirclesSkeleton() {
   );
 }
 
-const categories = ["All", "Tech", "Music", "Career", "Outdoors", "Arts"];
+const categories = ["All", ...CIRCLE_CATEGORIES] as const;
 
 type SortKey = "relevant" | "newest" | "updated" | "az" | "popular";
 

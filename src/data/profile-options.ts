@@ -29,25 +29,27 @@ import { TAGS } from "@/data/tags";
 export const INTERESTS = TAGS;
 
 export const CIRCLE_CATEGORIES = [
-  "Tech", "Music", "Career", "Outdoors", "Arts", "Sports",
-  "Culture", "Social", "Academic", "Health", "Gaming", "Food", "Language", "Other",
+  "Technology",
+  "Business / Career",
+  "International / Cultural Exchange",
+  "Sports",
+  "Arts",
+  "Gaming",
+  "Community",
+  "Academic",
+  "Lifestyle",
 ] as const;
 
 export const CATEGORY_EMOJI: Record<string, string> = {
-  Tech: "💻",
-  Music: "🎵",
-  Career: "💼",
-  Outdoors: "🥾",
-  Arts: "🎨",
-  Sports: "⚽",
-  Culture: "🏯",
-  Social: "🤝",
-  Academic: "📚",
-  Health: "🏃",
-  Gaming: "🎮",
-  Food: "🍜",
-  Language: "🗣️",
-  Other: "👥",
+  "Technology":                        "💻",
+  "Business / Career":                 "💼",
+  "International / Cultural Exchange": "🌏",
+  "Sports":                            "⚽",
+  "Arts":                              "🎨",
+  "Gaming":                            "🎮",
+  "Community":                         "🤝",
+  "Academic":                          "📚",
+  "Lifestyle":                         "🌿",
 };
 
 export const ACTIVITY_LEVELS = ["Daily", "Weekly", "Monthly", "Occasionally"] as const;
