@@ -1,4 +1,4 @@
-import { Link, createFileRoute, useRouter } from "@tanstack/react-router";
+import { Link, createFileRoute, useRouter, useNavigate } from "@tanstack/react-router";
 import { useState, useEffect, useRef } from "react";
 
 function relativeTime(iso: string | undefined): string | null {
@@ -29,6 +29,7 @@ import {
   deleteCircle,
   getCircleByHandle,
   updateCircle,
+  getCircleHandle,
   getProfile,
   uploadCircleIcon,
   getCircleManagers,
@@ -125,6 +126,7 @@ function CircleDetailPage() {
   const circle = Route.useLoaderData();
   const { user, isAdmin } = useAuth();
   const router = useRouter();
+  const navigate = useNavigate();
   const [editing, setEditing] = useState(false);
   const [owner, setOwner] = useState<{ username: string; displayName: string; avatarUrl: string | null } | null>(null);
   const [draft, setDraft] = useState<Draft>(circle ? toDraft(circle) : {} as Draft);
@@ -414,6 +416,8 @@ function CircleDetailPage() {
         iconUrl: newIconUrl,
       });
       setEditing(false);
+      const newHandle = getCircleHandle({ id: circle!.id, name: draft.name });
+      await navigate({ to: "/circles/$circleHandle", params: { circleHandle: newHandle }, replace: true });
       router.invalidate();
     } catch (err) {
       setSaveError(err instanceof Error ? err.message : "Save failed");
