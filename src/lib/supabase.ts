@@ -11,7 +11,7 @@ export const supabase = isSupabaseConfigured
       auth: {
         persistSession: true,
         autoRefreshToken: true,
-        storage: typeof window !== "undefined" ? window.sessionStorage : undefined,
+        storage: typeof window !== "undefined" ? window.localStorage : undefined,
         lock: (_name, _timeout, fn) => fn(),
       },
     })
