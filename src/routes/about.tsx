@@ -55,7 +55,7 @@ function AboutPage() {
           open for recruiting and what events they had.
         </p>
         <p className="text-muted-foreground leading-relaxed">
-          Most of that information travelled by word of mouth - if you weren't already
+          Most of that information travelled by word of mouth, so if you weren't already
           plugged into the right social circles, you simply missed out.
         </p>
       </section>
@@ -71,7 +71,7 @@ function AboutPage() {
         </p>
         <p className="text-muted-foreground leading-relaxed">
           Whether you're looking for a study group, a sports team, a cultural exchange
-          circle, or just something fun to do on the weekend, this is the place to find it.
+          circle, or just something fun to do on the weekend, Konekto is the place to find it.
         </p>
         <div className="mt-2 flex flex-wrap gap-2 text-sm">
           {["🌏 International-friendly", "🎓 Student-built", "🇯🇵 Japan-focused", "🆓 Free to use"].map((tag) => (
@@ -83,8 +83,7 @@ function AboutPage() {
       {/* CTA */}
       <section className="rounded-2xl border border-primary/20 bg-primary/5 p-6 space-y-4">
         <p className="text-base leading-relaxed">
-          Feel free to look around — and if you want to see who's behind it all, check
-          out my profile.
+          Feel free to look around and check out my profile as well!
         </p>
         <CreatorBadge />
       </section>

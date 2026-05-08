@@ -50,8 +50,7 @@ function Landing() {
             Your campus,<br className="hidden sm:block" /> connected.
           </h1>
           <p className="mt-5 text-lg text-muted-foreground max-w-xl mx-auto">
-            Konekto is the all-in-one hub for university students in Japan — circles,
-            events, deals, careers, and life essentials in one place.
+            With Konekto, discover student circles, events, and opportunities across universities in Japan - all in one place.
           </p>
           <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
             <Link
