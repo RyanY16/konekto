@@ -1,8 +1,10 @@
-import { Globe, Instagram, Linkedin, MessageCircle } from "lucide-react";
+import { CalendarPlus, Globe, Instagram, Linkedin, MessageCircle, Ticket } from "lucide-react";
 import type { SocialLinks as SocialLinksType } from "@/data/mock";
 
 const items = [
   { key: "website",   label: "Website",   icon: Globe },
+  { key: "luma",      label: "Luma",      icon: CalendarPlus },
+  { key: "tickets",   label: "Tickets",   icon: Ticket },
   { key: "instagram", label: "Instagram", icon: Instagram },
   { key: "line",      label: "LINE",      icon: MessageCircle },
   { key: "linkedin",  label: "LinkedIn",  icon: Linkedin },
@@ -40,6 +42,10 @@ export function SocialLinks({ links }: { links?: SocialLinksType }) {
 function toHref(key: keyof SocialLinksType, value: string): string {
   if (/^https?:\/\//i.test(value)) return value;
   const handle = value.replace(/^@/, "");
+  if (key === "luma") {
+    if (/^(lu\.ma|luma\.com)\//i.test(value)) return `https://${value}`;
+    return `https://lu.ma/${handle}`;
+  }
   if (key === "instagram") return `https://instagram.com/${handle}`;
   if (key === "line")      return `https://line.me/R/ti/p/~${handle}`;
   if (key === "linkedin")  return `https://linkedin.com/in/${handle}`;
@@ -54,6 +60,8 @@ function toDisplay(key: keyof SocialLinksType, value: string): string {
       return "Website";
     }
   }
+  if (key === "luma") return "Luma";
+  if (key === "tickets") return "Tickets";
   if (key === "instagram" || key === "line") {
     const handle = value.replace(/^@/, "");
     return `@${handle}`;

@@ -338,11 +338,12 @@ export async function deleteAllCircles() {
 }
 
 export async function addEvent(
-  input: Omit<EventItem, "id" | "going"> & { going?: number; ownerId?: string },
-) {
+  input: Omit<EventItem, "id" | "going"> & { going?: number; ownerId?: string; id?: string },
+): Promise<string> {
   const client = assertSupabase();
+  const id = input.id ?? newId("event");
   const values = {
-    id: newId("event"),
+    id,
     title: input.title,
     category: input.category,
     description: input.description ?? "",
@@ -369,6 +370,8 @@ export async function addEvent(
   } finally {
     cleanup();
   }
+
+  return id;
 }
 
 export async function updateEvent(
@@ -402,6 +405,195 @@ export async function updateEvent(
   } finally {
     cleanup();
   }
+}
+
+export type EventCircleLinkStatus = "pending" | "approved" | "declined";
+
+export type EventCircleLink = {
+  eventId: string;
+  circleId: string;
+  status: EventCircleLinkStatus;
+  requestedBy: string | null;
+  approvedBy: string | null;
+  createdAt: string;
+  updatedAt: string | null;
+  circle?: Circle | null;
+};
+
+function mapEventCircleLink(row: any, circle?: Circle | null): EventCircleLink {
+  return {
+    eventId: row.event_id,
+    circleId: row.circle_id,
+    status: row.status as EventCircleLinkStatus,
+    requestedBy: row.requested_by ?? null,
+    approvedBy: row.approved_by ?? null,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at ?? null,
+    circle,
+  };
+}
+
+async function syncApprovedEventCircleIds(eventId: string): Promise<string[]> {
+  if (!supabase) return [];
+  const { data, error } = await (supabase.from("event_circle_links") as any)
+    .select("circle_id")
+    .eq("event_id", eventId)
+    .eq("status", "approved");
+  if (error) return [];
+  const ids = (data ?? []).map((r: any) => r.circle_id as string);
+  await (supabase.from("events") as any).update({ circle_ids: ids, updated_at: new Date().toISOString() }).eq("id", eventId);
+  return ids;
+}
+
+export async function getEventCircleLinks(eventId: string): Promise<EventCircleLink[]> {
+  if (!supabase) return [];
+  const { data, error } = await (supabase.from("event_circle_links") as any)
+    .select("event_id, circle_id, status, requested_by, approved_by, created_at, updated_at")
+    .eq("event_id", eventId)
+    .order("created_at", { ascending: true });
+
+  if (error) {
+    const event = await getEventByHandle(eventId);
+    const circlesForEvent = await Promise.all((event?.circleIds ?? []).map((id) => getCircleByHandle(id)));
+    return circlesForEvent.filter(Boolean).map((circle) => ({
+      eventId,
+      circleId: circle!.id,
+      status: "approved" as const,
+      requestedBy: event?.ownerId ?? null,
+      approvedBy: event?.ownerId ?? null,
+      createdAt: event?.updatedAt ?? "",
+      updatedAt: event?.updatedAt ?? null,
+      circle,
+    }));
+  }
+
+  const circleIds = [...new Set((data ?? []).map((r: any) => r.circle_id as string))];
+  const circlesForLinks = circleIds.length
+    ? await Promise.all(circleIds.map((id) => getCircleByHandle(id)))
+    : [];
+  const circleMap = new Map(circlesForLinks.filter(Boolean).map((circle) => [circle!.id, circle]));
+  return (data ?? []).map((row: any) => mapEventCircleLink(row, circleMap.get(row.circle_id) ?? null));
+}
+
+async function notifyCircleManagers(circleId: string, type: string, payload: Record<string, any>) {
+  if (!supabase) return;
+  const circle = await getCircleByHandle(circleId);
+  const ids = new Set<string>();
+  if (circle?.ownerId) ids.add(circle.ownerId);
+  const managers = await getCircleManagers(circleId).catch(() => []);
+  managers.forEach((manager) => ids.add(manager.id));
+  await Promise.all([...ids].map((id) => insertNotification(id, type, payload)));
+}
+
+export async function setEventCircleCollaborations(input: {
+  eventId: string;
+  eventTitle: string;
+  eventOwnerId?: string | null;
+  requesterId: string;
+  approvedCircleIds: string[];
+  invitedCircleIds: string[];
+}): Promise<void> {
+  const client = assertSupabase();
+  const now = new Date().toISOString();
+  const approved = [...new Set(input.approvedCircleIds)];
+  const invited = [...new Set(input.invitedCircleIds)].filter((id) => !approved.includes(id));
+  const desired = new Set([...approved, ...invited]);
+
+  const existing = await getEventCircleLinks(input.eventId).catch(() => [] as EventCircleLink[]);
+  await Promise.all(existing
+    .filter((link) => link.status !== "declined" && !desired.has(link.circleId))
+    .map((link) => (client.from("event_circle_links") as any)
+      .delete()
+      .eq("event_id", input.eventId)
+      .eq("circle_id", link.circleId)));
+
+  for (const circleId of approved) {
+    const { error } = await (client.from("event_circle_links") as any).upsert({
+      event_id: input.eventId,
+      circle_id: circleId,
+      status: "approved",
+      requested_by: input.requesterId,
+      approved_by: input.requesterId,
+      updated_at: now,
+    }, { onConflict: "event_id,circle_id" });
+    if (error) throw new Error(error.message);
+  }
+
+  for (const circleId of invited) {
+    const already = existing.find((link) => link.circleId === circleId);
+    if (already?.status === "approved" || already?.status === "pending") continue;
+    const { error } = await (client.from("event_circle_links") as any).upsert({
+      event_id: input.eventId,
+      circle_id: circleId,
+      status: "pending",
+      requested_by: input.requesterId,
+      approved_by: null,
+      updated_at: now,
+    }, { onConflict: "event_id,circle_id" });
+    if (error) throw new Error(error.message);
+    await notifyCircleManagers(circleId, "event_circle_invite", {
+      eventId: input.eventId,
+      eventTitle: input.eventTitle,
+      circleId,
+      requesterId: input.requesterId,
+    });
+  }
+
+  await (client.from("events") as any)
+    .update({ circle_ids: approved, updated_at: now })
+    .eq("id", input.eventId);
+}
+
+export async function approveEventCircleCollaboration(eventId: string, circleId: string, approverId: string): Promise<void> {
+  const client = assertSupabase();
+  const { error } = await (client.from("event_circle_links") as any)
+    .update({ status: "approved", approved_by: approverId, updated_at: new Date().toISOString() })
+    .eq("event_id", eventId)
+    .eq("circle_id", circleId);
+  if (error) throw new Error(error.message);
+  const ids = await syncApprovedEventCircleIds(eventId);
+  const event = await getEventByHandle(eventId).catch(() => null);
+  const circle = await getCircleByHandle(circleId).catch(() => null);
+  if (event?.ownerId) {
+    await insertNotification(event.ownerId, "event_circle_approved", {
+      eventId,
+      eventTitle: event.title,
+      circleId,
+      circleName: circle?.name ?? circleId,
+      circleIds: ids,
+    });
+  }
+}
+
+export async function declineEventCircleCollaboration(eventId: string, circleId: string, declinerId: string): Promise<void> {
+  const client = assertSupabase();
+  const { error } = await (client.from("event_circle_links") as any)
+    .update({ status: "declined", approved_by: declinerId, updated_at: new Date().toISOString() })
+    .eq("event_id", eventId)
+    .eq("circle_id", circleId);
+  if (error) throw new Error(error.message);
+  await syncApprovedEventCircleIds(eventId);
+  const event = await getEventByHandle(eventId).catch(() => null);
+  const circle = await getCircleByHandle(circleId).catch(() => null);
+  if (event?.ownerId) {
+    await insertNotification(event.ownerId, "event_circle_declined", {
+      eventId,
+      eventTitle: event.title,
+      circleId,
+      circleName: circle?.name ?? circleId,
+    });
+  }
+}
+
+export async function cancelEventCircleCollaboration(eventId: string, circleId: string): Promise<void> {
+  const client = assertSupabase();
+  const { error } = await (client.from("event_circle_links") as any)
+    .delete()
+    .eq("event_id", eventId)
+    .eq("circle_id", circleId)
+    .eq("status", "pending");
+  if (error) throw new Error(error.message);
+  await syncApprovedEventCircleIds(eventId);
 }
 
 export async function deleteEvent(id: string) {

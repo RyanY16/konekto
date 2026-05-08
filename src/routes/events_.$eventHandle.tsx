@@ -1,6 +1,6 @@
 import { Link, createFileRoute, useRouter, useNavigate } from "@tanstack/react-router";
 import { useState, useEffect } from "react";
-import { Globe, Instagram, Linkedin, MessageCircle, MapPin, ExternalLink, CalendarIcon } from "lucide-react";
+import { Globe, MapPin, ExternalLink, CalendarIcon, CalendarPlus, Ticket } from "lucide-react";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { format, parse } from "date-fns";
@@ -13,7 +13,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import TagPicker from "@/components/TagPicker";
 import { CIRCLE_TAG_GROUPS, filterValidTags } from "@/data/tags";
-import CirclePicker from "@/components/CirclePicker";
+import EventCircleCollabPicker from "@/components/EventCircleCollabPicker";
 import { DeleteRecordButton } from "@/components/DeleteRecordButton";
 import { OwnerBadge } from "@/components/OwnerBadge";
 import { ShareButton } from "@/components/ShareButton";
@@ -27,6 +27,12 @@ import {
   getCircleByHandle,
   getCircleHandle,
   getEventHandle,
+  getEventCircleLinks,
+  getMyEditableCircles,
+  setEventCircleCollaborations,
+  approveEventCircleCollaboration,
+  declineEventCircleCollaboration,
+  cancelEventCircleCollaboration,
   getMyAttendance,
   requestToAttend,
   withdrawAttendance,
@@ -34,7 +40,7 @@ import {
   updateAttendeeStatus,
 } from "@/data/backend";
 import type { Circle } from "@/data/mock";
-import type { AttendeeStatus, EventAttendee } from "@/data/backend";
+import type { AttendeeStatus, EventAttendee, EventCircleLink } from "@/data/backend";
 import { LANGUAGES } from "@/data/profile-options";
 import type { EventItem } from "@/data/mock";
 
@@ -148,9 +154,8 @@ type Draft = {
   tags: string[];
   circleIds: string[];
   website: string;
-  instagram: string;
-  linkedin: string;
-  line: string;
+  luma: string;
+  tickets: string;
 };
 
 function toDraft(e: EventItem): Draft {
@@ -168,9 +173,8 @@ function toDraft(e: EventItem): Draft {
     tags: e.tags ?? [],
     circleIds: e.circleIds ?? [],
     website: sl.website ?? "",
-    instagram: sl.instagram ?? "",
-    linkedin: sl.linkedin ?? "",
-    line: sl.line ?? "",
+    luma: sl.luma ?? "",
+    tickets: sl.tickets ?? "",
   };
 }
 
@@ -182,6 +186,10 @@ function EventDetailPage() {
   const [editing, setEditing] = useState(false);
   const [owner, setOwner] = useState<{ username: string; displayName: string; avatarUrl: string | null } | null>(null);
   const [linkedCircles, setLinkedCircles] = useState<Circle[]>([]);
+  const [circleLinks, setCircleLinks] = useState<EventCircleLink[]>([]);
+  const [myEditableCircleIds, setMyEditableCircleIds] = useState<Set<string>>(new Set());
+  const [invitedCircleIds, setInvitedCircleIds] = useState<string[]>([]);
+  const [collabActionId, setCollabActionId] = useState<string | null>(null);
   const [draft, setDraft] = useState<Draft>(event ? toDraft(event) : {} as Draft);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
@@ -205,13 +213,37 @@ function EventDetailPage() {
     });
   }, [event?.ownerId]);
 
+  async function refreshCircleLinks() {
+    if (!event?.id) return;
+    const links = await getEventCircleLinks(event.id).catch(() => [] as EventCircleLink[]);
+    setCircleLinks(links);
+    const approved = links.filter((link) => link.status === "approved" && link.circle);
+    if (approved.length > 0) {
+      setLinkedCircles(approved.map((link) => link.circle!).filter(Boolean));
+      return;
+    }
+    const ids = event.circleIds ?? [];
+    if (ids.length === 0) {
+      setLinkedCircles([]);
+      return;
+    }
+    const results = await Promise.all(ids.map((id) => getCircleByHandle(id)));
+    setLinkedCircles(results.filter(Boolean) as Circle[]);
+  }
+
   useEffect(() => {
-    const ids = event?.circleIds ?? [];
-    if (ids.length === 0) { setLinkedCircles([]); return; }
-    Promise.all(ids.map((id) => getCircleByHandle(id))).then((results) => {
-      setLinkedCircles(results.filter(Boolean) as Circle[]);
-    });
-  }, [event?.circleIds?.join(",")]);
+    refreshCircleLinks();
+  }, [event?.id, event?.circleIds?.join(",")]);
+
+  useEffect(() => {
+    if (!user?.id) {
+      setMyEditableCircleIds(new Set());
+      return;
+    }
+    getMyEditableCircles(user.id)
+      .then((circles) => setMyEditableCircleIds(new Set(circles.map((circle) => circle.id))))
+      .catch(() => setMyEditableCircleIds(new Set()));
+  }, [user?.id]);
 
   useEffect(() => {
     if (!event?.id || !user || isOwner || isAdmin) return;
@@ -237,6 +269,7 @@ function EventDetailPage() {
   function startEditing() {
     const d = toDraft(event!);
     setDraft(d);
+    setInvitedCircleIds(circleLinks.filter((link) => link.status === "pending").map((link) => link.circleId));
     const parsed = parseDateString(d.date);
     setEditDateRange(parsed.range);
     setEditStartTime(parsed.startTime);
@@ -283,11 +316,21 @@ function EventDetailPage() {
         circleIds: draft.circleIds,
         socialLinks: {
           website: draft.website || undefined,
-          instagram: draft.instagram || undefined,
-          linkedin: draft.linkedin || undefined,
-          line: draft.line || undefined,
+          luma: draft.luma || undefined,
+          tickets: draft.tickets || undefined,
         },
       });
+      if (user) {
+        await setEventCircleCollaborations({
+          eventId: event!.id,
+          eventTitle: draft.title,
+          eventOwnerId: event!.ownerId,
+          requesterId: user.id,
+          approvedCircleIds: draft.circleIds,
+          invitedCircleIds,
+        });
+      }
+      await refreshCircleLinks();
       setEditing(false);
       const newHandle = getEventHandle({ id: event!.id, title: draft.title });
       await navigate({ to: "/events/$eventHandle", params: { eventHandle: newHandle }, replace: true });
@@ -304,11 +347,44 @@ function EventDetailPage() {
     router.navigate({ to: "/events" });
   }
 
+  async function handleCollabDecision(circleId: string, decision: "approved" | "declined") {
+    if (!user) return;
+    setCollabActionId(circleId);
+    try {
+      if (decision === "approved") {
+        await approveEventCircleCollaboration(event!.id, circleId, user.id);
+      } else {
+        await declineEventCircleCollaboration(event!.id, circleId, user.id);
+      }
+      await refreshCircleLinks();
+      router.invalidate();
+    } finally {
+      setCollabActionId(null);
+    }
+  }
+
+  async function handleCancelCollabRequest(circleId: string) {
+    setCollabActionId(circleId);
+    try {
+      await cancelEventCircleCollaboration(event!.id, circleId);
+      setInvitedCircleIds((ids) => ids.filter((id) => id !== circleId));
+      await refreshCircleLinks();
+      router.invalidate();
+    } finally {
+      setCollabActionId(null);
+    }
+  }
+
   const sel = `h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring`;
 
   const langInfo = event.primaryLanguage
     ? LANGUAGES.find((l) => l.name === event.primaryLanguage)
     : null;
+  const pendingCircleIds = circleLinks.filter((link) => link.status === "pending").map((link) => link.circleId);
+  const declinedCircleIds = circleLinks.filter((link) => link.status === "declined").map((link) => link.circleId);
+  const myApprovedCircleIds = draft.circleIds?.filter((id) => myEditableCircleIds.has(id)) ?? [];
+  const approvedOtherCircleIds = draft.circleIds?.filter((id) => !myEditableCircleIds.has(id)) ?? [];
+  const actionablePendingLinks = circleLinks.filter((link) => link.status === "pending" && myEditableCircleIds.has(link.circleId));
 
   return (
     <div>
@@ -530,35 +606,32 @@ function EventDetailPage() {
 
             {user && (
               <div className="space-y-1">
-                <label className="text-xs font-medium text-muted-foreground">Associated circles</label>
-                <CirclePicker
-                  value={draft.circleIds}
-                  onChange={(ids) => setDraft((d) => ({ ...d, circleIds: ids }))}
+                <EventCircleCollabPicker
+                  myCircleIds={myApprovedCircleIds}
+                  invitedCircleIds={invitedCircleIds}
+                  onMyCircleIdsChange={(ids) => setDraft((d) => ({ ...d, circleIds: [...approvedOtherCircleIds, ...ids] }))}
+                  onInvitedCircleIdsChange={setInvitedCircleIds}
                   userId={user.id}
+                  pendingCircleIds={pendingCircleIds}
+                  declinedCircleIds={declinedCircleIds}
                 />
               </div>
             )}
 
             <div className="space-y-1">
-              <label className="text-xs font-medium text-muted-foreground">Social links</label>
+              <label className="text-xs font-medium text-muted-foreground">Event links</label>
               <div className="space-y-2">
                 <div className="relative">
                   <Globe className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
                   <Input value={draft.website} onChange={(e) => setDraft((d) => ({ ...d, website: e.target.value }))} placeholder="https://yoursite.com" className="pl-9" />
                 </div>
                 <div className="relative">
-                  <Instagram className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
-                  <span className="absolute left-9 top-1/2 -translate-y-1/2 text-sm text-muted-foreground select-none pointer-events-none">@</span>
-                  <Input value={draft.instagram.replace(/^@/, "")} onChange={(e) => setDraft((d) => ({ ...d, instagram: e.target.value.replace(/^@/, "") }))} placeholder="handle" className="pl-14" />
+                  <CalendarPlus className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+                  <Input value={draft.luma} onChange={(e) => setDraft((d) => ({ ...d, luma: e.target.value }))} placeholder="https://lu.ma/your-event" className="pl-9" />
                 </div>
                 <div className="relative">
-                  <Linkedin className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
-                  <Input value={draft.linkedin} onChange={(e) => setDraft((d) => ({ ...d, linkedin: e.target.value }))} placeholder="linkedin.com/in/yourprofile" className="pl-9" />
-                </div>
-                <div className="relative">
-                  <MessageCircle className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
-                  <span className="absolute left-9 top-1/2 -translate-y-1/2 text-sm text-muted-foreground select-none pointer-events-none">@</span>
-                  <Input value={draft.line.replace(/^@/, "")} onChange={(e) => setDraft((d) => ({ ...d, line: e.target.value.replace(/^@/, "") }))} placeholder="LINE ID" className="pl-14" />
+                  <Ticket className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+                  <Input value={draft.tickets} onChange={(e) => setDraft((d) => ({ ...d, tickets: e.target.value }))} placeholder="Registration or ticket link" className="pl-9" />
                 </div>
               </div>
             </div>
@@ -623,7 +696,7 @@ function EventDetailPage() {
 
             {linkedCircles.length > 0 && (
               <div>
-                <p className="text-xs font-medium text-muted-foreground mb-1.5">Circles</p>
+                <p className="text-xs font-medium text-muted-foreground mb-1.5">Hosting circles</p>
                 <div className="flex flex-wrap gap-2">
                   {linkedCircles.map((c) => (
                     <Link
@@ -635,6 +708,58 @@ function EventDetailPage() {
                       {c.emoji} {c.name}
                     </Link>
                   ))}
+                </div>
+              </div>
+            )}
+
+            {pendingCircleIds.length > 0 && (canEdit || actionablePendingLinks.length > 0) && (
+              <div>
+                <p className="text-xs font-medium text-muted-foreground mb-1.5">{canEdit ? "Current collab requests" : "Pending collabs"}</p>
+                <div className="space-y-2">
+                  {circleLinks.filter((link) => link.status === "pending").map((link) => {
+                    const circle = link.circle;
+                    const canRespond = myEditableCircleIds.has(link.circleId);
+                    return (
+                      <div key={link.circleId} className="flex flex-wrap items-center gap-2 text-sm">
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-muted text-muted-foreground border border-border">
+                          {circle?.emoji ?? ""} {circle?.name ?? link.circleId}
+                        </span>
+                        {canRespond ? (
+                          <>
+                            <Button
+                              size="sm"
+                              className="h-7 px-2 text-xs"
+                              disabled={collabActionId === link.circleId}
+                              onClick={() => handleCollabDecision(link.circleId, "approved")}
+                            >
+                              Approve
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="h-7 px-2 text-xs"
+                              disabled={collabActionId === link.circleId}
+                              onClick={() => handleCollabDecision(link.circleId, "declined")}
+                            >
+                              Decline
+                            </Button>
+                          </>
+                        ) : canEdit ? (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="h-7 px-2 text-xs"
+                            disabled={collabActionId === link.circleId}
+                            onClick={() => handleCancelCollabRequest(link.circleId)}
+                          >
+                            Cancel
+                          </Button>
+                        ) : (
+                          <span className="text-xs text-muted-foreground">Waiting for approval</span>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
             )}

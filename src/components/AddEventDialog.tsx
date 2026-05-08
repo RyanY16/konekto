@@ -2,7 +2,7 @@
 
 import { useState, useRef, type FormEvent } from "react";
 import { Button } from "@/components/ui/button";
-import { Plus, Globe, Instagram, Linkedin, MessageCircle, MapPin, ExternalLink, CalendarIcon } from "lucide-react";
+import { Plus, Globe, Ticket, MapPin, ExternalLink, CalendarIcon, CalendarPlus } from "lucide-react";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -10,9 +10,9 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Calendar } from "@/components/ui/calendar";
 import TagPicker from "@/components/TagPicker";
 import { CIRCLE_TAG_GROUPS } from "@/data/tags";
-import CirclePicker from "@/components/CirclePicker";
+import EventCircleCollabPicker from "@/components/EventCircleCollabPicker";
 import { socialLinksFromForm } from "@/lib/social-links";
-import { addEvent } from "@/data/backend";
+import { addEvent, setEventCircleCollaborations } from "@/data/backend";
 import { useRouter } from "@tanstack/react-router";
 import { useAuth } from "@/components/AuthProvider";
 import { LANGUAGES } from "@/data/profile-options";
@@ -71,6 +71,7 @@ export default function AddEventDialog() {
   const [saving, setSaving] = useState(false);
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [selectedCircleIds, setSelectedCircleIds] = useState<string[]>([]);
+  const [invitedCircleIds, setInvitedCircleIds] = useState<string[]>([]);
   const [category, setCategory] = useState<string>(EVENT_CATEGORIES[0]);
   const [location, setLocation] = useState("");
   const [primaryLanguage, setPrimaryLanguage] = useState("");
@@ -87,6 +88,7 @@ export default function AddEventDialog() {
     setSaving(false);
     setSelectedTags([]);
     setSelectedCircleIds([]);
+    setInvitedCircleIds([]);
     setCategory(EVENT_CATEGORIES[0]);
     setLocation("");
     setPrimaryLanguage("");
@@ -116,8 +118,9 @@ export default function AddEventDialog() {
         return;
       }
 
-      await addEvent({
-        title: String(form.get("title") ?? "").trim(),
+      const title = String(form.get("title") ?? "").trim();
+      const eventId = await addEvent({
+        title,
         description: String(form.get("description") ?? "").trim() || undefined,
         category: cat as (typeof EVENT_CATEGORIES)[number],
         date: dateStr,
@@ -133,6 +136,17 @@ export default function AddEventDialog() {
         approvalRequired,
         startDate: dateRange?.from ? buildStartDatetime(dateRange.from, startTime) : undefined,
       } as any);
+
+      if (user && (selectedCircleIds.length > 0 || invitedCircleIds.length > 0)) {
+        await setEventCircleCollaborations({
+          eventId,
+          eventTitle: title,
+          eventOwnerId: user.id,
+          requesterId: user.id,
+          approvedCircleIds: selectedCircleIds,
+          invitedCircleIds,
+        });
+      }
 
       setOpen(false);
       reset();
@@ -366,36 +380,31 @@ export default function AddEventDialog() {
           {/* Circles */}
           {user && (
             <div className={field}>
-              <label className={lbl}>Associated circles {opt}</label>
-              <CirclePicker
-                value={selectedCircleIds}
-                onChange={setSelectedCircleIds}
+              <EventCircleCollabPicker
+                myCircleIds={selectedCircleIds}
+                invitedCircleIds={invitedCircleIds}
+                onMyCircleIdsChange={setSelectedCircleIds}
+                onInvitedCircleIdsChange={setInvitedCircleIds}
                 userId={user.id}
               />
             </div>
           )}
 
-          {/* Social links */}
+          {/* Event links */}
           <div className={field}>
-            <label className={lbl}>Social links {opt}</label>
+            <label className={lbl}>Event links {opt}</label>
             <div className="space-y-2">
               <div className="relative">
                 <Globe className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
                 <Input name="website" placeholder="https://yoursite.com" className="pl-9" />
               </div>
               <div className="relative">
-                <Instagram className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
-                <span className="absolute left-9 top-1/2 -translate-y-1/2 text-sm text-muted-foreground select-none pointer-events-none">@</span>
-                <Input name="instagram" placeholder="handle" className="pl-14" />
+                <CalendarPlus className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+                <Input name="luma" placeholder="https://lu.ma/your-event" className="pl-9" />
               </div>
               <div className="relative">
-                <Linkedin className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
-                <Input name="linkedin" placeholder="linkedin.com/in/yourprofile" className="pl-9" />
-              </div>
-              <div className="relative">
-                <MessageCircle className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
-                <span className="absolute left-9 top-1/2 -translate-y-1/2 text-sm text-muted-foreground select-none pointer-events-none">@</span>
-                <Input name="line" placeholder="LINE ID" className="pl-14" />
+                <Ticket className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+                <Input name="tickets" placeholder="Registration or ticket link" className="pl-9" />
               </div>
             </div>
           </div>

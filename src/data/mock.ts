@@ -1,5 +1,7 @@
 export type SocialLinks = {
   website?: string;
+  luma?: string;
+  tickets?: string;
   instagram?: string;
   linkedin?: string;
   line?: string;

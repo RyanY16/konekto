@@ -162,6 +162,51 @@ alter table public.events add column if not exists online boolean not null defau
 alter table public.events add column if not exists approval_required boolean not null default false;
 alter table public.events add column if not exists start_date timestamptz;
 
+-- Event/circle collaborations. Approved rows are mirrored into events.circle_ids
+-- for compatibility with existing event cards and detail pages.
+create table if not exists public.event_circle_links (
+  event_id text not null references public.events(id) on delete cascade,
+  circle_id text not null references public.circles(id) on delete cascade,
+  status text not null default 'pending' check (status in ('pending', 'approved', 'declined')),
+  requested_by uuid references auth.users(id) on delete set null,
+  approved_by uuid references auth.users(id) on delete set null,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz,
+  primary key (event_id, circle_id)
+);
+alter table public.event_circle_links enable row level security;
+drop policy if exists "Approved event circle links visible to all" on public.event_circle_links;
+create policy "Approved event circle links visible to all" on public.event_circle_links for select
+  using (
+    status = 'approved'
+    or exists (select 1 from public.events where id = event_id and owner_id = auth.uid())
+    or exists (select 1 from public.circles where id = circle_id and owner_id = auth.uid())
+    or exists (select 1 from public.circle_editors where circle_id = event_circle_links.circle_id and user_id = auth.uid())
+    or public.is_admin()
+  );
+drop policy if exists "Event owners can create circle links" on public.event_circle_links;
+create policy "Event owners can create circle links" on public.event_circle_links for insert
+  with check (
+    exists (select 1 from public.events where id = event_id and owner_id = auth.uid())
+    or exists (select 1 from public.circles where id = circle_id and owner_id = auth.uid())
+    or exists (select 1 from public.circle_editors where circle_id = event_circle_links.circle_id and user_id = auth.uid())
+    or public.is_admin()
+  );
+drop policy if exists "Event or circle managers can update circle links" on public.event_circle_links;
+create policy "Event or circle managers can update circle links" on public.event_circle_links for update
+  using (
+    exists (select 1 from public.events where id = event_id and owner_id = auth.uid())
+    or exists (select 1 from public.circles where id = circle_id and owner_id = auth.uid())
+    or exists (select 1 from public.circle_editors where circle_id = event_circle_links.circle_id and user_id = auth.uid())
+    or public.is_admin()
+  );
+drop policy if exists "Event owners can delete circle links" on public.event_circle_links;
+create policy "Event owners can delete circle links" on public.event_circle_links for delete
+  using (
+    exists (select 1 from public.events where id = event_id and owner_id = auth.uid())
+    or public.is_admin()
+  );
+
 -- ─── Event Attendees ──────────────────────────────────────────────────────────
 create table if not exists public.event_attendees (
   event_id text not null references public.events(id) on delete cascade,

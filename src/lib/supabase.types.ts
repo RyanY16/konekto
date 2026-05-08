@@ -29,6 +29,27 @@ export type Database = {
         Insert: { event_id: string; user_id: string; status?: string; created_at?: string };
         Update: Partial<{ status: string }>;
       };
+      event_circle_links: {
+        Row: {
+          event_id: string;
+          circle_id: string;
+          status: "pending" | "approved" | "declined";
+          requested_by: string | null;
+          approved_by: string | null;
+          created_at: string;
+          updated_at: string | null;
+        };
+        Insert: {
+          event_id: string;
+          circle_id: string;
+          status?: "pending" | "approved" | "declined";
+          requested_by?: string | null;
+          approved_by?: string | null;
+          created_at?: string;
+          updated_at?: string | null;
+        };
+        Update: Partial<Database["public"]["Tables"]["event_circle_links"]["Insert"]>;
+      };
       notifications: {
         Row: { id: string; user_id: string; type: string; payload: Json; read: boolean; created_at: string };
         Insert: { id?: string; user_id: string; type: string; payload?: Json; read?: boolean; created_at?: string };

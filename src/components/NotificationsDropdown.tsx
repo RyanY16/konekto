@@ -34,6 +34,18 @@ function notifLabel(n: AppNotification): { icon: string; text: string; to?: stri
     const to = p.eventId ? `/events/${p.eventId}` : undefined;
     return { icon: "❌", text: `Your request for "${p.eventTitle}" was declined`, to };
   }
+  if (n.type === "event_circle_invite") {
+    const to = p.eventId ? `/events/${p.eventId}` : undefined;
+    return { icon: "🤝", text: `Your circle was invited to collaborate on "${p.eventTitle}"`, to };
+  }
+  if (n.type === "event_circle_approved") {
+    const to = p.eventId ? `/events/${p.eventId}` : undefined;
+    return { icon: "✅", text: `"${p.circleName}" approved the collab for "${p.eventTitle}"`, to };
+  }
+  if (n.type === "event_circle_declined") {
+    const to = p.eventId ? `/events/${p.eventId}` : undefined;
+    return { icon: "❌", text: `"${p.circleName}" declined the collab for "${p.eventTitle}"`, to };
+  }
 
   if (n.type === "circle_join_request") {
     const to = p.circleId ? `/circles/${toSlug(p.circleName) || p.circleId}` : undefined;
