@@ -14,6 +14,7 @@ import { Route as SavedRouteImport } from './routes/saved'
 import { Route as ProfileRouteImport } from './routes/profile'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as JapanLifeRouteImport } from './routes/japan-life'
+import { Route as FeaturesRouteImport } from './routes/features'
 import { Route as EventsRouteImport } from './routes/events'
 import { Route as DealsRouteImport } from './routes/deals'
 import { Route as CirclesRouteImport } from './routes/circles'
@@ -51,6 +52,11 @@ const LoginRoute = LoginRouteImport.update({
 const JapanLifeRoute = JapanLifeRouteImport.update({
   id: '/japan-life',
   path: '/japan-life',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const FeaturesRoute = FeaturesRouteImport.update({
+  id: '/features',
+  path: '/features',
   getParentRoute: () => rootRouteImport,
 } as any)
 const EventsRoute = EventsRouteImport.update({
@@ -127,6 +133,7 @@ export interface FileRoutesByFullPath {
   '/circles': typeof CirclesRoute
   '/deals': typeof DealsRoute
   '/events': typeof EventsRoute
+  '/features': typeof FeaturesRoute
   '/japan-life': typeof JapanLifeRoute
   '/login': typeof LoginRoute
   '/profile': typeof ProfileRoute
@@ -147,6 +154,7 @@ export interface FileRoutesByTo {
   '/circles': typeof CirclesRoute
   '/deals': typeof DealsRoute
   '/events': typeof EventsRoute
+  '/features': typeof FeaturesRoute
   '/japan-life': typeof JapanLifeRoute
   '/login': typeof LoginRoute
   '/profile': typeof ProfileRoute
@@ -168,6 +176,7 @@ export interface FileRoutesById {
   '/circles': typeof CirclesRoute
   '/deals': typeof DealsRoute
   '/events': typeof EventsRoute
+  '/features': typeof FeaturesRoute
   '/japan-life': typeof JapanLifeRoute
   '/login': typeof LoginRoute
   '/profile': typeof ProfileRoute
@@ -190,6 +199,7 @@ export interface FileRouteTypes {
     | '/circles'
     | '/deals'
     | '/events'
+    | '/features'
     | '/japan-life'
     | '/login'
     | '/profile'
@@ -210,6 +220,7 @@ export interface FileRouteTypes {
     | '/circles'
     | '/deals'
     | '/events'
+    | '/features'
     | '/japan-life'
     | '/login'
     | '/profile'
@@ -230,6 +241,7 @@ export interface FileRouteTypes {
     | '/circles'
     | '/deals'
     | '/events'
+    | '/features'
     | '/japan-life'
     | '/login'
     | '/profile'
@@ -251,6 +263,7 @@ export interface RootRouteChildren {
   CirclesRoute: typeof CirclesRoute
   DealsRoute: typeof DealsRoute
   EventsRoute: typeof EventsRoute
+  FeaturesRoute: typeof FeaturesRoute
   JapanLifeRoute: typeof JapanLifeRoute
   LoginRoute: typeof LoginRoute
   ProfileRoute: typeof ProfileRoute
@@ -299,6 +312,13 @@ declare module '@tanstack/react-router' {
       path: '/japan-life'
       fullPath: '/japan-life'
       preLoaderRoute: typeof JapanLifeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/features': {
+      id: '/features'
+      path: '/features'
+      fullPath: '/features'
+      preLoaderRoute: typeof FeaturesRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/events': {
@@ -403,6 +423,7 @@ const rootRouteChildren: RootRouteChildren = {
   CirclesRoute: CirclesRoute,
   DealsRoute: DealsRoute,
   EventsRoute: EventsRoute,
+  FeaturesRoute: FeaturesRoute,
   JapanLifeRoute: JapanLifeRoute,
   LoginRoute: LoginRoute,
   ProfileRoute: ProfileRoute,

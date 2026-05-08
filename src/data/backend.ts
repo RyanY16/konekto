@@ -475,6 +475,62 @@ export async function getEventCircleLinks(eventId: string): Promise<EventCircleL
   return (data ?? []).map((row: any) => mapEventCircleLink(row, circleMap.get(row.circle_id) ?? null));
 }
 
+export async function getCircleEvents(circleId: string): Promise<EventItem[]> {
+  const eventsForCircle = await getEvents();
+  const byId = new Map(eventsForCircle
+    .filter((event) => (event.circleIds ?? []).includes(circleId))
+    .map((event) => [event.id, event]));
+
+  if (supabase) {
+    const { data } = await (supabase.from("event_circle_links") as any)
+      .select("event_id")
+      .eq("circle_id", circleId)
+      .eq("status", "approved");
+    const linkedIds = (data ?? []).map((row: any) => row.event_id as string);
+    const linkedEvents = await Promise.all(linkedIds.map((id) => getEventByHandle(id).catch(() => null)));
+    linkedEvents.filter(Boolean).forEach((event) => byId.set(event!.id, event!));
+  }
+
+  return [...byId.values()].sort((a, b) => {
+    const aTime = a.startDate ? new Date(a.startDate).getTime() : 0;
+    const bTime = b.startDate ? new Date(b.startDate).getTime() : 0;
+    return aTime - bTime;
+  });
+}
+
+export type CircleEventCollabRequest = EventCircleLink & {
+  event: EventItem | null;
+  organizer: Pick<UserProfile, "id" | "username" | "displayName" | "avatarUrl"> | null;
+};
+
+export async function getCircleEventCollabRequests(circleId: string): Promise<CircleEventCollabRequest[]> {
+  if (!supabase) return [];
+  const { data, error } = await (supabase.from("event_circle_links") as any)
+    .select("event_id, circle_id, status, requested_by, approved_by, created_at, updated_at")
+    .eq("circle_id", circleId)
+    .eq("status", "pending")
+    .order("created_at", { ascending: false });
+  if (error || !data) return [];
+
+  const requests = await Promise.all(data.map(async (row: any) => {
+    const event = await getEventByHandle(row.event_id).catch(() => null);
+    const organizerId = event?.ownerId ?? row.requested_by ?? null;
+    const organizer = organizerId ? await getProfile(organizerId).catch(() => null) : null;
+    return {
+      ...mapEventCircleLink(row),
+      event,
+      organizer: organizer ? {
+        id: organizer.id,
+        username: organizer.username,
+        displayName: organizer.displayName,
+        avatarUrl: organizer.avatarUrl,
+      } : null,
+    };
+  }));
+
+  return requests;
+}
+
 async function notifyCircleManagers(circleId: string, type: string, payload: Record<string, any>) {
   if (!supabase) return;
   const circle = await getCircleByHandle(circleId);

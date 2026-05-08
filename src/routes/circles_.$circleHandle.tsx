@@ -13,7 +13,7 @@ function relativeTime(iso: string | undefined): string | null {
   return `Updated ${Math.floor(months / 12)}y ago`;
 }
 
-import { Globe, Instagram, Linkedin, MessageCircle } from "lucide-react";
+import { Calendar, Globe, Instagram, Linkedin, MapPin, MessageCircle } from "lucide-react";
 import { tagClass } from "@/lib/tag-class";
 import { PageHeader } from "@/components/PageHeader";
 import { SocialLinks } from "@/components/SocialLinks";
@@ -32,6 +32,9 @@ import {
   getCircleByHandle,
   updateCircle,
   getCircleHandle,
+  getCircleEvents,
+  getCircleEventCollabRequests,
+  getEventHandle,
   getProfile,
   uploadCircleIcon,
   getCircleManagers,
@@ -45,19 +48,23 @@ import {
   getCircleJoinRequests,
   approveJoinRequest,
   rejectJoinRequest,
+  approveEventCircleCollaboration,
+  declineEventCircleCollaboration,
   leaveCircle,
   removeMember,
   getJoinedCircleIds,
   updateMemberTitle,
+  searchUsers,
   type UserProfile,
   type CircleMember,
   type CircleJoinRequest,
+  type CircleEventCollabRequest,
   type JoinRequestStatus,
 } from "@/data/backend";
 import { CIRCLE_CATEGORIES, ACTIVITY_LEVELS, CATEGORY_EMOJI, LANGUAGES } from "@/data/profile-options";
 import { CIRCLE_TAG_GROUPS, filterValidTags } from "@/data/tags";
 import { UniversityPicker } from "@/components/UniversityPicker";
-import type { Circle } from "@/data/mock";
+import type { Circle, EventItem } from "@/data/mock";
 
 function CircleLoadingskeleton() {
   return (
@@ -161,6 +168,9 @@ function CircleDetailPage() {
   // Pending join requests (for owner/managers)
   const [pendingRequests, setPendingRequests] = useState<CircleJoinRequest[]>([]);
   const [requestActionLoading, setRequestActionLoading] = useState<string | null>(null);
+  const [eventCollabRequests, setEventCollabRequests] = useState<CircleEventCollabRequest[]>([]);
+  const [eventCollabLoading, setEventCollabLoading] = useState<string | null>(null);
+  const [circleEvents, setCircleEvents] = useState<EventItem[]>([]);
 
   const isOwner = !!(user && circle?.ownerId && user.id === circle.ownerId);
   const isManager = managers.some((m) => m.id === user?.id);
@@ -193,6 +203,19 @@ function CircleDetailPage() {
   useEffect(() => {
     if (!circle?.id || !canManageRequests) return;
     getCircleJoinRequests(circle.id).then(setPendingRequests);
+  }, [circle?.id, canManageRequests]);
+
+  useEffect(() => {
+    if (!circle?.id) return;
+    getCircleEvents(circle.id).then(setCircleEvents).catch(() => setCircleEvents([]));
+  }, [circle?.id]);
+
+  useEffect(() => {
+    if (!circle?.id || !canManageRequests) {
+      setEventCollabRequests([]);
+      return;
+    }
+    getCircleEventCollabRequests(circle.id).then(setEventCollabRequests).catch(() => setEventCollabRequests([]));
   }, [circle?.id, canManageRequests]);
 
   async function handlePromoteToManager(member: CircleMember) {
@@ -343,6 +366,29 @@ function CircleDetailPage() {
       console.error(err);
     } finally {
       setRequestActionLoading(null);
+    }
+  }
+
+  async function handleEventCollabDecision(req: CircleEventCollabRequest, decision: "approved" | "declined") {
+    if (!circle || !user) return;
+    setEventCollabLoading(req.eventId);
+    try {
+      if (decision === "approved") {
+        await approveEventCircleCollaboration(req.eventId, circle.id, user.id);
+      } else {
+        await declineEventCircleCollaboration(req.eventId, circle.id, user.id);
+      }
+      const [requests, events] = await Promise.all([
+        getCircleEventCollabRequests(circle.id),
+        getCircleEvents(circle.id),
+      ]);
+      setEventCollabRequests(requests);
+      setCircleEvents(events);
+      router.invalidate();
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setEventCollabLoading(null);
     }
   }
 
@@ -922,6 +968,116 @@ function CircleDetailPage() {
                   </div>
                 );
               })}
+            </div>
+          )}
+        </section>
+      )}
+
+      {/* ── Event collaboration requests (owner/managers only) ── */}
+      {!editing && canManageRequests && (
+        <section className="card-base p-6 space-y-3">
+          <h2 className="text-sm font-semibold">
+            Event Collab Requests
+            {eventCollabRequests.length > 0 && (
+              <span className="ml-2 inline-flex items-center justify-center rounded-full bg-primary text-primary-foreground text-[10px] font-bold h-4 px-1.5">
+                {eventCollabRequests.length}
+              </span>
+            )}
+          </h2>
+          {eventCollabRequests.length === 0 ? (
+            <p className="text-sm text-muted-foreground">No event collab requests yet</p>
+          ) : (
+            <div className="space-y-3">
+              {eventCollabRequests.map((req) => {
+                const event = req.event;
+                const organizer = req.organizer;
+                const loading = eventCollabLoading === req.eventId;
+                return (
+                  <div key={req.eventId} className="rounded-lg border border-border p-3 space-y-2">
+                    <div className="flex flex-wrap items-start justify-between gap-3">
+                      <div className="min-w-0 space-y-1">
+                        {event ? (
+                          <Link
+                            to="/events/$eventHandle"
+                            params={{ eventHandle: getEventHandle(event) }}
+                            className="font-medium text-sm hover:underline"
+                          >
+                            {event.title}
+                          </Link>
+                        ) : (
+                          <p className="font-medium text-sm">{req.eventId}</p>
+                        )}
+                        {event?.date && (
+                          <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                            <Calendar className="h-3.5 w-3.5" /> {event.date}
+                          </p>
+                        )}
+                        {event?.location && (
+                          <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                            <MapPin className="h-3.5 w-3.5" /> {event.location}
+                          </p>
+                        )}
+                        <p className="text-xs text-muted-foreground">
+                          Requesting organizer:{" "}
+                          {organizer ? (
+                            <Link
+                              to="/users/$username"
+                              params={{ username: organizer.username ?? organizer.id }}
+                              className="font-medium text-foreground hover:underline"
+                            >
+                              @{organizer.username ?? organizer.displayName}
+                            </Link>
+                          ) : (
+                            <span className="font-medium text-foreground">Unknown</span>
+                          )}
+                        </p>
+                      </div>
+                      <div className="flex gap-1.5 shrink-0">
+                        <Button size="sm" onClick={() => handleEventCollabDecision(req, "approved")} disabled={loading}>
+                          {loading ? "…" : "Approve"}
+                        </Button>
+                        <Button size="sm" variant="outline" onClick={() => handleEventCollabDecision(req, "declined")} disabled={loading}>
+                          Decline
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </section>
+      )}
+
+      {/* ── Events ── */}
+      {!editing && (
+        <section className="card-base p-6 space-y-3">
+          <h2 className="text-sm font-semibold">Events{circleEvents.length > 0 && ` (${circleEvents.length})`}</h2>
+          {circleEvents.length === 0 ? (
+            <p className="text-sm text-muted-foreground">No events linked to this circle yet.</p>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              {circleEvents.map((event) => (
+                <Link
+                  key={event.id}
+                  to="/events/$eventHandle"
+                  params={{ eventHandle: getEventHandle(event) }}
+                  className="rounded-lg border border-border p-3 hover:bg-muted/50 transition-colors"
+                >
+                  <div className="flex items-start gap-3">
+                    <span className="text-2xl leading-none">{event.emoji}</span>
+                    <div className="min-w-0 space-y-1">
+                      <p className="font-medium text-sm truncate">{event.title}</p>
+                      <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                        <Calendar className="h-3.5 w-3.5" /> {event.date}
+                      </p>
+                      <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                        <MapPin className="h-3.5 w-3.5" /> {event.location}
+                      </p>
+                    </div>
+                  </div>
+                </Link>
+              ))}
             </div>
           )}
         </section>

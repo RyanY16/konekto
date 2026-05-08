@@ -88,8 +88,19 @@ export function AppShell() {
         <footer className="hidden md:block border-t border-border bg-background">
           <div className="mx-auto max-w-7xl px-4 py-4 flex items-center justify-between text-xs text-muted-foreground">
             <span>© {new Date().getFullYear()} Konekto</span>
-            <div className="flex items-center gap-4">
-              <Link to="/about" className="hover:text-foreground transition-colors">About</Link>
+            <div className="flex items-center gap-2">
+              <Link
+                to="/about"
+                className="rounded-full border border-border px-3 py-1.5 font-medium hover:text-foreground hover:bg-muted transition-colors"
+              >
+                About
+              </Link>
+              <Link
+                to="/features"
+                className="rounded-full border border-border px-3 py-1.5 font-medium hover:text-foreground hover:bg-muted transition-colors"
+              >
+                Features
+              </Link>
             </div>
           </div>
         </footer>
