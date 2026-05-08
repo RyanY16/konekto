@@ -1,4 +1,4 @@
-import { Link, createFileRoute, useRouter } from "@tanstack/react-router";
+import { Link, createFileRoute, useRouter, useNavigate } from "@tanstack/react-router";
 import { useState, useEffect } from "react";
 import { Globe, Instagram, Linkedin, MessageCircle, MapPin, ExternalLink, CalendarIcon } from "lucide-react";
 import { Calendar } from "@/components/ui/calendar";
@@ -17,6 +17,7 @@ import CirclePicker from "@/components/CirclePicker";
 import { DeleteRecordButton } from "@/components/DeleteRecordButton";
 import { OwnerBadge } from "@/components/OwnerBadge";
 import { ShareButton } from "@/components/ShareButton";
+import { SaveButton } from "@/components/SaveButton";
 import { useAuth } from "@/components/AuthProvider";
 import {
   deleteEvent,
@@ -25,6 +26,7 @@ import {
   getProfile,
   getCircleByHandle,
   getCircleHandle,
+  getEventHandle,
   getMyAttendance,
   requestToAttend,
   withdrawAttendance,
@@ -176,6 +178,7 @@ function EventDetailPage() {
   const event = Route.useLoaderData();
   const { user, isAdmin } = useAuth();
   const router = useRouter();
+  const navigate = useNavigate();
   const [editing, setEditing] = useState(false);
   const [owner, setOwner] = useState<{ username: string; displayName: string; avatarUrl: string | null } | null>(null);
   const [linkedCircles, setLinkedCircles] = useState<Circle[]>([]);
@@ -286,6 +289,8 @@ function EventDetailPage() {
         },
       });
       setEditing(false);
+      const newHandle = getEventHandle({ id: event!.id, title: draft.title });
+      await navigate({ to: "/events/$eventHandle", params: { eventHandle: newHandle }, replace: true });
       router.invalidate();
     } catch (err) {
       setSaveError(err instanceof Error ? err.message : "Save failed");
@@ -650,6 +655,7 @@ function EventDetailPage() {
         ) : (
           <div className="absolute bottom-4 right-4 flex gap-1.5 items-center">
             <ShareButton title={event.title} />
+            <SaveButton itemId={event.id} itemType="event" />
             {user && !canEdit && (
               <RsvpButton
                 event={event}

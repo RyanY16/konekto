@@ -19,6 +19,7 @@ import { NationalityPicker } from "@/components/NationalityPicker";
 import { CAREER_FIELDS, INTEREST_GROUPS, GOAL_GROUPS, GOALS, NATIONALITIES, LANGUAGES, FLUENCY_LEVELS } from "@/data/profile-options";
 import { filterValidTags } from "@/data/tags";
 import type { SpokenLanguage } from "@/data/backend";
+import { useSaves } from "@/lib/saves";
 
 export const Route = createFileRoute("/profile")({
   head: () => ({
@@ -30,17 +31,25 @@ export const Route = createFileRoute("/profile")({
   component: ProfilePage,
 });
 
-const DEGREE_TYPES = ["Bachelors", "Masters", "Doctorate"] as const;
+const DEGREE_TYPES = ["High School", "Bachelors", "Masters", "Doctorate", "Working Professional"] as const;
 type DegreeType = (typeof DEGREE_TYPES)[number];
-const MAX_YEAR: Record<DegreeType, number> = { Bachelors: 4, Masters: 2, Doctorate: 6 };
+const MAX_YEAR: Record<DegreeType, number> = { "High School": 3, Bachelors: 4, Masters: 2, Doctorate: 6, "Working Professional": 0 };
 
 function parseYear(raw: string): { degree: DegreeType; num: string } {
-  const [degree, num] = raw.split(" ");
-  const validDegree = DEGREE_TYPES.includes(degree as DegreeType) ? (degree as DegreeType) : "Bachelors";
-  return { degree: validDegree, num: num ?? "1" };
+  const parts = raw.trim().split(" ");
+  const last = parts[parts.length - 1];
+  if (/^\d+$/.test(last) && parts.length > 1) {
+    const degreeStr = parts.slice(0, -1).join(" ");
+    const validDegree = DEGREE_TYPES.includes(degreeStr as DegreeType) ? (degreeStr as DegreeType) : "Bachelors";
+    return { degree: validDegree, num: last };
+  }
+  const validDegree = DEGREE_TYPES.includes(raw as DegreeType) ? (raw as DegreeType) : "Bachelors";
+  return { degree: validDegree, num: "" };
 }
 function formatYear(degree: string, num: string) {
-  return degree ? `${degree} ${num}`.trim() : "";
+  if (!degree) return "";
+  if (!num) return degree;
+  return `${degree} ${num}`;
 }
 
 // ── University searchable combobox ────────────────────────────────────────────
@@ -291,6 +300,7 @@ type Draft = Partial<UserProfile> & { degree: DegreeType; yearNum: string; natio
 
 function ProfilePage() {
   const { user, signOut } = useAuth();
+  const { saves } = useSaves(user?.id);
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [profileLoading, setProfileLoading] = useState(true);
   const [editing, setEditing] = useState(false);
@@ -453,7 +463,7 @@ function ProfilePage() {
         displayName: draft.displayName ?? "",
         university: draft.university ?? "",
         nationality: draft.nationality ?? "",
-        year: formatYear(draft.degree ?? "Bachelors", draft.yearNum ?? "1"),
+        year: formatYear(draft.degree ?? "Bachelors", draft.degree === "Working Professional" ? "" : (draft.yearNum ?? "1")),
         bio: draft.bio ?? "",
         avatarUrl,
         tags: profile?.tags ?? [],
@@ -476,7 +486,9 @@ function ProfilePage() {
   }
 
   const { degree: savedDegree, num: savedNum } = parseYear(profile?.year ?? "");
-  const gradeLabel = profile?.year ? `${savedDegree} · Year ${savedNum}` : null;
+  const gradeLabel = profile?.year
+    ? savedNum ? `${savedDegree} · Year ${savedNum}` : savedDegree
+    : null;
   const initials = (profile?.displayName || user.email || "?")[0].toUpperCase();
   const avatarSrc = avatarPreview ?? profile?.avatarUrl ?? null;
 
@@ -484,7 +496,7 @@ function ProfilePage() {
     { label: "Add your name",        done: Boolean(profile?.displayName) },
     { label: "Pick a username",      done: Boolean(profile?.username) },
     { label: "Add a photo",          done: Boolean(profile?.avatarUrl) },
-    { label: "Set your university",  done: Boolean(profile?.university) },
+    { label: "Set your school",  done: Boolean(profile?.university) },
     { label: "Add your nationality", done: Boolean(profile?.nationality) },
     { label: "Write a bio",          done: Boolean(profile?.bio) },
     { label: "Choose interests",     done: (profile?.interests?.length ?? 0) > 0 },
@@ -584,7 +596,7 @@ function ProfilePage() {
               </div>
             </div>
             <div className="space-y-1">
-              <p className="text-xs font-medium text-muted-foreground">University</p>
+              <p className="text-xs font-medium text-muted-foreground">School</p>
               <UniversityPicker
                 value={draft.university ?? ""}
                 onChange={(v) => setDraft((d) => ({ ...d, university: v }))}
@@ -643,7 +655,7 @@ function ProfilePage() {
               </div>
             </div>
             <div className="space-y-1">
-              <p className="text-xs font-medium text-muted-foreground">Degree &amp; Year</p>
+              <p className="text-xs font-medium text-muted-foreground">Status &amp; Year</p>
               <div className="flex gap-2 flex-wrap items-center">
                 <select
                   value={draft.degree}
@@ -652,13 +664,17 @@ function ProfilePage() {
                 >
                   {DEGREE_TYPES.map((d) => <option key={d} value={d}>{d}</option>)}
                 </select>
-                <span className="text-sm text-muted-foreground">Year</span>
-                <input
-                  type="number" min={1} max={MAX_YEAR[draft.degree ?? "Bachelors"]}
-                  value={draft.yearNum ?? "1"}
-                  onChange={(e) => setDraft((d) => ({ ...d, yearNum: e.target.value }))}
-                  className="h-9 w-16 rounded-md border border-input bg-transparent px-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-                />
+                {draft.degree !== "Working Professional" && (
+                  <>
+                    <span className="text-sm text-muted-foreground">Year</span>
+                    <input
+                      type="number" min={1} max={MAX_YEAR[draft.degree ?? "Bachelors"]}
+                      value={draft.yearNum ?? "1"}
+                      onChange={(e) => setDraft((d) => ({ ...d, yearNum: e.target.value }))}
+                      className="h-9 w-16 rounded-md border border-input bg-transparent px-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                    />
+                  </>
+                )}
               </div>
             </div>
             <div className="space-y-1">
@@ -685,10 +701,10 @@ function ProfilePage() {
             </span>
             <div className="pt-2 space-y-1">
               {profile?.university && (
-                <p className="text-sm"><span className="text-muted-foreground">University: </span>{profile.university}</p>
+                <p className="text-sm"><span className="text-muted-foreground">School: </span>{profile.university}</p>
               )}
               {gradeLabel && (
-                <p className="text-sm"><span className="text-muted-foreground">Year: </span>{gradeLabel}</p>
+                <p className="text-sm"><span className="text-muted-foreground">{savedDegree === "Working Professional" ? "Status: " : "Year: "}</span>{gradeLabel}</p>
               )}
               {profile?.nationality && (() => {
                 const nat = NATIONALITIES.find((n) => n.name === profile.nationality);
@@ -861,13 +877,21 @@ function ProfilePage() {
       {/* ── Stats ── */}
       {!editing && <>
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
-        <Stat icon={<Bookmark />} label="Saved items" value="14" />
-        <Stat icon={<Users />} label="Joined circles" value={`${joinedIds.size}`} />
+        <Link to="/saved" className="block hover:opacity-80 transition-opacity">
+          <Stat icon={<Bookmark />} label="Saved items" value={`${saves.circleIds.length + saves.eventIds.length}`} />
+        </Link>
+        <button
+          type="button"
+          onClick={() => document.getElementById("my-circles")?.scrollIntoView({ behavior: "smooth" })}
+          className="text-left hover:opacity-80 transition-opacity"
+        >
+          <Stat icon={<Users />} label="Joined circles" value={`${allCircles.filter((c) => joinedIds.has(c.id) || c.ownerId === user.id).length}`} />
+        </button>
         <Stat icon={<Briefcase />} label="Applications" value="6" />
       </div>
 
       {/* ── Circles section ── */}
-      <section className="card-base p-6 mb-6">
+      <section id="my-circles" className="card-base p-6 mb-6">
         <div className="flex items-center justify-between mb-4">
           <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">My circles</p>
           <button
@@ -883,7 +907,8 @@ function ProfilePage() {
         {circleEditing ? (
           <div className="space-y-2">
             {allCircles.map((c) => {
-              const joined = joinedIds.has(c.id);
+              const isOwner = c.ownerId === user.id;
+              const joined = joinedIds.has(c.id) || isOwner;
               const loading = togglingId === c.id;
               return (
                 <div key={c.id} className="flex items-center gap-3 p-3 rounded-xl border border-border">
@@ -892,43 +917,51 @@ function ProfilePage() {
                     <p className="font-medium text-sm truncate">{c.name}</p>
                     <p className="text-xs text-muted-foreground">{c.category} · {c.members} members</p>
                   </div>
-                  <button
-                    onClick={() => toggleCircle(c.id)}
-                    disabled={loading}
-                    className={`shrink-0 px-3 py-1 rounded-full text-xs font-medium border transition-colors disabled:opacity-50 ${
-                      joined
-                        ? "bg-primary text-primary-foreground border-primary hover:bg-primary/80"
-                        : "bg-transparent text-muted-foreground border-border hover:bg-muted hover:text-foreground"
-                    }`}
-                  >
-                    {loading ? "…" : joined ? "Joined" : "Join"}
-                  </button>
+                  {isOwner ? (
+                    <span className="shrink-0 px-3 py-1 rounded-full text-xs font-medium bg-primary/10 text-primary border border-primary/20">Owner</span>
+                  ) : (
+                    <button
+                      onClick={() => toggleCircle(c.id)}
+                      disabled={loading}
+                      className={`shrink-0 px-3 py-1 rounded-full text-xs font-medium border transition-colors disabled:opacity-50 ${
+                        joined
+                          ? "bg-primary text-primary-foreground border-primary hover:bg-primary/80"
+                          : "bg-transparent text-muted-foreground border-border hover:bg-muted hover:text-foreground"
+                      }`}
+                    >
+                      {loading ? "…" : joined ? "Joined" : "Join"}
+                    </button>
+                  )}
                 </div>
               );
             })}
           </div>
-        ) : joinedIds.size > 0 ? (
-          <div className="space-y-2">
-            {allCircles.filter((c) => joinedIds.has(c.id)).map((c) => (
-              <div key={c.id} className="card-base p-3 flex items-center gap-3">
-                <span className="text-2xl">{c.emoji}</span>
-                <div className="flex-1 min-w-0">
-                  <p className="font-medium text-sm truncate">{c.name}</p>
-                  <p className="text-xs text-muted-foreground">{c.category} · {c.members} members</p>
-                </div>
+        ) : (() => {
+          const myCircles = allCircles.filter((c) => joinedIds.has(c.id) || c.ownerId === user.id);
+          return myCircles.length > 0 ? (
+            <div className="space-y-2">
+              {myCircles.map((c) => (
                 <Link
+                  key={c.id}
                   to="/circles/$circleHandle"
                   params={{ circleHandle: getCircleHandle(c) }}
-                  className="shrink-0 text-xs font-semibold text-primary hover:underline"
+                  className="card-base p-3 flex items-center gap-3 hover:bg-muted/50 transition-colors block"
                 >
-                  View →
+                  <span className="text-2xl">{c.emoji}</span>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-medium text-sm truncate">{c.name}</p>
+                    <p className="text-xs text-muted-foreground">{c.category} · {c.members} members</p>
+                  </div>
+                  {c.ownerId === user.id && (
+                    <span className="shrink-0 px-2 py-0.5 rounded-full text-xs font-semibold bg-primary/10 text-primary">Owner</span>
+                  )}
                 </Link>
-              </div>
-            ))}
-          </div>
-        ) : (
-          <p className="text-sm text-muted-foreground italic">No circles joined yet — click Manage to join some.</p>
-        )}
+              ))}
+            </div>
+          ) : (
+            <p className="text-sm text-muted-foreground italic">No circles joined yet — click Manage to join some.</p>
+          );
+        })()}
       </section>
 
       {/* ── Saved events ── */}

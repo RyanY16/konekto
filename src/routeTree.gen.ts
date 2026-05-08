@@ -10,6 +10,7 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as SignupRouteImport } from './routes/signup'
+import { Route as SavedRouteImport } from './routes/saved'
 import { Route as ProfileRouteImport } from './routes/profile'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as JapanLifeRouteImport } from './routes/japan-life'
@@ -18,6 +19,7 @@ import { Route as DealsRouteImport } from './routes/deals'
 import { Route as CirclesRouteImport } from './routes/circles'
 import { Route as CareersRouteImport } from './routes/careers'
 import { Route as AccountRouteImport } from './routes/account'
+import { Route as AboutRouteImport } from './routes/about'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as UsersUsernameRouteImport } from './routes/users_.$username'
 import { Route as JapanLifeGuideHandleRouteImport } from './routes/japan-life_.$guideHandle'
@@ -29,6 +31,11 @@ import { Route as CareersJobHandleRouteImport } from './routes/careers_.$jobHand
 const SignupRoute = SignupRouteImport.update({
   id: '/signup',
   path: '/signup',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SavedRoute = SavedRouteImport.update({
+  id: '/saved',
+  path: '/saved',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ProfileRoute = ProfileRouteImport.update({
@@ -71,6 +78,11 @@ const AccountRoute = AccountRouteImport.update({
   path: '/account',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AboutRoute = AboutRouteImport.update({
+  id: '/about',
+  path: '/about',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
@@ -109,6 +121,7 @@ const CareersJobHandleRoute = CareersJobHandleRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/about': typeof AboutRoute
   '/account': typeof AccountRoute
   '/careers': typeof CareersRoute
   '/circles': typeof CirclesRoute
@@ -117,6 +130,7 @@ export interface FileRoutesByFullPath {
   '/japan-life': typeof JapanLifeRoute
   '/login': typeof LoginRoute
   '/profile': typeof ProfileRoute
+  '/saved': typeof SavedRoute
   '/signup': typeof SignupRoute
   '/careers/$jobHandle': typeof CareersJobHandleRoute
   '/circles/$circleHandle': typeof CirclesCircleHandleRoute
@@ -127,6 +141,7 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/about': typeof AboutRoute
   '/account': typeof AccountRoute
   '/careers': typeof CareersRoute
   '/circles': typeof CirclesRoute
@@ -135,6 +150,7 @@ export interface FileRoutesByTo {
   '/japan-life': typeof JapanLifeRoute
   '/login': typeof LoginRoute
   '/profile': typeof ProfileRoute
+  '/saved': typeof SavedRoute
   '/signup': typeof SignupRoute
   '/careers/$jobHandle': typeof CareersJobHandleRoute
   '/circles/$circleHandle': typeof CirclesCircleHandleRoute
@@ -146,6 +162,7 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/about': typeof AboutRoute
   '/account': typeof AccountRoute
   '/careers': typeof CareersRoute
   '/circles': typeof CirclesRoute
@@ -154,6 +171,7 @@ export interface FileRoutesById {
   '/japan-life': typeof JapanLifeRoute
   '/login': typeof LoginRoute
   '/profile': typeof ProfileRoute
+  '/saved': typeof SavedRoute
   '/signup': typeof SignupRoute
   '/careers_/$jobHandle': typeof CareersJobHandleRoute
   '/circles_/$circleHandle': typeof CirclesCircleHandleRoute
@@ -166,6 +184,7 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/about'
     | '/account'
     | '/careers'
     | '/circles'
@@ -174,6 +193,7 @@ export interface FileRouteTypes {
     | '/japan-life'
     | '/login'
     | '/profile'
+    | '/saved'
     | '/signup'
     | '/careers/$jobHandle'
     | '/circles/$circleHandle'
@@ -184,6 +204,7 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/about'
     | '/account'
     | '/careers'
     | '/circles'
@@ -192,6 +213,7 @@ export interface FileRouteTypes {
     | '/japan-life'
     | '/login'
     | '/profile'
+    | '/saved'
     | '/signup'
     | '/careers/$jobHandle'
     | '/circles/$circleHandle'
@@ -202,6 +224,7 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/'
+    | '/about'
     | '/account'
     | '/careers'
     | '/circles'
@@ -210,6 +233,7 @@ export interface FileRouteTypes {
     | '/japan-life'
     | '/login'
     | '/profile'
+    | '/saved'
     | '/signup'
     | '/careers_/$jobHandle'
     | '/circles_/$circleHandle'
@@ -221,6 +245,7 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AboutRoute: typeof AboutRoute
   AccountRoute: typeof AccountRoute
   CareersRoute: typeof CareersRoute
   CirclesRoute: typeof CirclesRoute
@@ -229,6 +254,7 @@ export interface RootRouteChildren {
   JapanLifeRoute: typeof JapanLifeRoute
   LoginRoute: typeof LoginRoute
   ProfileRoute: typeof ProfileRoute
+  SavedRoute: typeof SavedRoute
   SignupRoute: typeof SignupRoute
   CareersJobHandleRoute: typeof CareersJobHandleRoute
   CirclesCircleHandleRoute: typeof CirclesCircleHandleRoute
@@ -245,6 +271,13 @@ declare module '@tanstack/react-router' {
       path: '/signup'
       fullPath: '/signup'
       preLoaderRoute: typeof SignupRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/saved': {
+      id: '/saved'
+      path: '/saved'
+      fullPath: '/saved'
+      preLoaderRoute: typeof SavedRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/profile': {
@@ -303,6 +336,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AccountRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/about': {
+      id: '/about'
+      path: '/about'
+      fullPath: '/about'
+      preLoaderRoute: typeof AboutRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/': {
       id: '/'
       path: '/'
@@ -357,6 +397,7 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AboutRoute: AboutRoute,
   AccountRoute: AccountRoute,
   CareersRoute: CareersRoute,
   CirclesRoute: CirclesRoute,
@@ -365,6 +406,7 @@ const rootRouteChildren: RootRouteChildren = {
   JapanLifeRoute: JapanLifeRoute,
   LoginRoute: LoginRoute,
   ProfileRoute: ProfileRoute,
+  SavedRoute: SavedRoute,
   SignupRoute: SignupRoute,
   CareersJobHandleRoute: CareersJobHandleRoute,
   CirclesCircleHandleRoute: CirclesCircleHandleRoute,

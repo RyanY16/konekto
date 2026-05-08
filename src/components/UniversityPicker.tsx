@@ -32,7 +32,7 @@ export function UniversityPicker({ value, onChange, className, extraOptions }: {
         value={query}
         onChange={(e) => { setQuery(e.target.value); setOpen(true); }}
         onFocus={() => setOpen(true)}
-        placeholder="Search university…"
+        placeholder="Search school…"
         autoComplete="off"
       />
       {open && allOptions.length > 0 && (

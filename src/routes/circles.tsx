@@ -293,7 +293,7 @@ function CirclesPage() {
                   <span className="text-4xl leading-none">{c.emoji}</span>
                 )}
               </div>
-              <SaveButton />
+              <SaveButton itemId={c.id} itemType="circle" />
             </div>
 
             <h3 className="mt-3 font-semibold text-lg leading-snug">{c.name}</h3>

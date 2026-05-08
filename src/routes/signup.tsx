@@ -16,10 +16,8 @@ export const Route = createFileRoute("/signup")({
   component: SignUpPage,
 });
 
-const YEAR_OPTIONS = [
-  "1st year", "2nd year", "3rd year", "4th year",
-  "Masters", "PhD", "Exchange student", "Alumni",
-];
+const LEVEL_OPTIONS = ["High School", "Undergraduate", "Masters", "PhD", "Research Student"] as const;
+type Level = typeof LEVEL_OPTIONS[number];
 
 function SignUpPage() {
   const navigate = useNavigate();
@@ -44,7 +42,9 @@ function SignUpPage() {
   const [displayName, setDisplayName] = useState("");
   const [username, setUsername] = useState("");
   const [university, setUniversity] = useState("");
-  const [year, setYear] = useState("");
+  const [level, setLevel] = useState<Level | "">("");
+  const [yearNum, setYearNum] = useState("");
+  const year = level && yearNum ? `${level} Year ${yearNum}` : (level || "");
   const [interests, setInterests] = useState<string[]>([]);
   const [usernameStatus, setUsernameStatus] = useState<"idle" | "checking" | "taken" | "available">("idle");
   const usernameTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -383,23 +383,32 @@ function SignUpPage() {
             </div>
 
             <div className="space-y-1.5">
-              <Label htmlFor="university">University</Label>
-              <UniversityPicker value={university} onChange={setUniversity} />
+              <Label htmlFor="university">School</Label>
+              <UniversityPicker value={university} onChange={setUniversity} extraOptions={["Other"]} />
             </div>
 
             <div className="space-y-1.5">
-              <Label htmlFor="year">Year</Label>
-              <select
-                id="year"
-                value={year}
-                onChange={(e) => setYear(e.target.value)}
-                className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-              >
-                <option value="">— Select year —</option>
-                {YEAR_OPTIONS.map((y) => (
-                  <option key={y} value={y}>{y}</option>
-                ))}
-              </select>
+              <Label>Year</Label>
+              <div className="flex gap-2">
+                <select
+                  value={level}
+                  onChange={(e) => { setLevel(e.target.value as Level | ""); setYearNum(""); }}
+                  className="h-10 flex-1 rounded-md border border-input bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                >
+                  <option value="">— Level —</option>
+                  {LEVEL_OPTIONS.map((l) => <option key={l} value={l}>{l}</option>)}
+                </select>
+                {level && level !== "Research Student" && (
+                  <input
+                    type="number"
+                    min={1}
+                    value={yearNum}
+                    onChange={(e) => setYearNum(e.target.value)}
+                    placeholder="Year"
+                    className="h-10 w-24 rounded-md border border-input bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                  />
+                )}
+              </div>
             </div>
 
             <div className="space-y-1.5">

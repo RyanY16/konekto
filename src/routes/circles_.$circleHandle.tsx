@@ -18,12 +18,14 @@ import { tagClass } from "@/lib/tag-class";
 import { PageHeader } from "@/components/PageHeader";
 import { SocialLinks } from "@/components/SocialLinks";
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import TagPicker from "@/components/TagPicker";
 import { DeleteRecordButton } from "@/components/DeleteRecordButton";
 import { OwnerBadge } from "@/components/OwnerBadge";
 import { ShareButton } from "@/components/ShareButton";
+import { SaveButton } from "@/components/SaveButton";
 import { useAuth } from "@/components/AuthProvider";
 import {
   deleteCircle,
@@ -128,7 +130,7 @@ function CircleDetailPage() {
   const router = useRouter();
   const navigate = useNavigate();
   const [editing, setEditing] = useState(false);
-  const [owner, setOwner] = useState<{ username: string; displayName: string; avatarUrl: string | null } | null>(null);
+  const [owner, setOwner] = useState<{ id: string; username: string; displayName: string; avatarUrl: string | null } | null>(null);
   const [draft, setDraft] = useState<Draft>(circle ? toDraft(circle) : {} as Draft);
   const [pendingIcon, setPendingIcon] = useState<File | null>(null);
   const [iconPreview, setIconPreview] = useState<string | null>(null);
@@ -154,6 +156,7 @@ function CircleDetailPage() {
   const [joinLoading, setJoinLoading] = useState(false);
   const [editingTitleId, setEditingTitleId] = useState<string | null>(null);
   const [titleDraft, setTitleDraft] = useState("");
+  const [confirmAction, setConfirmAction] = useState<{ id: string; name: string; type: "demote" | "kick"; isManager: boolean } | null>(null);
 
   // Pending join requests (for owner/managers)
   const [pendingRequests, setPendingRequests] = useState<CircleJoinRequest[]>([]);
@@ -169,7 +172,7 @@ function CircleDetailPage() {
     getProfile(circle.ownerId).then((p) => {
       if (p) {
         const name = p.username ?? p.displayName;
-        setOwner({ username: name, displayName: p.displayName, avatarUrl: p.avatarUrl });
+        setOwner({ id: circle.ownerId!, username: name, displayName: p.displayName, avatarUrl: p.avatarUrl });
         setDraft((d) => ({ ...d, ownerUsername: name }));
       }
     });
@@ -286,7 +289,7 @@ function CircleDetailPage() {
 
   async function handleSaveTitle(userId: string) {
     if (!circle) return;
-    const trimmed = titleDraft.trim() || "Member";
+    const trimmed = titleDraft.trim();
     try {
       await updateMemberTitle(circle.id, userId, trimmed);
       setMembers((prev) => prev.map((m) => m.id === userId ? { ...m, title: trimmed } : m));
@@ -347,6 +350,18 @@ function CircleDetailPage() {
     if (!circle) return;
     await removeMember(circle.id, userId);
     setMembers((prev) => prev.filter((m) => m.id !== userId));
+  }
+
+  async function handleConfirm() {
+    if (!confirmAction) return;
+    const { id, type, isManager } = confirmAction;
+    setConfirmAction(null);
+    if (type === "demote") {
+      await handleRemoveManager(id);
+    } else {
+      if (isManager) await handleKickManager({ id } as CircleMember);
+      else await handleRemoveMember(id);
+    }
   }
 
   if (!circle) {
@@ -676,25 +691,9 @@ function CircleDetailPage() {
               </div>
             </div>
 
-            {/* Managers (owner/admin only, inside edit form) */}
+            {/* Transfer ownership (owner/admin only, inside edit form) */}
             {(isOwner || isAdmin) && (
               <div className="space-y-3 pt-2 border-t border-border">
-                <label className="text-xs font-medium text-muted-foreground">Managers</label>
-                {managers.length === 0 ? (
-                  <p className="text-xs text-muted-foreground">Promote members to manager from the Members section below.</p>
-                ) : (
-                  <div className="space-y-1.5">
-                    {managers.map((m) => (
-                      <div key={m.id} className="flex items-center justify-between gap-2">
-                        <span className="text-sm">
-                          {m.displayName || m.username}
-                          {m.username && <span className="text-muted-foreground ml-1">@{m.username}</span>}
-                        </span>
-                        <button onClick={() => handleRemoveManager(m.id)} className="text-xs text-destructive hover:underline shrink-0">Remove</button>
-                      </div>
-                    ))}
-                  </div>
-                )}
 
                 {/* Transfer ownership */}
                 {!showTransfer ? (
@@ -832,6 +831,7 @@ function CircleDetailPage() {
         ) : (
           <div className="absolute bottom-4 right-4 flex gap-1.5 items-center">
             <ShareButton title={circle.name} />
+            <SaveButton itemId={circle.id} itemType="circle" />
             {/* Join / leave / request button — not shown to owner/admin */}
             {user && !isOwner && !isAdmin && (
               isMember ? (
@@ -928,114 +928,119 @@ function CircleDetailPage() {
       )}
 
       {/* ── Members ── */}
-      {!editing && (
-        <section className="card-base p-6 space-y-3">
-          <h2 className="text-sm font-semibold">Members{members.length > 0 && ` (${members.length})`}</h2>
-          {members.length === 0 ? (
-            <p className="text-sm text-muted-foreground">No members yet — be the first to join!</p>
-          ) : (
-            <div className="space-y-1">
-              {members.map((m) => {
-                const isAlreadyManager = managers.some((mgr) => mgr.id === m.id);
-                const actioning = promotingId === m.id;
-                const initials = (m.displayName || m.username || "?").slice(0, 2).toUpperCase();
-                // managers can kick regular members; only owner/admin can kick other managers
-                const canKick = isAlreadyManager ? (isOwner || isAdmin) : canManageRequests;
-                const canEditTitle = isOwner || (isManager && m.id === user?.id);
-                const isEditingTitle = editingTitleId === m.id;
-                return (
-                  <div key={m.id} className="flex items-center gap-2 py-1.5 group">
-                    <Link
-                      to="/users/$username"
-                      params={{ username: m.username ?? m.id }}
-                      className="flex items-center gap-2.5 flex-1 min-w-0 hover:opacity-80"
-                    >
-                      {m.avatarUrl ? (
-                        <img src={m.avatarUrl} alt="" className="w-8 h-8 rounded-full object-cover shrink-0" />
-                      ) : (
-                        <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center text-xs font-semibold shrink-0">{initials}</div>
-                      )}
-                      <div className="min-w-0">
-                        <p className="text-sm font-medium leading-tight truncate">{m.displayName || m.username}</p>
-                        {m.username && <p className="text-xs text-muted-foreground truncate">@{m.username}</p>}
-                      </div>
-                    </Link>
+      <section className="card-base p-6 space-y-3">
+          {(() => {
+            const ownerEntry: CircleMember | null = owner
+              ? { id: owner.id, username: owner.username, displayName: owner.displayName, avatarUrl: owner.avatarUrl, title: "", university: "", year: "", bio: "", careerField: "", goals: [], tags: [], interests: [], languages: [], nationality: "" }
+              : null;
+            const memberIds = new Set(members.map((m) => m.id));
+            const managerIds = new Set(managers.map((m) => m.id));
+            const combined: CircleMember[] = [
+              ...(ownerEntry && !memberIds.has(ownerEntry.id) ? [ownerEntry] : []),
+              ...members,
+            ];
+            const rank = (m: CircleMember) =>
+              m.id === circle?.ownerId ? 0 : managerIds.has(m.id) ? 1 : 2;
+            const name = (m: CircleMember) =>
+              (m.displayName || m.username || "").toLowerCase();
+            const displayMembers = [...combined].sort((a, b) => {
+              const dr = rank(a) - rank(b);
+              return dr !== 0 ? dr : name(a).localeCompare(name(b));
+            });
+            const total = displayMembers.length;
+            return (
+              <>
+                <h2 className="text-sm font-semibold">Members{total > 0 && ` (${total})`}</h2>
+                {total === 0 ? (
+                  <p className="text-sm text-muted-foreground">No members yet — be the first to join!</p>
+                ) : (
+                  <div className="space-y-1">
+                    {displayMembers.map((m) => {
+                      const isThisOwner = m.id === circle?.ownerId;
+                      const isAlreadyManager = managers.some((mgr) => mgr.id === m.id);
+                      const actioning = promotingId === m.id;
+                      const initials = (m.displayName || m.username || "?").slice(0, 2).toUpperCase();
+                      return (
+                        <div key={m.id} className="flex items-center gap-2 py-1.5">
+                          <Link
+                            to="/users/$username"
+                            params={{ username: m.username ?? m.id }}
+                            className="flex items-center gap-2.5 flex-1 min-w-0 hover:opacity-80"
+                          >
+                            {m.avatarUrl ? (
+                              <img src={m.avatarUrl} alt="" className="w-8 h-8 rounded-full object-cover shrink-0" />
+                            ) : (
+                              <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center text-xs font-semibold shrink-0">{initials}</div>
+                            )}
+                            <div className="min-w-0">
+                              <p className="text-sm font-medium leading-tight truncate">{m.displayName || m.username}</p>
+                              {m.username && <p className="text-xs text-muted-foreground truncate">@{m.username}</p>}
+                            </div>
+                          </Link>
 
-                    {/* Title — inline edit for owner (any) or manager (own row) */}
-                    {isEditingTitle ? (
-                      <div className="flex items-center gap-1 shrink-0">
-                        <input
-                          autoFocus
-                          className="h-6 w-28 rounded border border-input bg-background px-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-ring"
-                          value={titleDraft}
-                          onChange={(e) => setTitleDraft(e.target.value)}
-                          onKeyDown={(e) => {
-                            if (e.key === "Enter") handleSaveTitle(m.id);
-                            if (e.key === "Escape") setEditingTitleId(null);
-                          }}
-                        />
-                        <button
-                          onClick={() => handleSaveTitle(m.id)}
-                          className="text-xs text-primary hover:text-primary/80"
-                        >Save</button>
-                        <button
-                          onClick={() => setEditingTitleId(null)}
-                          className="text-xs text-muted-foreground hover:text-foreground"
-                        >✕</button>
-                      </div>
-                    ) : (
-                      <span
-                        onClick={canEditTitle ? () => { setEditingTitleId(m.id); setTitleDraft(m.title); } : undefined}
-                        className={`text-xs px-2 py-0.5 rounded-full bg-muted text-muted-foreground shrink-0 ${canEditTitle ? "cursor-pointer hover:bg-accent" : ""}`}
-                      >
-                        {m.title || "Member"}
-                      </span>
-                    )}
-
-                    {/* Manager badge — owner can hover to demote, others see static label */}
-                    {isAlreadyManager && (
-                      isOwner ? (
-                        <button
-                          onClick={() => handleRemoveManager(m.id)}
-                          disabled={actioning}
-                          className="text-xs px-2 py-0.5 rounded-full bg-muted text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-colors shrink-0 group/mgr"
-                        >
-                          <span className="group-hover/mgr:hidden">Manager</span>
-                          <span className="hidden group-hover/mgr:inline">✕ Manager</span>
-                        </button>
-                      ) : (
-                        <span className="text-xs px-2 py-0.5 rounded-full bg-muted text-muted-foreground shrink-0">Manager</span>
-                      )
-                    )}
-
-                    {/* Promote button for regular members (owner only) */}
-                    {isOwner && !isAlreadyManager && (
-                      <button
-                        onClick={() => handlePromoteToManager(m)}
-                        disabled={actioning}
-                        className="opacity-0 group-hover:opacity-100 text-xs text-muted-foreground hover:text-foreground transition-opacity shrink-0"
-                      >
-                        {actioning ? "…" : "Make manager"}
-                      </button>
-                    )}
-
-                    {/* Kick button — removes from circle (and manager role if applicable) */}
-                    {canKick && (
-                      <button
-                        onClick={() => isAlreadyManager ? handleKickManager(m) : handleRemoveMember(m.id)}
-                        disabled={actioning}
-                        className="opacity-0 group-hover:opacity-100 text-xs text-muted-foreground hover:text-destructive border border-transparent hover:border-destructive/40 rounded px-1.5 py-0.5 transition-colors shrink-0"
-                      >
-                        Kick
-                      </button>
-                    )}
+                          {isThisOwner ? (
+                            <span className="text-xs px-2 py-0.5 rounded-full bg-primary/10 text-primary font-semibold shrink-0">Owner</span>
+                          ) : isAlreadyManager ? (
+                            <>
+                              <span className="text-xs px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-400 font-medium shrink-0">Manager</span>
+                              {editing && (isOwner || isAdmin) && (
+                                <>
+                                  <button onClick={() => setConfirmAction({ id: m.id, name: m.displayName || m.username, type: "demote", isManager: true })} disabled={actioning} className="text-xs text-muted-foreground hover:text-foreground border border-border rounded px-1.5 py-0.5 transition-colors shrink-0">
+                                    Demote
+                                  </button>
+                                  <button onClick={() => setConfirmAction({ id: m.id, name: m.displayName || m.username, type: "kick", isManager: true })} disabled={actioning} className="text-xs text-muted-foreground hover:text-destructive border border-border hover:border-destructive/40 rounded px-1.5 py-0.5 transition-colors shrink-0">
+                                    Kick
+                                  </button>
+                                </>
+                              )}
+                            </>
+                          ) : (
+                            <>
+                              <span className="text-xs px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-400 font-medium shrink-0">Member</span>
+                              {editing && canManageRequests && (
+                                <>
+                                  {(isOwner || isAdmin) && (
+                                    <button onClick={() => handlePromoteToManager(m)} disabled={actioning} className="text-xs text-muted-foreground hover:text-foreground border border-border rounded px-1.5 py-0.5 transition-colors shrink-0">
+                                      {actioning ? "…" : "Promote"}
+                                    </button>
+                                  )}
+                                  <button onClick={() => setConfirmAction({ id: m.id, name: m.displayName || m.username, type: "kick", isManager: false })} disabled={actioning} className="text-xs text-muted-foreground hover:text-destructive border border-border hover:border-destructive/40 rounded px-1.5 py-0.5 transition-colors shrink-0">
+                                    Kick
+                                  </button>
+                                </>
+                              )}
+                            </>
+                          )}
+                        </div>
+                      );
+                    })}
                   </div>
-                );
-              })}
-            </div>
-          )}
+                )}
+              </>
+            );
+          })()}
         </section>
-      )}
+
+      <Dialog open={!!confirmAction} onOpenChange={(open) => { if (!open) setConfirmAction(null); }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>
+              {confirmAction?.type === "demote" ? "Demote manager" : "Kick member"}
+            </DialogTitle>
+            <DialogDescription>
+              {confirmAction?.type === "demote"
+                ? `Remove manager role from ${confirmAction?.name}? They'll stay as a regular member.`
+                : `Remove ${confirmAction?.name} from this circle? They'll need to rejoin.`}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setConfirmAction(null)}>Cancel</Button>
+            <Button variant="destructive" onClick={handleConfirm}>
+              {confirmAction?.type === "demote" ? "Demote" : "Kick"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

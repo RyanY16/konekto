@@ -41,8 +41,12 @@ export const TAGS = TAG_GROUPS.flatMap((g) => g.items as readonly string[]);
 
 export const VALID_TAGS = new Set(TAGS);
 
+const TAG_ORDER = new Map(TAGS.map((t, i) => [t, i]));
+
 export function filterValidTags(tags: string[]): string[] {
-  return tags.filter((t) => VALID_TAGS.has(t));
+  return tags
+    .filter((t) => VALID_TAGS.has(t))
+    .sort((a, b) => (TAG_ORDER.get(a) ?? 999) - (TAG_ORDER.get(b) ?? 999));
 }
 
 // Keep these aliases so existing imports don't break

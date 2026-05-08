@@ -3,8 +3,11 @@ import { useAuth } from "@/components/AuthProvider";
 import {
   Users, Calendar, Tag, Briefcase, MapPin, ArrowRight, Sparkles, TrendingUp,
 } from "lucide-react";
-import { circles, events, deals } from "@/data/mock";
+import { deals } from "@/data/mock";
+import type { Circle, EventItem } from "@/data/mock";
+import { getCircles, getEvents, getCircleHandle, getEventHandle } from "@/data/backend";
 import { SaveButton } from "@/components/SaveButton";
+import { useEffect, useState } from "react";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -107,9 +110,14 @@ function Landing() {
 // ── Dashboard (shown when logged in) ──────────────────────────────────────────
 
 function Dashboard() {
-  const featured = events.slice(0, 3);
-  const featuredCircles = circles.slice(0, 3);
+  const [events, setEvents] = useState<EventItem[]>([]);
+  const [circles, setCircles] = useState<Circle[]>([]);
   const trendingDeals = deals.slice(0, 3);
+
+  useEffect(() => {
+    getEvents().then((data) => setEvents(data.slice(0, 3))).catch(() => {});
+    getCircles().then((data) => setCircles(data.slice(0, 3))).catch(() => {});
+  }, []);
 
   return (
     <div className="space-y-10">
@@ -142,13 +150,18 @@ function Dashboard() {
         </div>
       </section>
 
-      <Section title="For you this week" subtitle="Picked based on your interests." icon={<Sparkles className="h-5 w-5" />}>
+      <Section title="Upcoming events" subtitle="The latest events happening now." icon={<Sparkles className="h-5 w-5" />} link="/events">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {featured.map((e) => (
-            <article key={e.id} className="card-base card-hover p-5 flex flex-col">
+          {events.map((e) => (
+            <Link
+              key={e.id}
+              to="/events/$eventHandle"
+              params={{ eventHandle: getEventHandle(e) }}
+              className="card-base card-hover p-5 flex flex-col"
+            >
               <div className="flex items-start justify-between">
                 <div className="text-3xl">{e.emoji}</div>
-                <SaveButton />
+                <SaveButton itemId={e.id} itemType="event" />
               </div>
               <span className="chip chip-primary mt-3 self-start">{e.category}</span>
               <h3 className="mt-2 font-semibold leading-snug">{e.title}</h3>
@@ -157,18 +170,23 @@ function Dashboard() {
               <p className="mt-3 text-xs text-muted-foreground">
                 <Users className="inline h-3.5 w-3.5 mr-1" />{e.going} going
               </p>
-            </article>
+            </Link>
           ))}
         </div>
       </Section>
 
       <Section title="Featured circles" icon={<Users className="h-5 w-5" />} link="/circles">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {featuredCircles.map((c) => (
-            <article key={c.id} className="card-base card-hover p-5">
+          {circles.map((c) => (
+            <Link
+              key={c.id}
+              to="/circles/$circleHandle"
+              params={{ circleHandle: getCircleHandle(c) }}
+              className="card-base card-hover p-5 block"
+            >
               <div className="flex items-start justify-between">
                 <div className="text-3xl">{c.emoji}</div>
-                <SaveButton />
+                <SaveButton itemId={c.id} itemType="circle" />
               </div>
               <h3 className="mt-3 font-semibold">{c.name}</h3>
               <p className="text-xs text-muted-foreground">{c.category} · {c.members} members</p>
@@ -176,7 +194,7 @@ function Dashboard() {
               <div className="mt-3 flex flex-wrap gap-1.5">
                 <span className="chip">{c.activity} activity</span>
               </div>
-            </article>
+            </Link>
           ))}
         </div>
       </Section>

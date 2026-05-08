@@ -215,7 +215,9 @@ export function getCircleHandle(circle: Pick<Circle, "id" | "name">) {
 }
 
 export function getEventHandle(event: Pick<EventItem, "id" | "title">) {
-  return toSlug(event.title) || event.id;
+  const slug = toSlug(event.title);
+  const suffix = event.id.replace(/^event-/, "").slice(0, 8);
+  return slug ? `${slug}-${suffix}` : event.id;
 }
 
 export function getDealHandle(deal: Pick<Deal, "id" | "title">) {

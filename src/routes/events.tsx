@@ -72,6 +72,17 @@ const SORT_OPTIONS: { value: SortKey; label: string }[] = [
   { value: "popular",   label: "Most popular" },
 ];
 
+function parseSortDate(e: { startDate?: string; date: string; updatedAt?: string }): Date {
+  if (e.startDate) return new Date(e.startDate);
+  // Fall back to parsing the human-readable date string: "Fri, May 8 · 7:00 PM – 10:00 PM"
+  const datePart = e.date.split(/\s*[·•]\s*/)[0].trim(); // "Fri, May 8" or "Fri, May 8, 2026"
+  const hasYear = /\d{4}/.test(datePart);
+  const withYear = hasYear ? datePart : `${datePart} ${new Date().getFullYear()}`;
+  const d = new Date(withYear);
+  if (!isNaN(d.getTime())) return d;
+  return e.updatedAt ? new Date(e.updatedAt) : new Date(0);
+}
+
 function EventsSkeleton() {
   return (
     <div className="animate-pulse space-y-6">
@@ -108,7 +119,7 @@ function EventsPage() {
 
   const filtered = useMemo(() => {
     const base = allEvents.filter((e) => {
-      const isPast = e.startDate ? new Date(e.startDate) < new Date() : false;
+      const isPast = parseSortDate(e) < new Date();
       if (!showPast && isPast) return false;
       if (cat !== "All" && e.category !== cat) return false;
       if (q) {
@@ -125,12 +136,9 @@ function EventsPage() {
 
     return [...base].sort((a, b) => {
       switch (sortKey) {
-        case "date-asc":
-          return (a.startDate ?? "9999").localeCompare(b.startDate ?? "9999");
-        case "date-desc":
-          return (b.startDate ?? "0000").localeCompare(a.startDate ?? "0000");
-        case "popular":
-          return b.going - a.going;
+        case "date-asc":  return parseSortDate(a).getTime() - parseSortDate(b).getTime();
+        case "date-desc": return parseSortDate(b).getTime() - parseSortDate(a).getTime();
+        case "popular":   return b.going - a.going;
       }
     });
   }, [allEvents, cat, q, showPast, sortKey]);
@@ -245,16 +253,16 @@ function EventsPage() {
               className="absolute inset-0 rounded-[inherit]"
               aria-label={`View ${e.title}`}
             />
-            <div className={`h-28 flex items-center justify-center text-5xl shrink-0 relative ${e.startDate && new Date(e.startDate) < new Date() ? "bg-muted/80 grayscale" : "bg-gradient-to-br from-primary-soft to-accent-soft"}`}>
+            <div className={`h-28 flex items-center justify-center text-5xl shrink-0 relative ${parseSortDate(e) < new Date() ? "bg-muted/80 grayscale" : "bg-gradient-to-br from-primary-soft to-accent-soft"}`}>
               {CATEGORY_EMOJI[e.category] || "📅"}
-              {e.startDate && new Date(e.startDate) < new Date() && (
+              {parseSortDate(e) < new Date() && (
                 <span className="absolute top-2 left-2 text-[10px] font-semibold uppercase tracking-wide bg-muted-foreground/20 text-muted-foreground px-1.5 py-0.5 rounded">Past</span>
               )}
             </div>
             <div className="p-5 flex flex-col flex-1">
               <div className="flex items-center justify-between">
                 <span className="chip chip-primary">{e.category}</span>
-                <SaveButton />
+                <SaveButton itemId={e.id} itemType="event" />
               </div>
               <h3 className="mt-3 font-semibold text-lg leading-snug">{e.title}</h3>
               {e.description && (
