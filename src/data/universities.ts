@@ -410,4 +410,6 @@ export const UNIVERSITIES: string[] = [
   "Other",
 ];
 
+export const JAPAN_UNIVERSITIES = UNIVERSITIES.slice(0, UNIVERSITIES.indexOf("University of Melbourne"));
+
 export default UNIVERSITIES;

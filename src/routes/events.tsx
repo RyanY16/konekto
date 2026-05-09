@@ -65,6 +65,30 @@ export const Route = createFileRoute("/events")({
 
 const cats = ["All", "Social", "Career", "Hackathon", "Networking"] as const;
 
+type TimeFilter = "all" | "this-week" | "this-month";
+const TIME_FILTERS: { value: TimeFilter; label: string }[] = [
+  { value: "all",        label: "Any time" },
+  { value: "this-week",  label: "This week" },
+  { value: "this-month", label: "This month" },
+];
+
+function getTimeRange(filter: TimeFilter): { start: Date; end: Date } | null {
+  if (filter === "all") return null;
+  const now = new Date();
+  if (filter === "this-week") {
+    const day = now.getDay(); // 0=Sun
+    const start = new Date(now); start.setDate(now.getDate() - day); start.setHours(0, 0, 0, 0);
+    const end = new Date(start); end.setDate(start.getDate() + 6); end.setHours(23, 59, 59, 999);
+    return { start, end };
+  }
+  if (filter === "this-month") {
+    const start = new Date(now.getFullYear(), now.getMonth(), 1);
+    const end = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
+    return { start, end };
+  }
+  return null;
+}
+
 type SortKey = "date-asc" | "date-desc" | "popular";
 const SORT_OPTIONS: { value: SortKey; label: string }[] = [
   { value: "date-asc",  label: "Date ↑ (soonest first)" },
@@ -116,11 +140,18 @@ function EventsPage() {
   const [q, setQ] = useState("");
   const [showPast, setShowPast] = useState(false);
   const [sortKey, setSortKey] = useState<SortKey>("date-asc");
+  const [timeFilter, setTimeFilter] = useState<TimeFilter>("all");
 
   const filtered = useMemo(() => {
+    const timeRange = getTimeRange(timeFilter);
     const base = allEvents.filter((e) => {
-      const isPast = parseSortDate(e) < new Date();
-      if (!showPast && isPast) return false;
+      const d = parseSortDate(e);
+      if (timeRange) {
+        if (d < timeRange.start || d > timeRange.end) return false;
+      } else {
+        const isPast = d < new Date();
+        if (!showPast && isPast) return false;
+      }
       if (cat !== "All" && e.category !== cat) return false;
       if (q) {
         const ql = q.toLowerCase();
@@ -221,6 +252,21 @@ function EventsPage() {
             </button>
           ))}
         </div>
+        <div className="flex flex-wrap gap-2">
+          {TIME_FILTERS.map((f) => (
+            <button
+              key={f.value}
+              onClick={() => setTimeFilter(f.value)}
+              className={`px-3.5 py-1.5 rounded-full text-sm font-medium border transition-colors ${
+                timeFilter === f.value
+                  ? "bg-foreground text-background border-foreground"
+                  : "bg-card border-border hover:bg-muted"
+              }`}
+            >
+              {f.label}
+            </button>
+          ))}
+        </div>
         <div className="flex flex-wrap items-center gap-2">
           <div className="relative flex items-center">
             <ArrowUpDown className="absolute left-3 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
@@ -232,15 +278,17 @@ function EventsPage() {
               {SORT_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
             </select>
           </div>
-          <label className="flex items-center gap-2 cursor-pointer select-none px-3.5 py-1.5 rounded-full text-sm font-medium border border-border bg-card hover:bg-muted transition-colors">
-            <input
-              type="checkbox"
-              checked={showPast}
-              onChange={(e) => setShowPast(e.target.checked)}
-              className="h-3.5 w-3.5 accent-primary"
-            />
-            Show past events
-          </label>
+          {timeFilter === "all" && (
+            <label className="flex items-center gap-2 cursor-pointer select-none px-3.5 py-1.5 rounded-full text-sm font-medium border border-border bg-card hover:bg-muted transition-colors">
+              <input
+                type="checkbox"
+                checked={showPast}
+                onChange={(e) => setShowPast(e.target.checked)}
+                className="h-3.5 w-3.5 accent-primary"
+              />
+              Show past events
+            </label>
+          )}
         </div>
       </div>
 

@@ -1,6 +1,8 @@
 import { useState, useEffect, useRef } from "react";
 import { Input } from "@/components/ui/input";
-import { UNIVERSITIES } from "@/data/universities";
+import { JAPAN_UNIVERSITIES } from "@/data/universities";
+
+const PINNED_OPTIONS = ["High School", "Graduated"];
 
 export function UniversityPicker({ value, onChange, className, extraOptions }: {
   value: string;
@@ -11,11 +13,13 @@ export function UniversityPicker({ value, onChange, className, extraOptions }: {
   const [query, setQuery] = useState(value);
   const [open, setOpen] = useState(false);
   const wrapRef = useRef<HTMLDivElement>(null);
-  const extras = (extraOptions ?? []).filter((e) => !query || e.toLowerCase().includes(query.toLowerCase()));
+  const q = query.toLowerCase();
+  const extras = (extraOptions ?? []).filter((e) => !query || e.toLowerCase().includes(q));
+  const pinned = PINNED_OPTIONS.filter((p) => !query || p.toLowerCase().includes(q));
   const filtered = query.length > 0
-    ? UNIVERSITIES.filter((u) => u.toLowerCase().includes(query.toLowerCase())).slice(0, 8)
-    : [];
-  const allOptions = [...extras, ...filtered];
+    ? JAPAN_UNIVERSITIES.filter((u) => u.toLowerCase().includes(q))
+    : JAPAN_UNIVERSITIES;
+  const allOptions = [...pinned, ...extras, ...filtered];
 
   useEffect(() => { setQuery(value); }, [value]);
   useEffect(() => {
@@ -37,8 +41,13 @@ export function UniversityPicker({ value, onChange, className, extraOptions }: {
       />
       {open && allOptions.length > 0 && (
         <ul className="absolute z-50 mt-1 w-full max-h-48 overflow-y-auto rounded-md border border-border bg-popover shadow-md text-sm">
-          {allOptions.map((uni) => (
+          {allOptions.map((uni, idx) => (
             <li key={uni}>
+              {idx === pinned.length && pinned.length > 0 && allOptions.length > pinned.length && (
+                <div className="px-3 py-1 text-[10px] font-semibold text-muted-foreground uppercase tracking-widest border-t border-border mt-0.5 pt-1.5">
+                  Schools
+                </div>
+              )}
               <button
                 type="button"
                 className="w-full text-left px-3 py-1.5 hover:bg-muted truncate"

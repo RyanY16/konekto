@@ -106,10 +106,14 @@ type Draft = {
   instagram: string;
   linkedin: string;
   line: string;
+  discord: string;
+  lineVisibility: "everyone" | "members";
+  discordVisibility: "everyone" | "members";
 };
 
 function toDraft(c: Circle): Draft {
   const sl = (c as any).socialLinks ?? {};
+  const vis = c.socialLinksVisibility ?? {};
   return {
     name: c.name,
     description: c.description,
@@ -127,6 +131,9 @@ function toDraft(c: Circle): Draft {
     instagram: sl.instagram ?? "",
     linkedin: sl.linkedin ?? "",
     line: sl.line ?? "",
+    discord: sl.discord ?? "",
+    lineVisibility: vis.line ?? "everyone",
+    discordVisibility: vis.discord ?? "members",
   };
 }
 
@@ -314,8 +321,23 @@ function CircleDetailPage() {
     if (!circle) return;
     const trimmed = titleDraft.trim();
     try {
+      const isMember = members.some((m) => m.id === userId);
+      if (!isMember) await joinCircle(userId, circle.id);
       await updateMemberTitle(circle.id, userId, trimmed);
-      setMembers((prev) => prev.map((m) => m.id === userId ? { ...m, title: trimmed } : m));
+      setMembers((prev) => {
+        const exists = prev.some((m) => m.id === userId);
+        if (exists) return prev.map((m) => m.id === userId ? { ...m, title: trimmed } : m);
+        if (owner && owner.id === userId) {
+          const newEntry: CircleMember = {
+            id: owner.id, username: owner.username, displayName: owner.displayName,
+            avatarUrl: owner.avatarUrl, title: trimmed,
+            university: "", year: "", bio: "", careerField: "",
+            goals: [], tags: [], interests: [], languages: [], nationality: "",
+          };
+          return [...prev, newEntry];
+        }
+        return prev;
+      });
     } catch (err) {
       console.error(err);
     } finally {
@@ -473,6 +495,11 @@ function CircleDetailPage() {
           instagram: draft.instagram || undefined,
           linkedin: draft.linkedin || undefined,
           line: draft.line || undefined,
+          discord: draft.discord || undefined,
+        },
+        socialLinksVisibility: {
+          line: draft.lineVisibility,
+          discord: draft.discordVisibility,
         },
         iconUrl: newIconUrl,
       });
@@ -734,6 +761,27 @@ function CircleDetailPage() {
                     className="pl-14"
                   />
                 </div>
+                <div className="flex items-center gap-2">
+                  <div className="relative flex-1">
+                    <svg viewBox="0 0 24 24" fill="currentColor" className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none">
+                      <path d="M20.317 4.37a19.791 19.791 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057c.002.022.015.045.033.058a19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.028c.462-.63.874-1.295 1.226-1.994a.076.076 0 0 0-.041-.106 13.107 13.107 0 0 1-1.872-.892.077.077 0 0 1-.008-.128 10.2 10.2 0 0 0 .372-.292.074.074 0 0 1 .077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 0 1 .078.01c.12.098.246.198.373.292a.077.077 0 0 1-.006.127 12.299 12.299 0 0 1-1.873.892.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028 19.839 19.839 0 0 0 6.002-3.03.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.03zM8.02 15.33c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.956-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.956 2.418-2.157 2.418zm7.975 0c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.955-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.946 2.418-2.157 2.418z"/>
+                    </svg>
+                    <Input
+                      value={draft.discord}
+                      onChange={(e) => setDraft((d) => ({ ...d, discord: e.target.value }))}
+                      placeholder="discord.gg/invite or server ID"
+                      className="pl-9"
+                    />
+                  </div>
+                  <select
+                    value={draft.discordVisibility}
+                    onChange={(e) => setDraft((d) => ({ ...d, discordVisibility: e.target.value as "everyone" | "members" }))}
+                    className="shrink-0 h-9 rounded-md border border-input bg-transparent px-2 text-xs shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                  >
+                    <option value="members">Members only</option>
+                    <option value="everyone">Everyone</option>
+                  </select>
+                </div>
               </div>
             </div>
 
@@ -864,7 +912,28 @@ function CircleDetailPage() {
               <p className="text-xs text-muted-foreground">{relativeTime(circle.updatedAt)}</p>
             )}
 
-            <SocialLinks links={(circle as any).socialLinks} />
+            {(() => {
+              const canSeePrivate = isMember || isOwner || isManager || isAdmin;
+              const vis = circle.socialLinksVisibility ?? {};
+              const sl = (circle as any).socialLinks ?? {};
+              const visibleLinks = {
+                ...sl,
+                line: vis.line === "everyone" || canSeePrivate ? sl.line : undefined,
+                discord: vis.discord === "everyone" || canSeePrivate ? sl.discord : undefined,
+              };
+              const hasHiddenLinks = !canSeePrivate && (
+                (sl.line && vis.line !== "everyone") ||
+                (sl.discord && vis.discord !== "everyone")
+              );
+              return (
+                <>
+                  <SocialLinks links={visibleLinks} />
+                  {hasHiddenLinks && (
+                    <p className="text-xs text-muted-foreground">🔒 Some links are members only — join to see them</p>
+                  )}
+                </>
+              );
+            })()}
           </>
         )}
 
@@ -1116,6 +1185,9 @@ function CircleDetailPage() {
                       const isAlreadyManager = managers.some((mgr) => mgr.id === m.id);
                       const actioning = promotingId === m.id;
                       const initials = (m.displayName || m.username || "?").slice(0, 2).toUpperCase();
+                      const hasTag = !!(m.title && m.title !== "Member");
+                      const canEditThisTag = !!(user && (isOwner || isAdmin || (isManager && m.id === user.id)));
+                      const isEditingTag = editingTitleId === m.id;
                       return (
                         <div key={m.id} className="flex items-center gap-2 py-1.5">
                           <Link
@@ -1130,9 +1202,40 @@ function CircleDetailPage() {
                             )}
                             <div className="min-w-0">
                               <p className="text-sm font-medium leading-tight truncate">{m.displayName || m.username}</p>
-                              {m.username && <p className="text-xs text-muted-foreground truncate">@{m.username}</p>}
+                              <div className="flex items-center gap-1.5 flex-wrap">
+                                {m.username && <p className="text-xs text-muted-foreground truncate">@{m.username}</p>}
+                                {hasTag && (
+                                  <span className="text-[11px] px-1.5 py-0 rounded-full bg-blue-50 text-blue-600 dark:bg-blue-950 dark:text-blue-400 font-medium leading-5">{m.title}</span>
+                                )}
+                              </div>
                             </div>
                           </Link>
+
+                          {/* Tag editing */}
+                          {editing && canEditThisTag && (
+                            isEditingTag ? (
+                              <input
+                                autoFocus
+                                value={titleDraft}
+                                onChange={(e) => setTitleDraft(e.target.value)}
+                                onKeyDown={(e) => {
+                                  if (e.key === "Enter") handleSaveTitle(m.id);
+                                  if (e.key === "Escape") setEditingTitleId(null);
+                                }}
+                                onBlur={() => handleSaveTitle(m.id)}
+                                placeholder="e.g. Finance Lead"
+                                className="h-7 w-32 text-xs rounded border border-input bg-transparent px-2 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring shrink-0"
+                              />
+                            ) : (
+                              <button
+                                type="button"
+                                onClick={() => { setEditingTitleId(m.id); setTitleDraft(hasTag ? m.title : ""); }}
+                                className="text-xs text-muted-foreground hover:text-foreground border border-border rounded px-1.5 py-0.5 shrink-0"
+                              >
+                                {hasTag ? "Edit tag" : "Add tag"}
+                              </button>
+                            )
+                          )}
 
                           {isThisOwner ? (
                             <span className="text-xs px-2 py-0.5 rounded-full bg-primary/10 text-primary font-semibold shrink-0">Owner</span>
@@ -1141,10 +1244,10 @@ function CircleDetailPage() {
                               <span className="text-xs px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-400 font-medium shrink-0">Manager</span>
                               {editing && (isOwner || isAdmin) && (
                                 <>
-                                  <button onClick={() => setConfirmAction({ id: m.id, name: m.displayName || m.username, type: "demote", isManager: true })} disabled={actioning} className="text-xs text-muted-foreground hover:text-foreground border border-border rounded px-1.5 py-0.5 transition-colors shrink-0">
+                                  <button onClick={() => setConfirmAction({ id: m.id, name: m.displayName || m.username, type: "demote", isManager: true })} disabled={actioning} className="text-xs text-muted-foreground hover:text-foreground border border-border rounded px-1.5 py-0.5 shrink-0">
                                     Demote
                                   </button>
-                                  <button onClick={() => setConfirmAction({ id: m.id, name: m.displayName || m.username, type: "kick", isManager: true })} disabled={actioning} className="text-xs text-muted-foreground hover:text-destructive border border-border hover:border-destructive/40 rounded px-1.5 py-0.5 transition-colors shrink-0">
+                                  <button onClick={() => setConfirmAction({ id: m.id, name: m.displayName || m.username, type: "kick", isManager: true })} disabled={actioning} className="text-xs text-muted-foreground hover:text-destructive border border-border hover:border-destructive/40 rounded px-1.5 py-0.5 shrink-0">
                                     Kick
                                   </button>
                                 </>
@@ -1156,11 +1259,11 @@ function CircleDetailPage() {
                               {editing && canManageRequests && (
                                 <>
                                   {(isOwner || isAdmin) && (
-                                    <button onClick={() => handlePromoteToManager(m)} disabled={actioning} className="text-xs text-muted-foreground hover:text-foreground border border-border rounded px-1.5 py-0.5 transition-colors shrink-0">
+                                    <button onClick={() => handlePromoteToManager(m)} disabled={actioning} className="text-xs text-muted-foreground hover:text-foreground border border-border rounded px-1.5 py-0.5 shrink-0">
                                       {actioning ? "…" : "Promote"}
                                     </button>
                                   )}
-                                  <button onClick={() => setConfirmAction({ id: m.id, name: m.displayName || m.username, type: "kick", isManager: false })} disabled={actioning} className="text-xs text-muted-foreground hover:text-destructive border border-border hover:border-destructive/40 rounded px-1.5 py-0.5 transition-colors shrink-0">
+                                  <button onClick={() => setConfirmAction({ id: m.id, name: m.displayName || m.username, type: "kick", isManager: false })} disabled={actioning} className="text-xs text-muted-foreground hover:text-destructive border border-border hover:border-destructive/40 rounded px-1.5 py-0.5 shrink-0">
                                     Kick
                                   </button>
                                 </>

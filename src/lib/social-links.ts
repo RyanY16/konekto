@@ -8,6 +8,7 @@ export function socialLinksFromForm(form: FormData): SocialLinks {
     instagram: cleanLink(form.get("instagram")),
     line: cleanLink(form.get("line")),
     linkedin: cleanLink(form.get("linkedin")),
+    discord: cleanLink(form.get("discord")),
   };
 }
 
@@ -22,6 +23,7 @@ export function normalizeSocialLinks(value: unknown): SocialLinks {
     instagram: cleanLink(links.instagram),
     line: cleanLink(links.line),
     linkedin: cleanLink(links.linkedin),
+    discord: cleanLink(links.discord),
   };
 }
 

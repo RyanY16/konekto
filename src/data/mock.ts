@@ -5,6 +5,12 @@ export type SocialLinks = {
   instagram?: string;
   linkedin?: string;
   line?: string;
+  discord?: string;
+};
+
+export type SocialLinksVisibility = {
+  line?: "everyone" | "members";
+  discord?: "everyone" | "members";
 };
 
 export type Circle = {
@@ -27,6 +33,7 @@ export type Circle = {
   ownerId?: string;
   createdAt?: string;
   updatedAt?: string;
+  socialLinksVisibility?: SocialLinksVisibility;
 };
 
 export type EventItem = {

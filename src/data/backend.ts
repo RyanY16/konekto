@@ -115,6 +115,8 @@ async function deleteSupabase(table: PublicTable, id: string): Promise<void> {
 }
 
 function mapCircle(row: Row<"circles">): Circle {
+  const rawLinks = row.social_links as Record<string, unknown> | null | undefined;
+  const vis = (rawLinks?._visibility ?? {}) as Record<string, string>;
   return {
     id: row.id,
     name: row.name,
@@ -135,6 +137,10 @@ function mapCircle(row: Row<"circles">): Circle {
     recruitingConditions: (row as any).recruiting_conditions ?? undefined,
     membershipFee: (row as any).membership_fee ?? undefined,
     socialLinks: normalizeSocialLinks(row.social_links),
+    socialLinksVisibility: {
+      line: (vis.line === "members" ? "members" : "everyone") as "everyone" | "members",
+      discord: (vis.discord === "everyone" ? "everyone" : "members") as "everyone" | "members",
+    },
     createdAt: row.created_at,
     updatedAt: row.updated_at ?? row.created_at,
   };
@@ -276,7 +282,13 @@ export async function addCircle(
     recruiting_period: input.recruitingPeriod ?? "",
     recruiting_conditions: input.recruitingConditions ?? "",
     membership_fee: input.membershipFee ?? "",
-    social_links: input.socialLinks ?? {},
+    social_links: {
+      ...(input.socialLinks ?? {}),
+      _visibility: {
+        line: input.socialLinksVisibility?.line ?? "members",
+        discord: input.socialLinksVisibility?.discord ?? "members",
+      },
+    },
   };
 
   const { signal, cleanup } = abortAfter();
@@ -313,7 +325,13 @@ export async function updateCircle(
     recruiting_period: input.recruitingPeriod ?? "",
     recruiting_conditions: input.recruitingConditions ?? "",
     membership_fee: input.membershipFee ?? "",
-    social_links: input.socialLinks ?? {},
+    social_links: {
+      ...(input.socialLinks ?? {}),
+      _visibility: {
+        line: input.socialLinksVisibility?.line ?? "members",
+        discord: input.socialLinksVisibility?.discord ?? "members",
+      },
+    },
   };
 
   const { signal, cleanup } = abortAfter();
