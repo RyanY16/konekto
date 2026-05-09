@@ -24,8 +24,10 @@ import { Route as AboutRouteImport } from './routes/about'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as UsersUsernameRouteImport } from './routes/users_.$username'
 import { Route as JapanLifeGuideHandleRouteImport } from './routes/japan-life_.$guideHandle'
+import { Route as EventsNewRouteImport } from './routes/events_.new'
 import { Route as EventsEventHandleRouteImport } from './routes/events_.$eventHandle'
 import { Route as DealsDealHandleRouteImport } from './routes/deals_.$dealHandle'
+import { Route as CirclesNewRouteImport } from './routes/circles_.new'
 import { Route as CirclesCircleHandleRouteImport } from './routes/circles_.$circleHandle'
 import { Route as CareersJobHandleRouteImport } from './routes/careers_.$jobHandle'
 
@@ -104,6 +106,11 @@ const JapanLifeGuideHandleRoute = JapanLifeGuideHandleRouteImport.update({
   path: '/japan-life/$guideHandle',
   getParentRoute: () => rootRouteImport,
 } as any)
+const EventsNewRoute = EventsNewRouteImport.update({
+  id: '/events_/new',
+  path: '/events/new',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const EventsEventHandleRoute = EventsEventHandleRouteImport.update({
   id: '/events_/$eventHandle',
   path: '/events/$eventHandle',
@@ -112,6 +119,11 @@ const EventsEventHandleRoute = EventsEventHandleRouteImport.update({
 const DealsDealHandleRoute = DealsDealHandleRouteImport.update({
   id: '/deals_/$dealHandle',
   path: '/deals/$dealHandle',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CirclesNewRoute = CirclesNewRouteImport.update({
+  id: '/circles_/new',
+  path: '/circles/new',
   getParentRoute: () => rootRouteImport,
 } as any)
 const CirclesCircleHandleRoute = CirclesCircleHandleRouteImport.update({
@@ -141,8 +153,10 @@ export interface FileRoutesByFullPath {
   '/signup': typeof SignupRoute
   '/careers/$jobHandle': typeof CareersJobHandleRoute
   '/circles/$circleHandle': typeof CirclesCircleHandleRoute
+  '/circles/new': typeof CirclesNewRoute
   '/deals/$dealHandle': typeof DealsDealHandleRoute
   '/events/$eventHandle': typeof EventsEventHandleRoute
+  '/events/new': typeof EventsNewRoute
   '/japan-life/$guideHandle': typeof JapanLifeGuideHandleRoute
   '/users/$username': typeof UsersUsernameRoute
 }
@@ -162,8 +176,10 @@ export interface FileRoutesByTo {
   '/signup': typeof SignupRoute
   '/careers/$jobHandle': typeof CareersJobHandleRoute
   '/circles/$circleHandle': typeof CirclesCircleHandleRoute
+  '/circles/new': typeof CirclesNewRoute
   '/deals/$dealHandle': typeof DealsDealHandleRoute
   '/events/$eventHandle': typeof EventsEventHandleRoute
+  '/events/new': typeof EventsNewRoute
   '/japan-life/$guideHandle': typeof JapanLifeGuideHandleRoute
   '/users/$username': typeof UsersUsernameRoute
 }
@@ -184,8 +200,10 @@ export interface FileRoutesById {
   '/signup': typeof SignupRoute
   '/careers_/$jobHandle': typeof CareersJobHandleRoute
   '/circles_/$circleHandle': typeof CirclesCircleHandleRoute
+  '/circles_/new': typeof CirclesNewRoute
   '/deals_/$dealHandle': typeof DealsDealHandleRoute
   '/events_/$eventHandle': typeof EventsEventHandleRoute
+  '/events_/new': typeof EventsNewRoute
   '/japan-life_/$guideHandle': typeof JapanLifeGuideHandleRoute
   '/users_/$username': typeof UsersUsernameRoute
 }
@@ -207,8 +225,10 @@ export interface FileRouteTypes {
     | '/signup'
     | '/careers/$jobHandle'
     | '/circles/$circleHandle'
+    | '/circles/new'
     | '/deals/$dealHandle'
     | '/events/$eventHandle'
+    | '/events/new'
     | '/japan-life/$guideHandle'
     | '/users/$username'
   fileRoutesByTo: FileRoutesByTo
@@ -228,8 +248,10 @@ export interface FileRouteTypes {
     | '/signup'
     | '/careers/$jobHandle'
     | '/circles/$circleHandle'
+    | '/circles/new'
     | '/deals/$dealHandle'
     | '/events/$eventHandle'
+    | '/events/new'
     | '/japan-life/$guideHandle'
     | '/users/$username'
   id:
@@ -249,8 +271,10 @@ export interface FileRouteTypes {
     | '/signup'
     | '/careers_/$jobHandle'
     | '/circles_/$circleHandle'
+    | '/circles_/new'
     | '/deals_/$dealHandle'
     | '/events_/$eventHandle'
+    | '/events_/new'
     | '/japan-life_/$guideHandle'
     | '/users_/$username'
   fileRoutesById: FileRoutesById
@@ -271,8 +295,10 @@ export interface RootRouteChildren {
   SignupRoute: typeof SignupRoute
   CareersJobHandleRoute: typeof CareersJobHandleRoute
   CirclesCircleHandleRoute: typeof CirclesCircleHandleRoute
+  CirclesNewRoute: typeof CirclesNewRoute
   DealsDealHandleRoute: typeof DealsDealHandleRoute
   EventsEventHandleRoute: typeof EventsEventHandleRoute
+  EventsNewRoute: typeof EventsNewRoute
   JapanLifeGuideHandleRoute: typeof JapanLifeGuideHandleRoute
   UsersUsernameRoute: typeof UsersUsernameRoute
 }
@@ -384,6 +410,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof JapanLifeGuideHandleRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/events_/new': {
+      id: '/events_/new'
+      path: '/events/new'
+      fullPath: '/events/new'
+      preLoaderRoute: typeof EventsNewRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/events_/$eventHandle': {
       id: '/events_/$eventHandle'
       path: '/events/$eventHandle'
@@ -396,6 +429,13 @@ declare module '@tanstack/react-router' {
       path: '/deals/$dealHandle'
       fullPath: '/deals/$dealHandle'
       preLoaderRoute: typeof DealsDealHandleRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/circles_/new': {
+      id: '/circles_/new'
+      path: '/circles/new'
+      fullPath: '/circles/new'
+      preLoaderRoute: typeof CirclesNewRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/circles_/$circleHandle': {
@@ -431,8 +471,10 @@ const rootRouteChildren: RootRouteChildren = {
   SignupRoute: SignupRoute,
   CareersJobHandleRoute: CareersJobHandleRoute,
   CirclesCircleHandleRoute: CirclesCircleHandleRoute,
+  CirclesNewRoute: CirclesNewRoute,
   DealsDealHandleRoute: DealsDealHandleRoute,
   EventsEventHandleRoute: EventsEventHandleRoute,
+  EventsNewRoute: EventsNewRoute,
   JapanLifeGuideHandleRoute: JapanLifeGuideHandleRoute,
   UsersUsernameRoute: UsersUsernameRoute,
 }

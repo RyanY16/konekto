@@ -13,7 +13,6 @@ const CATEGORY_EMOJI: Record<string, string> = {
 };
 import { PageHeader } from "@/components/PageHeader";
 import { SaveButton } from "@/components/SaveButton";
-import AddEventDialog from "@/components/AddEventDialog";
 import { getEvents, getEventHandle, getProfilesByIds, deleteAllEvents } from "@/data/backend";
 import { filterValidTags } from "@/data/tags";
 import { useAuth } from "@/components/AuthProvider";
@@ -96,7 +95,29 @@ const SORT_OPTIONS: { value: SortKey; label: string }[] = [
   { value: "popular",   label: "Most popular" },
 ];
 
-function parseSortDate(e: { startDate?: string; date: string; updatedAt?: string }): Date {
+function getNextOccurrence(e: { recurrence?: string; startDate?: string; cancelledDates?: string[] }): Date | null {
+  if (e.recurrence !== "weekly" || !e.startDate) return null;
+  const base = new Date(e.startDate);
+  const dayOfWeek = base.getDay();
+  const cancelled = new Set(e.cancelledDates ?? []);
+  const now = new Date();
+  const cursor = new Date(now);
+  const daysUntil = (dayOfWeek - cursor.getDay() + 7) % 7;
+  cursor.setDate(cursor.getDate() + (daysUntil === 0 ? 7 : daysUntil));
+  cursor.setHours(base.getHours(), base.getMinutes(), 0, 0);
+  if (cursor <= now) cursor.setDate(cursor.getDate() + 7);
+  let safety = 0;
+  while (safety < 200) {
+    if (!cancelled.has(cursor.toISOString().split("T")[0])) return cursor;
+    cursor.setDate(cursor.getDate() + 7);
+    safety++;
+  }
+  return null;
+}
+
+function parseSortDate(e: { startDate?: string; date: string; updatedAt?: string; recurrence?: string; cancelledDates?: string[] }): Date {
+  const next = getNextOccurrence(e);
+  if (next) return next;
   if (e.startDate) return new Date(e.startDate);
   // Fall back to parsing the human-readable date string: "Fri, May 8 · 7:00 PM – 10:00 PM"
   const datePart = e.date.split(/\s*[·•]\s*/)[0].trim(); // "Fri, May 8" or "Fri, May 8, 2026"
@@ -214,16 +235,12 @@ function EventsPage() {
               </AlertDialogContent>
             </AlertDialog>
           )}
-          {user ? (
-            <AddEventDialog />
-          ) : (
-            <Link
-              to="/signup"
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-semibold bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
-            >
-              + Add event
-            </Link>
-          )}
+          <Link
+            to={user ? "/events/new" : "/signup"}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-semibold bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
+          >
+            + Add event
+          </Link>
         </div>
       </div>
 
@@ -309,7 +326,14 @@ function EventsPage() {
             </div>
             <div className="p-5 flex flex-col flex-1">
               <div className="flex items-center justify-between">
-                <span className="chip chip-primary">{e.category}</span>
+                <div className="flex items-center gap-1.5">
+                  <span className="chip chip-primary">{e.category}</span>
+                  {e.recurrence === "weekly" && (
+                    <span className="chip bg-violet-100 text-violet-700 dark:bg-violet-900/40 dark:text-violet-400 text-xs px-2 py-0.5 rounded-full">
+                      Weekly
+                    </span>
+                  )}
+                </div>
                 <SaveButton itemId={e.id} itemType="event" />
               </div>
               <h3 className="mt-3 font-semibold text-lg leading-snug">{e.title}</h3>
@@ -318,7 +342,17 @@ function EventsPage() {
               )}
               <div className="mt-2 space-y-1 text-sm text-muted-foreground">
                 <p className="flex items-center gap-1.5">
-                  <Calendar className="h-3.5 w-3.5 shrink-0" /> {e.date}
+                  <Calendar className="h-3.5 w-3.5 shrink-0" />
+                  {e.recurrence
+                    ? (() => {
+                        const next = getNextOccurrence(e);
+                        const timeMatch = e.date.match(/(\d+:\d+\s*[AP]M\s*[-–]\s*\d+:\d+\s*[AP]M)/);
+                        const timeStr = timeMatch ? ` · ${timeMatch[1]}` : "";
+                        return next
+                          ? `${next.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })}${timeStr}`
+                          : e.date;
+                      })()
+                    : e.date}
                 </p>
                 <p className="flex items-center gap-1.5">
                   <MapPin className="h-3.5 w-3.5 shrink-0" />

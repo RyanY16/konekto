@@ -30,6 +30,7 @@ export type Circle = {
   recruitingPeriod?: string;
   recruitingConditions?: string;
   membershipFee?: string;
+  howToJoin?: string;
   ownerId?: string;
   createdAt?: string;
   updatedAt?: string;
@@ -55,6 +56,9 @@ export type EventItem = {
   circleIds?: string[];
   online?: boolean;
   approvalRequired?: boolean;
+  howToJoin?: string;
+  recurrence?: "weekly";
+  cancelledDates?: string[]; // YYYY-MM-DD
 };
 
 export type Deal = {

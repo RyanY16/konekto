@@ -93,15 +93,15 @@ type Draft = {
   name: string;
   description: string;
   category: string;
-  activity: string;
   tags: string[];
   university: string;
-  location: string;
   primaryLanguage: string;
+  englishFriendly: boolean;
   recruiting: boolean;
   recruitingPeriod: string;
   recruitingConditions: string;
   membershipFee: string;
+  howToJoin: string;
   website: string;
   instagram: string;
   linkedin: string;
@@ -118,15 +118,15 @@ function toDraft(c: Circle): Draft {
     name: c.name,
     description: c.description,
     category: c.category,
-    activity: c.activity,
     tags: c.tags ?? [],
     university: c.university ?? "",
-    location: (c as any).location ?? "",
     primaryLanguage: c.primaryLanguage ?? "",
+    englishFriendly: c.englishFriendly ?? false,
     recruiting: c.recruiting ?? false,
     recruitingPeriod: c.recruitingPeriod ?? "",
     recruitingConditions: c.recruitingConditions ?? "",
     membershipFee: (c as any).membershipFee ?? "",
+    howToJoin: c.howToJoin ?? "",
     website: sl.website ?? "",
     instagram: sl.instagram ?? "",
     linkedin: sl.linkedin ?? "",
@@ -481,15 +481,15 @@ function CircleDetailPage() {
         description: draft.description,
         category: draft.category,
         emoji: CATEGORY_EMOJI[draft.category] ?? circle!.emoji,
-        activity: draft.activity as Circle["activity"],
         tags: draft.tags,
         university: draft.university,
-        location: draft.location,
         primaryLanguage: draft.primaryLanguage,
+        englishFriendly: draft.englishFriendly,
         recruiting: draft.recruiting,
         recruitingPeriod: draft.recruitingPeriod,
         recruitingConditions: draft.recruitingConditions,
         membershipFee: draft.membershipFee,
+        howToJoin: draft.howToJoin || undefined,
         socialLinks: {
           website: draft.website || undefined,
           instagram: draft.instagram || undefined,
@@ -623,15 +623,6 @@ function CircleDetailPage() {
             </div>
 
             <div className="space-y-1">
-              <label className="text-xs font-medium text-muted-foreground">Specific location</label>
-              <Input
-                value={draft.location}
-                onChange={(e) => setDraft((d) => ({ ...d, location: e.target.value }))}
-                placeholder="e.g. Building 14 Room 203, Main Campus Gate"
-              />
-            </div>
-
-            <div className="space-y-1">
               <label className="text-xs font-medium text-muted-foreground">Primary language</label>
               <select
                 value={draft.primaryLanguage}
@@ -672,41 +663,47 @@ function CircleDetailPage() {
                       rows={2}
                     />
                   </div>
+                  <div className="space-y-1">
+                    <label className="text-xs font-medium text-muted-foreground">Membership fee</label>
+                    <Input
+                      value={draft.membershipFee}
+                      onChange={(e) => setDraft((d) => ({ ...d, membershipFee: e.target.value }))}
+                      placeholder="e.g. Free, ¥3,000/year, ¥500/month"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-xs font-medium text-muted-foreground">How to join</label>
+                    <Textarea
+                      value={draft.howToJoin}
+                      onChange={(e) => setDraft((d) => ({ ...d, howToJoin: e.target.value }))}
+                      placeholder="e.g. Fill out the form on our website, attend an open meeting, DM us on Instagram…"
+                      rows={3}
+                    />
+                  </div>
                 </div>
               )}
             </div>
 
             <div className="space-y-1">
-              <label className="text-xs font-medium text-muted-foreground">Membership fee</label>
-              <Input
-                value={draft.membershipFee}
-                onChange={(e) => setDraft((d) => ({ ...d, membershipFee: e.target.value }))}
-                placeholder="e.g. Free, ¥3,000/year, ¥500/month"
-              />
+              <label className="text-xs font-medium text-muted-foreground">Category</label>
+              <select
+                value={draft.category}
+                onChange={(e) => setDraft((d) => ({ ...d, category: e.target.value }))}
+                className={sel("")}
+              >
+                {CIRCLE_CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
+              </select>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              <div className="space-y-1">
-                <label className="text-xs font-medium text-muted-foreground">Category</label>
-                <select
-                  value={draft.category}
-                  onChange={(e) => setDraft((d) => ({ ...d, category: e.target.value }))}
-                  className={sel("")}
-                >
-                  {CIRCLE_CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
-                </select>
-              </div>
-              <div className="space-y-1">
-                <label className="text-xs font-medium text-muted-foreground">Activity</label>
-                <select
-                  value={draft.activity}
-                  onChange={(e) => setDraft((d) => ({ ...d, activity: e.target.value }))}
-                  className={sel("")}
-                >
-                  {ACTIVITY_LEVELS.map((a) => <option key={a} value={a}>{a}</option>)}
-                </select>
-              </div>
-            </div>
+            <label className="flex items-center gap-2 text-sm cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={draft.englishFriendly}
+                onChange={(e) => setDraft((d) => ({ ...d, englishFriendly: e.target.checked }))}
+                className="h-4 w-4 rounded"
+              />
+              🌏 English-friendly
+            </label>
 
             <div className="space-y-1">
               <label className="text-xs font-medium text-muted-foreground">Tags</label>
@@ -854,14 +851,13 @@ function CircleDetailPage() {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <Detail label="Category" value={circle.category} />
               <Detail label="Members" value={`${circle.members}`} />
-              <Detail label="Activity" value={circle.activity} />
             </div>
 
             {circle.university && (
               <p className="text-sm text-muted-foreground">🏫 {circle.university}</p>
             )}
-            {(circle as any).location && (
-              <p className="text-sm text-muted-foreground">📍 {(circle as any).location}</p>
+            {circle.englishFriendly && (
+              <p className="text-sm text-muted-foreground">🌏 English-friendly</p>
             )}
 
             {circle.primaryLanguage && (() => {
@@ -870,15 +866,18 @@ function CircleDetailPage() {
             })()}
 
             {circle.recruiting && (
-              <div className="rounded-lg border border-green-500/30 bg-green-500/5 px-3 py-2 space-y-0.5">
+              <div className="rounded-lg border border-green-500/30 bg-green-500/5 px-3 py-2 space-y-1.5">
                 <p className="text-sm font-medium text-green-700 dark:text-green-400">✅ Recruiting</p>
                 {circle.recruitingPeriod && <p className="text-xs text-muted-foreground">Period: {circle.recruitingPeriod}</p>}
                 {circle.recruitingConditions && <p className="text-xs text-muted-foreground">{circle.recruitingConditions}</p>}
+                {(circle as any).membershipFee && <p className="text-xs text-muted-foreground">💴 Fee: <span className="font-medium text-foreground">{(circle as any).membershipFee}</span></p>}
+                {circle.howToJoin && (
+                  <div className="pt-1 border-t border-green-500/20 space-y-0.5">
+                    <p className="text-xs font-semibold text-green-700 dark:text-green-400">How to join</p>
+                    <p className="text-xs text-muted-foreground whitespace-pre-wrap">{circle.howToJoin}</p>
+                  </div>
+                )}
               </div>
-            )}
-
-            {(circle as any).membershipFee && (
-              <p className="text-sm text-muted-foreground">💴 Membership fee: <span className="font-medium text-foreground">{(circle as any).membershipFee}</span></p>
             )}
 
             {owner && (
@@ -1119,38 +1118,58 @@ function CircleDetailPage() {
       )}
 
       {/* ── Events ── */}
-      {!editing && (
-        <section className="card-base p-6 space-y-3">
-          <h2 className="text-sm font-semibold">Events{circleEvents.length > 0 && ` (${circleEvents.length})`}</h2>
-          {circleEvents.length === 0 ? (
-            <p className="text-sm text-muted-foreground">No events linked to this circle yet.</p>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              {circleEvents.map((event) => (
-                <Link
-                  key={event.id}
-                  to="/events/$eventHandle"
-                  params={{ eventHandle: getEventHandle(event) }}
-                  className="rounded-lg border border-border p-3 hover:bg-muted/50 transition-colors"
-                >
-                  <div className="flex items-start gap-3">
-                    <span className="text-2xl leading-none">{event.emoji}</span>
-                    <div className="min-w-0 space-y-1">
-                      <p className="font-medium text-sm truncate">{event.title}</p>
-                      <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                        <Calendar className="h-3.5 w-3.5" /> {event.date}
-                      </p>
-                      <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                        <MapPin className="h-3.5 w-3.5" /> {event.location}
-                      </p>
-                    </div>
-                  </div>
-                </Link>
-              ))}
+      {!editing && (() => {
+        const now = new Date();
+        const eventDate = (e: EventItem) => e.startDate ? new Date(e.startDate) : new Date(0);
+        const upcoming = circleEvents.filter((e) => eventDate(e) >= now).sort((a, b) => eventDate(a).getTime() - eventDate(b).getTime());
+        const past = circleEvents.filter((e) => eventDate(e) < now).sort((a, b) => eventDate(b).getTime() - eventDate(a).getTime());
+
+        const EventCard = ({ event }: { event: EventItem }) => (
+          <Link
+            key={event.id}
+            to="/events/$eventHandle"
+            params={{ eventHandle: getEventHandle(event) }}
+            className="rounded-lg border border-border p-3 hover:bg-muted/50 transition-colors"
+          >
+            <div className="flex items-start gap-3">
+              <span className="text-2xl leading-none">{event.emoji}</span>
+              <div className="min-w-0 space-y-1">
+                <p className="font-medium text-sm truncate">{event.title}</p>
+                <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                  <Calendar className="h-3.5 w-3.5 shrink-0" /> {event.date}
+                </p>
+                <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                  <MapPin className="h-3.5 w-3.5 shrink-0" /> {event.location}
+                </p>
+              </div>
             </div>
-          )}
-        </section>
-      )}
+          </Link>
+        );
+
+        return (
+          <>
+            <section className="card-base p-6 space-y-3">
+              <h2 className="text-sm font-semibold">Upcoming events{upcoming.length > 0 && ` (${upcoming.length})`}</h2>
+              {upcoming.length === 0 ? (
+                <p className="text-sm text-muted-foreground">No upcoming events.</p>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  {upcoming.map((event) => <EventCard key={event.id} event={event} />)}
+                </div>
+              )}
+            </section>
+
+            {past.length > 0 && (
+              <section className="card-base p-6 space-y-3">
+                <h2 className="text-sm font-semibold text-muted-foreground">Past events ({past.length})</h2>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 opacity-60">
+                  {past.map((event) => <EventCard key={event.id} event={event} />)}
+                </div>
+              </section>
+            )}
+          </>
+        );
+      })()}
 
       {/* ── Members ── */}
       <section className="card-base p-6 space-y-3">

@@ -1,12 +1,11 @@
 import { createFileRoute, Link, useRouter } from "@tanstack/react-router";
 import { useState, useMemo } from "react";
-import { Search, MapPin, Trash2, ArrowUpDown } from "lucide-react";
+import { Search, Trash2, ArrowUpDown } from "lucide-react";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { LANGUAGES, CIRCLE_CATEGORIES } from "@/data/profile-options";
 import { PageHeader } from "@/components/PageHeader";
 import { SaveButton } from "@/components/SaveButton";
-import AddCircleDialog from "@/components/AddCircleDialog";
 import { getCircles, getCircleHandle, getProfilesByIds, deleteAllCircles, getCurrentUserInterests } from "@/data/backend";
 import { filterValidTags } from "@/data/tags";
 import { useAuth } from "@/components/AuthProvider";
@@ -126,7 +125,6 @@ function CirclesPage() {
         const matches =
           c.name.toLowerCase().includes(ql) ||
           c.description.toLowerCase().includes(ql) ||
-          (c as any).location?.toLowerCase().includes(ql) ||
           c.tags.some((t) => t.toLowerCase().includes(ql));
         if (!matches) return false;
       }
@@ -189,16 +187,12 @@ function CirclesPage() {
               </AlertDialogContent>
             </AlertDialog>
           )}
-          {user ? (
-            <AddCircleDialog />
-          ) : (
-            <Link
-              to="/signup"
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-semibold bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
-            >
-              + Add circle
-            </Link>
-          )}
+          <Link
+            to={user ? "/circles/new" : "/signup"}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-semibold bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
+          >
+            + Add circle
+          </Link>
         </div>
       </div>
 
@@ -300,11 +294,6 @@ function CirclesPage() {
 
             <div className="flex items-center gap-2 mt-0.5 flex-wrap">
               <span className="text-xs text-muted-foreground">{c.category} · {c.members} members</span>
-              {c.location && (
-                <span className="flex items-center gap-0.5 text-xs text-muted-foreground">
-                  <MapPin className="h-3 w-3" />{c.location}
-                </span>
-              )}
             </div>
 
             <p className="mt-2 text-sm text-muted-foreground line-clamp-2">{c.description}</p>
@@ -322,7 +311,7 @@ function CirclesPage() {
 
             <div className="mt-3 flex flex-wrap gap-1.5">
               {c.recruiting && <span className="chip bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-400">✅ Recruiting</span>}
-              <span className="chip">📊 {c.activity}</span>
+              {c.englishFriendly && <span className="chip">🌏 English-friendly</span>}
             </div>
 
             <div className="mt-4 pt-4 border-t border-border flex items-center justify-between relative z-10">

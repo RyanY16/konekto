@@ -136,6 +136,7 @@ function mapCircle(row: Row<"circles">): Circle {
     recruitingPeriod: (row as any).recruiting_period ?? undefined,
     recruitingConditions: (row as any).recruiting_conditions ?? undefined,
     membershipFee: (row as any).membership_fee ?? undefined,
+    howToJoin: (row as any).how_to_join ?? undefined,
     socialLinks: normalizeSocialLinks(row.social_links),
     socialLinksVisibility: {
       line: (vis.line === "members" ? "members" : "everyone") as "everyone" | "members",
@@ -165,7 +166,10 @@ function mapEvent(row: Row<"events">): EventItem {
     circleIds: row.circle_ids ?? [],
     online: row.online ?? false,
     approvalRequired: row.approval_required ?? false,
+    howToJoin: (row as any).how_to_join ?? undefined,
     startDate: (row as any).start_date ?? undefined,
+    recurrence: (row as any).recurrence ?? undefined,
+    cancelledDates: (row as any).cancelled_dates ?? [],
   };
 }
 
@@ -282,6 +286,7 @@ export async function addCircle(
     recruiting_period: input.recruitingPeriod ?? "",
     recruiting_conditions: input.recruitingConditions ?? "",
     membership_fee: input.membershipFee ?? "",
+    how_to_join: input.howToJoin ?? "",
     social_links: {
       ...(input.socialLinks ?? {}),
       _visibility: {
@@ -325,6 +330,7 @@ export async function updateCircle(
     recruiting_period: input.recruitingPeriod ?? "",
     recruiting_conditions: input.recruitingConditions ?? "",
     membership_fee: input.membershipFee ?? "",
+    how_to_join: input.howToJoin ?? "",
     social_links: {
       ...(input.socialLinks ?? {}),
       _visibility: {
@@ -377,8 +383,11 @@ export async function addEvent(
     circle_ids: input.circleIds ?? [],
     online: input.online ?? false,
     approval_required: input.approvalRequired ?? false,
+    how_to_join: (input as any).howToJoin ?? "",
   };
   if ((input as any).startDate) (values as any).start_date = (input as any).startDate;
+  if ((input as any).recurrence) (values as any).recurrence = (input as any).recurrence;
+  (values as any).cancelled_dates = (input as any).cancelledDates ?? [];
   const { signal, cleanup } = abortAfter();
   try {
     const { error } = await (client.from("events").insert(values) as any).abortSignal(signal) as { error: any };
@@ -411,7 +420,10 @@ export async function updateEvent(
   if (input.circleIds !== undefined) values.circle_ids = input.circleIds;
   if (input.online !== undefined) values.online = input.online;
   if (input.approvalRequired !== undefined) values.approval_required = input.approvalRequired;
+  if ((input as any).howToJoin !== undefined) values.how_to_join = (input as any).howToJoin ?? "";
   if ((input as any).startDate !== undefined) values.start_date = (input as any).startDate;
+  if ((input as any).recurrence !== undefined) values.recurrence = (input as any).recurrence || null;
+  if ((input as any).cancelledDates !== undefined) values.cancelled_dates = (input as any).cancelledDates;
   values.updated_at = new Date().toISOString();
 
   const { signal, cleanup } = abortAfter();
@@ -423,6 +435,15 @@ export async function updateEvent(
   } finally {
     cleanup();
   }
+}
+
+export async function cancelEventOccurrence(eventId: string, dateIso: string): Promise<void> {
+  const client = assertSupabase();
+  const { data } = await (client.from("events").select("cancelled_dates").eq("id", eventId).single() as any);
+  const current: string[] = data?.cancelled_dates ?? [];
+  if (current.includes(dateIso)) return;
+  const { error } = await (client.from("events").update({ cancelled_dates: [...current, dateIso], updated_at: new Date().toISOString() }).eq("id", eventId) as any);
+  if (error) throw new Error(error.message);
 }
 
 export type EventCircleLinkStatus = "pending" | "approved" | "declined";

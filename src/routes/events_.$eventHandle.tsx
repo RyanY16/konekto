@@ -38,6 +38,7 @@ import {
   withdrawAttendance,
   getEventAttendees,
   updateAttendeeStatus,
+  cancelEventOccurrence,
 } from "@/data/backend";
 import type { Circle } from "@/data/mock";
 import type { AttendeeStatus, EventAttendee, EventCircleLink } from "@/data/backend";
@@ -106,6 +107,41 @@ function parseDateString(dateStr: string): { range: DateRange | undefined; start
   return { range: undefined, startTime: "7:00 PM", endTime: "9:00 PM", multiDay: false };
 }
 
+const DAY_NAMES = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+const DAY_SHORT = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+
+function parseTimeStr(t: string): { h: number; m: number } {
+  const match = t.match(/^(\d+):(\d+)\s*(AM|PM)$/i);
+  if (!match) return { h: 19, m: 0 };
+  let h = parseInt(match[1]);
+  const m = parseInt(match[2]);
+  if (match[3].toUpperCase() === "PM" && h !== 12) h += 12;
+  if (match[3].toUpperCase() === "AM" && h === 12) h = 0;
+  return { h, m };
+}
+
+function getUpcomingOccurrences(event: EventItem, count = 5): { date: Date; isoDate: string; cancelled: boolean }[] {
+  if (event.recurrence !== "weekly" || !event.startDate) return [];
+  const base = new Date(event.startDate);
+  const dayOfWeek = base.getDay();
+  const cancelled = new Set(event.cancelledDates ?? []);
+  const now = new Date();
+  const cursor = new Date(now);
+  const daysUntil = (dayOfWeek - cursor.getDay() + 7) % 7;
+  cursor.setDate(cursor.getDate() + (daysUntil === 0 ? 7 : daysUntil));
+  cursor.setHours(base.getHours(), base.getMinutes(), 0, 0);
+  if (cursor <= now) cursor.setDate(cursor.getDate() + 7);
+  const results = [];
+  let safety = 0;
+  while (results.length < count && safety < 200) {
+    const isoDate = cursor.toISOString().split("T")[0];
+    results.push({ date: new Date(cursor), isoDate, cancelled: cancelled.has(isoDate) });
+    cursor.setDate(cursor.getDate() + 7);
+    safety++;
+  }
+  return results;
+}
+
 function relativeTime(iso: string | undefined): string | null {
   if (!iso) return null;
   const diff = Date.now() - new Date(iso).getTime();
@@ -156,6 +192,9 @@ type Draft = {
   website: string;
   luma: string;
   tickets: string;
+  isWeekly: boolean;
+  recurringDay: number;
+  howToJoin: string;
 };
 
 function toDraft(e: EventItem): Draft {
@@ -175,6 +214,9 @@ function toDraft(e: EventItem): Draft {
     website: sl.website ?? "",
     luma: sl.luma ?? "",
     tickets: sl.tickets ?? "",
+    isWeekly: e.recurrence === "weekly",
+    recurringDay: e.startDate ? new Date(e.startDate).getDay() : 0,
+    howToJoin: e.howToJoin ?? "",
   };
 }
 
@@ -202,9 +244,12 @@ function EventDetailPage() {
   const [rsvpLoading, setRsvpLoading] = useState(false);
   const [attendees, setAttendees] = useState<EventAttendee[]>([]);
   const [attendeesLoaded, setAttendeesLoaded] = useState(false);
+  const [cancellingDate, setCancellingDate] = useState<string | null>(null);
+  const [localCancelledDates, setLocalCancelledDates] = useState<string[]>(event?.cancelledDates ?? []);
 
   const isOwner = !!(user && event?.ownerId && user.id === event.ownerId);
   const canEdit = isOwner || isAdmin;
+  const canManageOccurrences = canEdit || linkedCircles.some((c) => myEditableCircleIds.has(c.id));
 
   useEffect(() => {
     if (!event?.ownerId) return;
@@ -291,21 +336,30 @@ function EventDetailPage() {
     setSaving(true);
     setSaveError(null);
     try {
-      const dateStr = formatDateRange(editDateRange, editStartTime, editEndTime, editMultiDay) || draft.date;
-      await updateEvent(event!.id, {
+      let dateStr: string;
+    let startDateIso: string | undefined;
+    if (draft.isWeekly) {
+      dateStr = `Every ${DAY_NAMES[draft.recurringDay]} · ${editStartTime} – ${editEndTime}`;
+      const { h, m } = parseTimeStr(editStartTime);
+      const d = new Date();
+      const daysUntil = (draft.recurringDay - d.getDay() + 7) % 7;
+      d.setDate(d.getDate() + (daysUntil === 0 ? 7 : daysUntil));
+      d.setHours(h, m, 0, 0);
+      startDateIso = d.toISOString();
+    } else {
+      dateStr = formatDateRange(editDateRange, editStartTime, editEndTime, editMultiDay) || draft.date;
+      startDateIso = editDateRange?.from ? (() => {
+        const { h, m } = parseTimeStr(editStartTime);
+        const d = new Date(editDateRange.from); d.setHours(h, m, 0, 0);
+        return d.toISOString();
+      })() : undefined;
+    }
+    await updateEvent(event!.id, {
         title: draft.title,
         description: draft.description,
         category: draft.category as EventItem["category"],
         date: dateStr,
-        startDate: editDateRange?.from ? (() => {
-          const match = editStartTime?.match(/^(\d+):(\d+)\s*(AM|PM)$/i);
-          if (!match) return editDateRange.from.toISOString();
-          let h = parseInt(match[1]); const m = parseInt(match[2]);
-          if (match[3].toUpperCase() === "PM" && h !== 12) h += 12;
-          if (match[3].toUpperCase() === "AM" && h === 12) h = 0;
-          const d = new Date(editDateRange.from); d.setHours(h, m, 0, 0);
-          return d.toISOString();
-        })() : undefined,
+        startDate: startDateIso,
         location: draft.location,
         online: draft.online,
         approvalRequired: draft.approvalRequired,
@@ -319,7 +373,9 @@ function EventDetailPage() {
           luma: draft.luma || undefined,
           tickets: draft.tickets || undefined,
         },
-      });
+        recurrence: draft.isWeekly ? "weekly" : undefined,
+        howToJoin: draft.howToJoin || undefined,
+      } as any);
       if (user) {
         await setEventCircleCollaborations({
           eventId: event!.id,
@@ -372,6 +428,17 @@ function EventDetailPage() {
       router.invalidate();
     } finally {
       setCollabActionId(null);
+    }
+  }
+
+  async function handleCancelOccurrence(isoDate: string) {
+    if (!event) return;
+    setCancellingDate(isoDate);
+    try {
+      await cancelEventOccurrence(event.id, isoDate);
+      setLocalCancelledDates((prev) => [...prev, isoDate]);
+    } finally {
+      setCancellingDate(null);
     }
   }
 
@@ -438,86 +505,82 @@ function EventDetailPage() {
             <div className="space-y-1.5">
               <label className="text-xs font-medium text-muted-foreground">Date &amp; Time</label>
 
-              {/* Multi-day toggle */}
-              <div className="flex items-center gap-2 mb-1">
-                <input
-                  id="edit-multiday"
-                  type="checkbox"
-                  checked={editMultiDay}
-                  onChange={(e) => {
-                    setEditMultiDay(e.target.checked);
-                    if (!e.target.checked) setEditDateRange((r) => r ? { from: r.from, to: undefined } : undefined);
-                  }}
-                  className="h-4 w-4 rounded border-input accent-primary"
-                />
-                <label htmlFor="edit-multiday" className="text-sm font-medium cursor-pointer select-none">
-                  Multi-day event
-                </label>
-              </div>
-
-              {/* Date picker */}
-              <Popover open={editDatePickerOpen} onOpenChange={setEditDatePickerOpen}>
-                <PopoverTrigger asChild>
-                  <button
-                    type="button"
-                    className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm text-left flex items-center gap-2 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-                  >
-                    <CalendarIcon className="h-4 w-4 text-muted-foreground shrink-0" />
-                    <span className={editDateRange?.from ? "" : "text-muted-foreground"}>
-                      {editDateRange?.from
-                        ? editMultiDay && editDateRange.to && editDateRange.to.getTime() !== editDateRange.from.getTime()
-                          ? `${format(editDateRange.from, "MMM d")} – ${format(editDateRange.to, "MMM d, yyyy")}`
-                          : format(editDateRange.from, "EEE, MMM d, yyyy")
-                        : "Select date…"}
-                    </span>
-                  </button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="start">
-                  {editMultiDay ? (
-                    <>
-                      <Calendar
-                        mode="range"
-                        selected={editDateRange}
-                        onSelect={(val: DateRange | undefined) => setEditDateRange(val)}
-                        initialFocus
-                      />
-                      <div className="p-2 border-t flex justify-end">
-                        <Button size="sm" type="button" onClick={() => setEditDatePickerOpen(false)}>Done</Button>
-                      </div>
-                    </>
-                  ) : (
-                    <Calendar
-                      mode="single"
-                      selected={editDateRange?.from}
-                      onSelect={(val: Date | undefined) => {
-                        setEditDateRange(val ? { from: val, to: undefined } : undefined);
-                        setEditDatePickerOpen(false);
+              {!draft.isWeekly && (
+                <>
+                  {/* Multi-day toggle */}
+                  <div className="flex items-center gap-2 mb-1">
+                    <input
+                      id="edit-multiday"
+                      type="checkbox"
+                      checked={editMultiDay}
+                      onChange={(e) => {
+                        setEditMultiDay(e.target.checked);
+                        if (!e.target.checked) setEditDateRange((r) => r ? { from: r.from, to: undefined } : undefined);
                       }}
-                      initialFocus
+                      className="h-4 w-4 rounded border-input accent-primary"
                     />
-                  )}
-                </PopoverContent>
-              </Popover>
+                    <label htmlFor="edit-multiday" className="text-sm font-medium cursor-pointer select-none">
+                      Multi-day event
+                    </label>
+                  </div>
+
+                  {/* Date picker */}
+                  <Popover open={editDatePickerOpen} onOpenChange={setEditDatePickerOpen}>
+                    <PopoverTrigger asChild>
+                      <button
+                        type="button"
+                        className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm text-left flex items-center gap-2 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                      >
+                        <CalendarIcon className="h-4 w-4 text-muted-foreground shrink-0" />
+                        <span className={editDateRange?.from ? "" : "text-muted-foreground"}>
+                          {editDateRange?.from
+                            ? editMultiDay && editDateRange.to && editDateRange.to.getTime() !== editDateRange.from.getTime()
+                              ? `${format(editDateRange.from, "MMM d")} – ${format(editDateRange.to, "MMM d, yyyy")}`
+                              : format(editDateRange.from, "EEE, MMM d, yyyy")
+                            : "Select date…"}
+                        </span>
+                      </button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="start">
+                      {editMultiDay ? (
+                        <>
+                          <Calendar
+                            mode="range"
+                            selected={editDateRange}
+                            onSelect={(val: DateRange | undefined) => setEditDateRange(val)}
+                            initialFocus
+                          />
+                          <div className="p-2 border-t flex justify-end">
+                            <Button size="sm" type="button" onClick={() => setEditDatePickerOpen(false)}>Done</Button>
+                          </div>
+                        </>
+                      ) : (
+                        <Calendar
+                          mode="single"
+                          selected={editDateRange?.from}
+                          onSelect={(val: Date | undefined) => {
+                            setEditDateRange(val ? { from: val, to: undefined } : undefined);
+                            setEditDatePickerOpen(false);
+                          }}
+                          initialFocus
+                        />
+                      )}
+                    </PopoverContent>
+                  </Popover>
+                </>
+              )}
 
               {/* Time selects */}
               <div className="flex gap-2 mt-2">
                 <div className="flex-1 space-y-1">
                   <span className="text-xs text-muted-foreground">Start Time</span>
-                  <select
-                    className={sel}
-                    value={editStartTime}
-                    onChange={(e) => setEditStartTime(e.target.value)}
-                  >
+                  <select className={sel} value={editStartTime} onChange={(e) => setEditStartTime(e.target.value)}>
                     {TIME_OPTIONS.map((t) => <option key={t} value={t}>{t}</option>)}
                   </select>
                 </div>
                 <div className="flex-1 space-y-1">
                   <span className="text-xs text-muted-foreground">End Time</span>
-                  <select
-                    className={sel}
-                    value={editEndTime}
-                    onChange={(e) => setEditEndTime(e.target.value)}
-                  >
+                  <select className={sel} value={editEndTime} onChange={(e) => setEditEndTime(e.target.value)}>
                     {TIME_OPTIONS.map((t) => <option key={t} value={t}>{t}</option>)}
                   </select>
                 </div>
@@ -549,6 +612,29 @@ function EventDetailPage() {
                   Approval required
                 </label>
               </div>
+            </div>
+
+            <div className="flex flex-col gap-2">
+              <label className="flex items-center gap-2 cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={draft.isWeekly}
+                  onChange={(e) => setDraft((d) => ({ ...d, isWeekly: e.target.checked }))}
+                  className="h-4 w-4 rounded border-input accent-primary"
+                />
+                <span className="text-sm font-medium">Repeats weekly</span>
+              </label>
+              {draft.isWeekly && (
+                <div className="pl-6">
+                  <select
+                    value={draft.recurringDay}
+                    onChange={(e) => setDraft((d) => ({ ...d, recurringDay: Number(e.target.value) }))}
+                    className={sel}
+                  >
+                    {DAY_NAMES.map((d, i) => <option key={d} value={i}>{d}</option>)}
+                  </select>
+                </div>
+              )}
             </div>
 
             <div className="space-y-1">
@@ -619,6 +705,16 @@ function EventDetailPage() {
             )}
 
             <div className="space-y-1">
+              <label className="text-xs font-medium text-muted-foreground">How to join</label>
+              <Textarea
+                value={draft.howToJoin}
+                onChange={(e) => setDraft((d) => ({ ...d, howToJoin: e.target.value }))}
+                placeholder="Describe how to register or attend — e.g. RSVP via the link below, walk-ins welcome, tickets at the door…"
+                rows={3}
+              />
+            </div>
+
+            <div className="space-y-1">
               <label className="text-xs font-medium text-muted-foreground">Event links</label>
               <div className="space-y-2">
                 <div className="relative">
@@ -651,6 +747,9 @@ function EventDetailPage() {
               <Detail label="Date & time" value={event.date} />
               <Detail label="Going" value={`${event.going} people`} />
               {event.cost && <Detail label="Cost" value={event.cost} />}
+              {event.recurrence === "weekly" && event.startDate && (
+                <Detail label="Repeats" value={`Every ${DAY_NAMES[new Date(event.startDate).getDay()]}`} />
+              )}
             </div>
 
             {/* Location */}
@@ -764,6 +863,13 @@ function EventDetailPage() {
               </div>
             )}
 
+            {event.howToJoin && (
+              <div className="rounded-lg border border-border bg-muted/40 px-4 py-3 space-y-1">
+                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">How to join</p>
+                <p className="text-sm whitespace-pre-wrap">{event.howToJoin}</p>
+              </div>
+            )}
+
             {relativeTime(event.updatedAt) && (
               <p className="text-xs text-muted-foreground">{relativeTime(event.updatedAt)}</p>
             )}
@@ -808,6 +914,35 @@ function EventDetailPage() {
           </div>
         )}
       </section>
+
+      {/* Upcoming occurrences */}
+      {!editing && event.recurrence && (
+        <section className="card-base p-6 mt-4 space-y-3">
+          <h2 className="font-semibold text-sm">Upcoming dates</h2>
+          {getUpcomingOccurrences({ ...event, cancelledDates: localCancelledDates }, 5).map(({ date, isoDate, cancelled }) => {
+            const timeMatch = event.date.match(/(\d+:\d+\s*[AP]M\s*[-–]\s*\d+:\d+\s*[AP]M)/);
+            const timeStr = timeMatch ? ` · ${timeMatch[1]}` : "";
+            return (
+              <div key={isoDate} className="flex items-center justify-between gap-3">
+                <span className={`text-sm ${cancelled ? "line-through text-muted-foreground" : ""}`}>
+                  {format(date, "EEE, MMM d, yyyy")}{timeStr}
+                </span>
+                {cancelled ? (
+                  <span className="text-xs text-muted-foreground shrink-0">Cancelled</span>
+                ) : canManageOccurrences ? (
+                  <button
+                    onClick={() => handleCancelOccurrence(isoDate)}
+                    disabled={cancellingDate === isoDate}
+                    className="text-xs text-muted-foreground hover:text-destructive border border-border rounded-md px-2 py-0.5 shrink-0 transition-colors"
+                  >
+                    {cancellingDate === isoDate ? "…" : "Cancel"}
+                  </button>
+                ) : null}
+              </div>
+            );
+          })}
+        </section>
+      )}
 
       {/* Attendees panel — owners/admins only */}
       {!editing && (isOwner || isAdmin) && (

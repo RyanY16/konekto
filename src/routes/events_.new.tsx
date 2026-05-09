@@ -1,9 +1,7 @@
-"use client";
-
-import { useState, useRef, type FormEvent } from "react";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { useState, type FormEvent } from "react";
+import { Globe, Ticket, MapPin, ExternalLink, CalendarIcon, CalendarPlus } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Plus, Globe, Ticket, MapPin, ExternalLink, CalendarIcon, CalendarPlus } from "lucide-react";
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -12,12 +10,12 @@ import TagPicker from "@/components/TagPicker";
 import { CIRCLE_TAG_GROUPS } from "@/data/tags";
 import EventCircleCollabPicker from "@/components/EventCircleCollabPicker";
 import { socialLinksFromForm } from "@/lib/social-links";
-import { addEvent, setEventCircleCollaborations } from "@/data/backend";
-import { useRouter } from "@tanstack/react-router";
+import { addEvent, setEventCircleCollaborations, getEventHandle } from "@/data/backend";
 import { useAuth } from "@/components/AuthProvider";
 import { LANGUAGES } from "@/data/profile-options";
 import { format } from "date-fns";
 import type { DateRange } from "react-day-picker";
+import { PageHeader } from "@/components/PageHeader";
 
 const EVENT_CATEGORIES = ["Social", "Career", "Hackathon", "Networking"] as const;
 
@@ -37,6 +35,8 @@ for (let h = 0; h < 24; h++) {
   }
 }
 
+const DAY_NAMES = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+
 function parseTimeStr(t: string): { h: number; m: number } {
   const match = t.match(/^(\d+):(\d+)\s*(AM|PM)$/i);
   if (!match) return { h: 19, m: 0 };
@@ -48,12 +48,7 @@ function parseTimeStr(t: string): { h: number; m: number } {
 }
 
 function buildStartDatetime(date: Date, timeStr: string): string {
-  const match = timeStr.match(/^(\d+):(\d+)\s*(AM|PM)$/i);
-  if (!match) return date.toISOString();
-  let h = parseInt(match[1]);
-  const m = parseInt(match[2]);
-  if (match[3].toUpperCase() === "PM" && h !== 12) h += 12;
-  if (match[3].toUpperCase() === "AM" && h === 12) h = 0;
+  const { h, m } = parseTimeStr(timeStr);
   const d = new Date(date);
   d.setHours(h, m, 0, 0);
   return d.toISOString();
@@ -63,8 +58,7 @@ function formatDateRange(range: DateRange | undefined, startTime: string, endTim
   if (!range?.from) return "";
   const from = format(range.from, "EEE, MMM d");
   if (isRange && range.to && range.to.getTime() !== range.from.getTime()) {
-    const to = format(range.to, "MMM d");
-    return `${from}–${to} · ${startTime} – ${endTime}`;
+    return `${from}–${format(range.to, "MMM d")} · ${startTime} – ${endTime}`;
   }
   return `${from} · ${startTime} – ${endTime}`;
 }
@@ -73,10 +67,13 @@ function mapsUrl(location: string) {
   return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(location)}`;
 }
 
-export default function AddEventDialog() {
-  const router = useRouter();
+export const Route = createFileRoute("/events_/new")({
+  component: NewEventPage,
+});
+
+function NewEventPage() {
+  const navigate = useNavigate();
   const { user } = useAuth();
-  const [open, setOpen] = useState(false);
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
@@ -94,26 +91,14 @@ export default function AddEventDialog() {
   const [endTime, setEndTime] = useState("9:00 PM");
   const [multiDay, setMultiDay] = useState(false);
   const [datePickerOpen, setDatePickerOpen] = useState(false);
-  const formRef = useRef<HTMLFormElement>(null);
 
-  function reset() {
-    setSaving(false);
-    setSelectedTags([]);
-    setSelectedCircleIds([]);
-    setInvitedCircleIds([]);
-    setCategory(EVENT_CATEGORIES[0]);
-    setLocation("");
-    setPrimaryLanguage("");
-    setOnline(false);
-    setApprovalRequired(false);
-    setIsWeekly(false);
-    setRecurringDay(0);
-    setDateRange(undefined);
-    setStartTime("7:00 PM");
-    setEndTime("9:00 PM");
-    setMultiDay(false);
-    setError("");
-    formRef.current?.reset();
+  if (!user) {
+    return (
+      <div className="text-center py-16">
+        <p className="text-muted-foreground mb-4">You need to be signed in to add an event.</p>
+        <Link to="/login" className="text-sm font-semibold text-primary hover:underline">Sign in</Link>
+      </div>
+    );
   }
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
@@ -129,9 +114,7 @@ export default function AddEventDialog() {
       let startDateIso: string | undefined;
 
       if (isWeekly) {
-        const DAY_NAMES = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
         dateStr = `Every ${DAY_NAMES[recurringDay]} · ${startTime} – ${endTime}`;
-        // build next occurrence of that weekday at startTime
         const { h, m } = parseTimeStr(startTime);
         const d = new Date();
         const daysUntil = (recurringDay - d.getDay() + 7) % 7;
@@ -160,15 +143,16 @@ export default function AddEventDialog() {
         cost: String(form.get("cost") ?? "").trim() || undefined,
         primaryLanguage: primaryLanguage || undefined,
         socialLinks: socialLinksFromForm(form),
-        ownerId: user?.id,
+        ownerId: user.id,
         circleIds: selectedCircleIds,
         online,
         approvalRequired,
         startDate: startDateIso,
         recurrence: isWeekly ? "weekly" : undefined,
+        howToJoin: String(form.get("howToJoin") ?? "").trim() || undefined,
       } as any);
 
-      if (user && (selectedCircleIds.length > 0 || invitedCircleIds.length > 0)) {
+      if (selectedCircleIds.length > 0 || invitedCircleIds.length > 0) {
         await setEventCircleCollaborations({
           eventId,
           eventTitle: title,
@@ -179,12 +163,10 @@ export default function AddEventDialog() {
         });
       }
 
-      setOpen(false);
-      reset();
-      router.invalidate();
+      const handle = getEventHandle({ id: eventId, title });
+      await navigate({ to: "/events/$eventHandle", params: { eventHandle: handle } });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not add event.");
-    } finally {
       setSaving(false);
     }
   };
@@ -196,18 +178,14 @@ export default function AddEventDialog() {
   const opt = <span className="font-normal text-muted-foreground/60 ml-1">(optional)</span>;
 
   return (
-    <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) reset(); }}>
-      <DialogTrigger asChild>
-        <Button size="sm" className="rounded-full gap-1.5">
-          <Plus className="h-4 w-4" /> Add event
-        </Button>
-      </DialogTrigger>
-      <DialogContent className="max-h-[90vh] overflow-y-auto" aria-describedby={undefined}>
-        <DialogHeader>
-          <DialogTitle>Add event</DialogTitle>
-        </DialogHeader>
+    <div>
+      <Link to="/events" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground mb-4">
+        ← Back to events
+      </Link>
+      <PageHeader eyebrow="Events" title="Add an event" />
 
-        <form ref={formRef} onSubmit={handleSubmit} className="space-y-5">
+      <div className="max-w-2xl">
+        <form onSubmit={handleSubmit} className="space-y-5">
           {/* Title */}
           <div className={field}>
             <label className={lbl}>Title {req}</label>
@@ -223,17 +201,31 @@ export default function AddEventDialog() {
           {/* Category */}
           <div className={field}>
             <label className={lbl}>Category {req}</label>
-            <select
-              name="category"
-              className={sel}
-              required
-              value={category}
-              onChange={(e) => setCategory(e.target.value)}
-            >
+            <select name="category" className={sel} required value={category} onChange={(e) => setCategory(e.target.value)}>
               {EVENT_CATEGORIES.map((c) => (
                 <option key={c} value={c}>{CATEGORY_EMOJI[c]} {c}</option>
               ))}
             </select>
+          </div>
+
+          {/* Recurrence */}
+          <div className="flex flex-col gap-2">
+            <label className="flex items-center gap-2 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={isWeekly}
+                onChange={(e) => setIsWeekly(e.target.checked)}
+                className="h-4 w-4 rounded border-input accent-primary"
+              />
+              <span className="text-sm font-medium">Repeats weekly</span>
+            </label>
+            {isWeekly && (
+              <div className="pl-6">
+                <select className={sel} value={recurringDay} onChange={(e) => setRecurringDay(Number(e.target.value))}>
+                  {DAY_NAMES.map((d, i) => <option key={d} value={i}>{d}</option>)}
+                </select>
+              </div>
+            )}
           </div>
 
           {/* Date & Time */}
@@ -242,10 +234,9 @@ export default function AddEventDialog() {
 
             {!isWeekly && (
               <>
-                {/* Multi-day toggle */}
                 <div className="flex items-center gap-2 mb-1">
                   <input
-                    id="add-multiday"
+                    id="new-multiday"
                     type="checkbox"
                     checked={multiDay}
                     onChange={(e) => {
@@ -254,12 +245,9 @@ export default function AddEventDialog() {
                     }}
                     className="h-4 w-4 rounded border-input accent-primary"
                   />
-                  <label htmlFor="add-multiday" className="text-sm font-medium cursor-pointer select-none">
-                    Multi-day event
-                  </label>
+                  <label htmlFor="new-multiday" className="text-sm font-medium cursor-pointer select-none">Multi-day event</label>
                 </div>
 
-                {/* Date picker */}
                 <Popover open={datePickerOpen} onOpenChange={setDatePickerOpen}>
                   <PopoverTrigger asChild>
                     <button
@@ -307,7 +295,6 @@ export default function AddEventDialog() {
               </>
             )}
 
-            {/* Time selects */}
             <div className="flex gap-2 mt-2">
               <div className="flex-1 space-y-1">
                 <span className="text-xs text-muted-foreground">Start Time</span>
@@ -324,61 +311,19 @@ export default function AddEventDialog() {
             </div>
           </div>
 
-          {/* Online + approval checkboxes */}
+          {/* Online + approval */}
           <div className="flex flex-wrap gap-x-6 gap-y-2">
             <div className="flex items-center gap-2">
-              <input
-                id="add-online"
-                type="checkbox"
-                checked={online}
-                onChange={(e) => setOnline(e.target.checked)}
-                className="h-4 w-4 rounded border-input accent-primary"
-              />
-              <label htmlFor="add-online" className="text-sm font-medium cursor-pointer select-none">
-                Online event
-              </label>
+              <input id="new-online" type="checkbox" checked={online} onChange={(e) => setOnline(e.target.checked)} className="h-4 w-4 rounded border-input accent-primary" />
+              <label htmlFor="new-online" className="text-sm font-medium cursor-pointer select-none">Online event</label>
             </div>
             <div className="flex items-center gap-2">
-              <input
-                id="add-approval"
-                type="checkbox"
-                checked={approvalRequired}
-                onChange={(e) => setApprovalRequired(e.target.checked)}
-                className="h-4 w-4 rounded border-input accent-primary"
-              />
-              <label htmlFor="add-approval" className="text-sm font-medium cursor-pointer select-none">
-                Approval required
-              </label>
+              <input id="new-approval" type="checkbox" checked={approvalRequired} onChange={(e) => setApprovalRequired(e.target.checked)} className="h-4 w-4 rounded border-input accent-primary" />
+              <label htmlFor="new-approval" className="text-sm font-medium cursor-pointer select-none">Approval required</label>
             </div>
           </div>
 
-          {/* Recurrence */}
-          <div className="flex flex-col gap-2">
-            <label className="flex items-center gap-2 cursor-pointer select-none">
-              <input
-                type="checkbox"
-                checked={isWeekly}
-                onChange={(e) => setIsWeekly(e.target.checked)}
-                className="h-4 w-4 rounded border-input accent-primary"
-              />
-              <span className="text-sm font-medium">Repeats weekly</span>
-            </label>
-            {isWeekly && (
-              <div className="flex gap-2 pl-6">
-                <select
-                  className={sel}
-                  value={recurringDay}
-                  onChange={(e) => setRecurringDay(Number(e.target.value))}
-                >
-                  {["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"].map((d, i) => (
-                    <option key={d} value={i}>{d}</option>
-                  ))}
-                </select>
-              </div>
-            )}
-          </div>
-
-          {/* Location with maps preview */}
+          {/* Location */}
           <div className={field}>
             <label className={lbl}>{online ? "Platform / link" : "Location"} {req}</label>
             <div className="relative">
@@ -392,12 +337,7 @@ export default function AddEventDialog() {
               />
             </div>
             {!online && location.trim() && (
-              <a
-                href={mapsUrl(location)}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-1 text-xs text-primary hover:underline mt-0.5"
-              >
+              <a href={mapsUrl(location)} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-xs text-primary hover:underline mt-0.5">
                 <ExternalLink className="h-3 w-3" /> Preview on Google Maps
               </a>
             )}
@@ -412,15 +352,9 @@ export default function AddEventDialog() {
           {/* Language */}
           <div className={field}>
             <label className={lbl}>Primary language {opt}</label>
-            <select
-              className={sel}
-              value={primaryLanguage}
-              onChange={(e) => setPrimaryLanguage(e.target.value)}
-            >
+            <select className={sel} value={primaryLanguage} onChange={(e) => setPrimaryLanguage(e.target.value)}>
               <option value="">— Select language —</option>
-              {LANGUAGES.map((l) => (
-                <option key={l.name} value={l.name}>{l.flag} {l.name}</option>
-              ))}
+              {LANGUAGES.map((l) => <option key={l.name} value={l.name}>{l.flag} {l.name}</option>)}
             </select>
           </div>
 
@@ -431,17 +365,21 @@ export default function AddEventDialog() {
           </div>
 
           {/* Circles */}
-          {user && (
-            <div className={field}>
-              <EventCircleCollabPicker
-                myCircleIds={selectedCircleIds}
-                invitedCircleIds={invitedCircleIds}
-                onMyCircleIdsChange={setSelectedCircleIds}
-                onInvitedCircleIdsChange={setInvitedCircleIds}
-                userId={user.id}
-              />
-            </div>
-          )}
+          <div className={field}>
+            <EventCircleCollabPicker
+              myCircleIds={selectedCircleIds}
+              invitedCircleIds={invitedCircleIds}
+              onMyCircleIdsChange={setSelectedCircleIds}
+              onInvitedCircleIdsChange={setInvitedCircleIds}
+              userId={user.id}
+            />
+          </div>
+
+          {/* How to join */}
+          <div className={field}>
+            <label className={lbl}>How to join {opt}</label>
+            <Textarea name="howToJoin" placeholder="Describe how to register or attend — e.g. RSVP via the link below, walk-ins welcome, tickets at the door…" rows={3} />
+          </div>
 
           {/* Event links */}
           <div className={field}>
@@ -464,13 +402,16 @@ export default function AddEventDialog() {
 
           {error && <p className="text-sm text-destructive">{error}</p>}
 
-          <DialogFooter>
-            <Button type="submit" disabled={saving} className="w-full sm:w-auto">
+          <div className="flex gap-3 pt-2">
+            <Button type="submit" disabled={saving}>
               {saving ? "Adding…" : "Add event"}
             </Button>
-          </DialogFooter>
+            <Button type="button" variant="outline" onClick={() => navigate({ to: "/events" })}>
+              Cancel
+            </Button>
+          </div>
         </form>
-      </DialogContent>
-    </Dialog>
+      </div>
+    </div>
   );
 }
