@@ -198,7 +198,7 @@ function Dashboard() {
         </div>
       </Section>
 
-      <Section title="Trending deals" icon={<TrendingUp className="h-5 w-5" />} link="/deals">
+      <Section title="Trending deals" icon={<TrendingUp className="h-5 w-5" />} link="/discounts">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           {trendingDeals.map((d) => (
             <article key={d.id} className="card-base card-hover p-5 flex gap-4">
@@ -206,8 +206,8 @@ function Dashboard() {
               <div className="flex-1 min-w-0">
                 <p className="text-xs text-muted-foreground">{d.brand}</p>
                 <h3 className="font-semibold truncate">{d.title}</h3>
-                <p className="mt-1 text-xs text-muted-foreground">{d.area}</p>
-                <span className="chip chip-primary mt-2">{d.discount}</span>
+                {d.newPrice && <p className="mt-1 text-sm font-semibold text-primary">{d.newPrice}</p>}
+                {d.studentOnly && <span className="chip mt-2">🎓 Student only</span>}
               </div>
             </article>
           ))}

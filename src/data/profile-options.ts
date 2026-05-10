@@ -28,6 +28,15 @@ export { TAG_GROUPS as INTEREST_GROUPS } from "@/data/tags";
 import { TAGS } from "@/data/tags";
 export const INTERESTS = TAGS;
 
+export const DEAL_CATEGORIES = [
+  "Food & Drink",
+  "Fashion",
+  "Tech",
+  "Entertainment",
+  "Transport",
+  "Lifestyle",
+] as const;
+
 export const CIRCLE_CATEGORIES = [
   "Technology",
   "Business / Career",

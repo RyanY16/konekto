@@ -65,10 +65,16 @@ export type Deal = {
   id: string;
   brand: string;
   title: string;
-  category: "Food" | "Fashion" | "Lifestyle";
-  discount: string;
-  area: string;
+  category: "Food & Drink" | "Fashion" | "Tech" | "Entertainment" | "Transport" | "Lifestyle";
+  originalPrice?: string;
+  newPrice?: string;
+  saleEnd?: string;
+  imageUrl?: string;
+  description?: string;
+  studentOnly: boolean;
+  mode: "Online" | "In-Person" | "Both";
   emoji: string;
+  socialLinks?: import("./mock").SocialLinks;
 };
 
 export type Job = {
@@ -117,12 +123,12 @@ export const events: EventItem[] = [
 ];
 
 export const deals: Deal[] = [
-  { id: "d1", brand: "Ichiran Ramen", title: "20% off with student ID", category: "Food", discount: "20% OFF", area: "Shibuya · Shinjuku", emoji: "🍜" },
-  { id: "d2", brand: "Uniqlo", title: "Student day — 10% off all items", category: "Fashion", discount: "10% OFF", area: "Nationwide", emoji: "👕" },
-  { id: "d3", brand: "Apple Education", title: "Up to ¥24,000 off MacBook", category: "Lifestyle", discount: "¥24,000 OFF", area: "Online", emoji: "💻" },
-  { id: "d4", brand: "Starbucks", title: "Free size upgrade for students", category: "Food", discount: "FREE UPGRADE", area: "Nationwide", emoji: "☕" },
-  { id: "d5", brand: "Spotify Premium", title: "¥480/month student plan", category: "Lifestyle", discount: "50% OFF", area: "Online", emoji: "🎧" },
-  { id: "d6", brand: "Beams", title: "15% off select items", category: "Fashion", discount: "15% OFF", area: "Harajuku", emoji: "🧥" },
+  { id: "d1", brand: "Ichiran Ramen", title: "20% off with student ID", category: "Food & Drink", originalPrice: "¥1,200", newPrice: "¥960", studentOnly: true, mode: "In-Person", description: "Show your student ID at any Ichiran location for 20% off your meal.", emoji: "🍜" },
+  { id: "d2", brand: "Uniqlo", title: "Student day — 10% off all items", category: "Fashion", studentOnly: true, mode: "Both", description: "Every Tuesday is student day at Uniqlo. Present a valid student card at the register.", emoji: "👕" },
+  { id: "d3", brand: "Apple Education", title: "Up to ¥24,000 off MacBook", category: "Tech", originalPrice: "¥198,800", newPrice: "¥174,800", studentOnly: true, mode: "Online", description: "Apple's education store offers exclusive pricing on Macs, iPads, and accessories for enrolled students.", emoji: "💻" },
+  { id: "d4", brand: "Starbucks", title: "Free size upgrade for students", category: "Food & Drink", studentOnly: true, mode: "In-Person", description: "Get a free size upgrade on any handcrafted beverage with a student ID.", emoji: "☕" },
+  { id: "d5", brand: "Spotify Premium", title: "¥480/month student plan", category: "Entertainment", originalPrice: "¥980/month", newPrice: "¥480/month", studentOnly: true, mode: "Online", description: "Half-price Spotify Premium for verified students. Renew annually with a valid student email.", emoji: "🎧" },
+  { id: "d6", brand: "Beams", title: "15% off select items", category: "Fashion", studentOnly: false, mode: "In-Person", description: "15% off select seasonal items at all Beams stores. No student ID required — just show the coupon.", emoji: "🧥" },
 ];
 
 export const jobs: Job[] = [

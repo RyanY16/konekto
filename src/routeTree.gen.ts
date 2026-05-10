@@ -16,6 +16,7 @@ import { Route as LoginRouteImport } from './routes/login'
 import { Route as JapanLifeRouteImport } from './routes/japan-life'
 import { Route as FeaturesRouteImport } from './routes/features'
 import { Route as EventsRouteImport } from './routes/events'
+import { Route as DiscountsRouteImport } from './routes/discounts'
 import { Route as DealsRouteImport } from './routes/deals'
 import { Route as CirclesRouteImport } from './routes/circles'
 import { Route as CareersRouteImport } from './routes/careers'
@@ -26,6 +27,8 @@ import { Route as UsersUsernameRouteImport } from './routes/users_.$username'
 import { Route as JapanLifeGuideHandleRouteImport } from './routes/japan-life_.$guideHandle'
 import { Route as EventsNewRouteImport } from './routes/events_.new'
 import { Route as EventsEventHandleRouteImport } from './routes/events_.$eventHandle'
+import { Route as DiscountsNewRouteImport } from './routes/discounts_.new'
+import { Route as DiscountsDealHandleRouteImport } from './routes/discounts_.$dealHandle'
 import { Route as DealsDealHandleRouteImport } from './routes/deals_.$dealHandle'
 import { Route as CirclesNewRouteImport } from './routes/circles_.new'
 import { Route as CirclesCircleHandleRouteImport } from './routes/circles_.$circleHandle'
@@ -64,6 +67,11 @@ const FeaturesRoute = FeaturesRouteImport.update({
 const EventsRoute = EventsRouteImport.update({
   id: '/events',
   path: '/events',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DiscountsRoute = DiscountsRouteImport.update({
+  id: '/discounts',
+  path: '/discounts',
   getParentRoute: () => rootRouteImport,
 } as any)
 const DealsRoute = DealsRouteImport.update({
@@ -116,6 +124,16 @@ const EventsEventHandleRoute = EventsEventHandleRouteImport.update({
   path: '/events/$eventHandle',
   getParentRoute: () => rootRouteImport,
 } as any)
+const DiscountsNewRoute = DiscountsNewRouteImport.update({
+  id: '/discounts_/new',
+  path: '/discounts/new',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DiscountsDealHandleRoute = DiscountsDealHandleRouteImport.update({
+  id: '/discounts_/$dealHandle',
+  path: '/discounts/$dealHandle',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const DealsDealHandleRoute = DealsDealHandleRouteImport.update({
   id: '/deals_/$dealHandle',
   path: '/deals/$dealHandle',
@@ -144,6 +162,7 @@ export interface FileRoutesByFullPath {
   '/careers': typeof CareersRoute
   '/circles': typeof CirclesRoute
   '/deals': typeof DealsRoute
+  '/discounts': typeof DiscountsRoute
   '/events': typeof EventsRoute
   '/features': typeof FeaturesRoute
   '/japan-life': typeof JapanLifeRoute
@@ -155,6 +174,8 @@ export interface FileRoutesByFullPath {
   '/circles/$circleHandle': typeof CirclesCircleHandleRoute
   '/circles/new': typeof CirclesNewRoute
   '/deals/$dealHandle': typeof DealsDealHandleRoute
+  '/discounts/$dealHandle': typeof DiscountsDealHandleRoute
+  '/discounts/new': typeof DiscountsNewRoute
   '/events/$eventHandle': typeof EventsEventHandleRoute
   '/events/new': typeof EventsNewRoute
   '/japan-life/$guideHandle': typeof JapanLifeGuideHandleRoute
@@ -167,6 +188,7 @@ export interface FileRoutesByTo {
   '/careers': typeof CareersRoute
   '/circles': typeof CirclesRoute
   '/deals': typeof DealsRoute
+  '/discounts': typeof DiscountsRoute
   '/events': typeof EventsRoute
   '/features': typeof FeaturesRoute
   '/japan-life': typeof JapanLifeRoute
@@ -178,6 +200,8 @@ export interface FileRoutesByTo {
   '/circles/$circleHandle': typeof CirclesCircleHandleRoute
   '/circles/new': typeof CirclesNewRoute
   '/deals/$dealHandle': typeof DealsDealHandleRoute
+  '/discounts/$dealHandle': typeof DiscountsDealHandleRoute
+  '/discounts/new': typeof DiscountsNewRoute
   '/events/$eventHandle': typeof EventsEventHandleRoute
   '/events/new': typeof EventsNewRoute
   '/japan-life/$guideHandle': typeof JapanLifeGuideHandleRoute
@@ -191,6 +215,7 @@ export interface FileRoutesById {
   '/careers': typeof CareersRoute
   '/circles': typeof CirclesRoute
   '/deals': typeof DealsRoute
+  '/discounts': typeof DiscountsRoute
   '/events': typeof EventsRoute
   '/features': typeof FeaturesRoute
   '/japan-life': typeof JapanLifeRoute
@@ -202,6 +227,8 @@ export interface FileRoutesById {
   '/circles_/$circleHandle': typeof CirclesCircleHandleRoute
   '/circles_/new': typeof CirclesNewRoute
   '/deals_/$dealHandle': typeof DealsDealHandleRoute
+  '/discounts_/$dealHandle': typeof DiscountsDealHandleRoute
+  '/discounts_/new': typeof DiscountsNewRoute
   '/events_/$eventHandle': typeof EventsEventHandleRoute
   '/events_/new': typeof EventsNewRoute
   '/japan-life_/$guideHandle': typeof JapanLifeGuideHandleRoute
@@ -216,6 +243,7 @@ export interface FileRouteTypes {
     | '/careers'
     | '/circles'
     | '/deals'
+    | '/discounts'
     | '/events'
     | '/features'
     | '/japan-life'
@@ -227,6 +255,8 @@ export interface FileRouteTypes {
     | '/circles/$circleHandle'
     | '/circles/new'
     | '/deals/$dealHandle'
+    | '/discounts/$dealHandle'
+    | '/discounts/new'
     | '/events/$eventHandle'
     | '/events/new'
     | '/japan-life/$guideHandle'
@@ -239,6 +269,7 @@ export interface FileRouteTypes {
     | '/careers'
     | '/circles'
     | '/deals'
+    | '/discounts'
     | '/events'
     | '/features'
     | '/japan-life'
@@ -250,6 +281,8 @@ export interface FileRouteTypes {
     | '/circles/$circleHandle'
     | '/circles/new'
     | '/deals/$dealHandle'
+    | '/discounts/$dealHandle'
+    | '/discounts/new'
     | '/events/$eventHandle'
     | '/events/new'
     | '/japan-life/$guideHandle'
@@ -262,6 +295,7 @@ export interface FileRouteTypes {
     | '/careers'
     | '/circles'
     | '/deals'
+    | '/discounts'
     | '/events'
     | '/features'
     | '/japan-life'
@@ -273,6 +307,8 @@ export interface FileRouteTypes {
     | '/circles_/$circleHandle'
     | '/circles_/new'
     | '/deals_/$dealHandle'
+    | '/discounts_/$dealHandle'
+    | '/discounts_/new'
     | '/events_/$eventHandle'
     | '/events_/new'
     | '/japan-life_/$guideHandle'
@@ -286,6 +322,7 @@ export interface RootRouteChildren {
   CareersRoute: typeof CareersRoute
   CirclesRoute: typeof CirclesRoute
   DealsRoute: typeof DealsRoute
+  DiscountsRoute: typeof DiscountsRoute
   EventsRoute: typeof EventsRoute
   FeaturesRoute: typeof FeaturesRoute
   JapanLifeRoute: typeof JapanLifeRoute
@@ -297,6 +334,8 @@ export interface RootRouteChildren {
   CirclesCircleHandleRoute: typeof CirclesCircleHandleRoute
   CirclesNewRoute: typeof CirclesNewRoute
   DealsDealHandleRoute: typeof DealsDealHandleRoute
+  DiscountsDealHandleRoute: typeof DiscountsDealHandleRoute
+  DiscountsNewRoute: typeof DiscountsNewRoute
   EventsEventHandleRoute: typeof EventsEventHandleRoute
   EventsNewRoute: typeof EventsNewRoute
   JapanLifeGuideHandleRoute: typeof JapanLifeGuideHandleRoute
@@ -352,6 +391,13 @@ declare module '@tanstack/react-router' {
       path: '/events'
       fullPath: '/events'
       preLoaderRoute: typeof EventsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/discounts': {
+      id: '/discounts'
+      path: '/discounts'
+      fullPath: '/discounts'
+      preLoaderRoute: typeof DiscountsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/deals': {
@@ -424,6 +470,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof EventsEventHandleRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/discounts_/new': {
+      id: '/discounts_/new'
+      path: '/discounts/new'
+      fullPath: '/discounts/new'
+      preLoaderRoute: typeof DiscountsNewRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/discounts_/$dealHandle': {
+      id: '/discounts_/$dealHandle'
+      path: '/discounts/$dealHandle'
+      fullPath: '/discounts/$dealHandle'
+      preLoaderRoute: typeof DiscountsDealHandleRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/deals_/$dealHandle': {
       id: '/deals_/$dealHandle'
       path: '/deals/$dealHandle'
@@ -462,6 +522,7 @@ const rootRouteChildren: RootRouteChildren = {
   CareersRoute: CareersRoute,
   CirclesRoute: CirclesRoute,
   DealsRoute: DealsRoute,
+  DiscountsRoute: DiscountsRoute,
   EventsRoute: EventsRoute,
   FeaturesRoute: FeaturesRoute,
   JapanLifeRoute: JapanLifeRoute,
@@ -473,6 +534,8 @@ const rootRouteChildren: RootRouteChildren = {
   CirclesCircleHandleRoute: CirclesCircleHandleRoute,
   CirclesNewRoute: CirclesNewRoute,
   DealsDealHandleRoute: DealsDealHandleRoute,
+  DiscountsDealHandleRoute: DiscountsDealHandleRoute,
+  DiscountsNewRoute: DiscountsNewRoute,
   EventsEventHandleRoute: EventsEventHandleRoute,
   EventsNewRoute: EventsNewRoute,
   JapanLifeGuideHandleRoute: JapanLifeGuideHandleRoute,

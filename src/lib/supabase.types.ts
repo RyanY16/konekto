@@ -129,9 +129,14 @@ export type Database = {
           id: string;
           brand: string;
           title: string;
-          category: "Food" | "Fashion" | "Lifestyle";
-          discount: string;
-          area: string;
+          category: "Food & Drink" | "Fashion" | "Tech" | "Entertainment" | "Transport" | "Lifestyle";
+          original_price: string | null;
+          new_price: string | null;
+          sale_end: string | null;
+          image_url: string | null;
+          description: string | null;
+          student_only: boolean;
+          mode: "Online" | "In-Person" | "Both";
           emoji: string;
           social_links: Json;
           created_at: string;

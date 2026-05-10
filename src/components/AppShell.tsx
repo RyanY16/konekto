@@ -1,5 +1,5 @@
 import { Link, Outlet, useRouterState, useNavigate } from "@tanstack/react-router";
-import { Home, Users, User, Calendar } from "lucide-react";
+import { Home, Users, User, Calendar, Tag } from "lucide-react";
 import type { ComponentType } from "react";
 import { useEffect } from "react";
 import { SettingsPopover } from "./SettingsPopover";
@@ -14,6 +14,7 @@ const nav: NavItem[] = [
   { to: "/", label: "Home", icon: Home },
   { to: "/circles", label: "Circles", icon: Users },
   { to: "/events", label: "Events", icon: Calendar },
+  { to: "/discounts", label: "Discounts", icon: Tag },
   { to: "/profile", label: "Profile", icon: User },
 ];
 

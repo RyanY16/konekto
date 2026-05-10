@@ -3,9 +3,9 @@ import { useState, useEffect } from "react";
 const SAVES_KEY = "konekto_saves";
 const SAVES_EVENT = "konekto_saves_change";
 
-export type SavedItems = { circleIds: string[]; eventIds: string[] };
+export type SavedItems = { circleIds: string[]; eventIds: string[]; dealIds: string[] };
 
-const emptySaves = (): SavedItems => ({ circleIds: [], eventIds: [] });
+const emptySaves = (): SavedItems => ({ circleIds: [], eventIds: [], dealIds: [] });
 
 function normalizeSaves(value: unknown): SavedItems {
   if (!value || typeof value !== "object") return emptySaves();
@@ -13,6 +13,7 @@ function normalizeSaves(value: unknown): SavedItems {
   return {
     circleIds: Array.isArray(saved.circleIds) ? saved.circleIds.filter((id): id is string => typeof id === "string") : [],
     eventIds: Array.isArray(saved.eventIds) ? saved.eventIds.filter((id): id is string => typeof id === "string") : [],
+    dealIds: Array.isArray(saved.dealIds) ? saved.dealIds.filter((id): id is string => typeof id === "string") : [],
   };
 }
 
@@ -51,17 +52,17 @@ export function useSaves(userId?: string | null) {
     return () => window.removeEventListener(SAVES_EVENT, handler);
   }, [userId]);
 
-  function toggle(type: "circle" | "event", id: string) {
+  function toggle(type: "circle" | "event" | "deal", id: string) {
     if (!userId) return;
     const current = loadSaves(userId);
-    const key = type === "circle" ? "circleIds" : "eventIds";
+    const key = type === "circle" ? "circleIds" : type === "event" ? "eventIds" : "dealIds";
     const arr = current[key];
     const next = arr.includes(id) ? arr.filter((x) => x !== id) : [...arr, id];
     writeSaves(userId, { ...current, [key]: next });
   }
 
-  function isSaved(type: "circle" | "event", id: string) {
-    const key = type === "circle" ? "circleIds" : "eventIds";
+  function isSaved(type: "circle" | "event" | "deal", id: string) {
+    const key = type === "circle" ? "circleIds" : type === "event" ? "eventIds" : "dealIds";
     return saves[key].includes(id);
   }
 

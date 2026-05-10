@@ -179,8 +179,13 @@ function mapDeal(row: Row<"deals">): Deal {
     brand: row.brand,
     title: row.title,
     category: row.category,
-    discount: row.discount,
-    area: row.area,
+    originalPrice: row.original_price ?? undefined,
+    newPrice: row.new_price ?? undefined,
+    saleEnd: row.sale_end ?? undefined,
+    imageUrl: row.image_url ?? undefined,
+    description: row.description ?? undefined,
+    studentOnly: row.student_only ?? true,
+    mode: row.mode ?? "In-Person",
     emoji: row.emoji,
     socialLinks: normalizeSocialLinks(row.social_links),
   };
@@ -709,13 +714,38 @@ export async function addDeal(input: Omit<Deal, "id">) {
       brand: input.brand,
       title: input.title,
       category: input.category,
-      discount: input.discount,
-      area: input.area,
+      original_price: input.originalPrice ?? null,
+      new_price: input.newPrice ?? null,
+      sale_end: input.saleEnd ?? null,
+      image_url: input.imageUrl ?? null,
+      description: input.description ?? null,
+      student_only: input.studentOnly,
+      mode: input.mode,
       emoji: input.emoji,
       social_links: input.socialLinks ?? {},
-    },
+    } as any,
     mapDeal,
   );
+}
+
+export async function updateDeal(id: string, input: Partial<Omit<Deal, "id">>) {
+  const values: Record<string, unknown> = {};
+  if (input.brand !== undefined) values.brand = input.brand;
+  if (input.title !== undefined) values.title = input.title;
+  if (input.category !== undefined) values.category = input.category;
+  if (input.originalPrice !== undefined) values.original_price = input.originalPrice || null;
+  if (input.newPrice !== undefined) values.new_price = input.newPrice || null;
+  if (input.saleEnd !== undefined) values.sale_end = input.saleEnd || null;
+  if (input.imageUrl !== undefined) values.image_url = input.imageUrl || null;
+  if (input.description !== undefined) values.description = input.description || null;
+  if (input.studentOnly !== undefined) values.student_only = input.studentOnly;
+  if (input.mode !== undefined) values.mode = input.mode;
+  if (input.emoji !== undefined) values.emoji = input.emoji;
+  if (input.socialLinks !== undefined) values.social_links = input.socialLinks;
+  const client = await getClient();
+  const { data, error } = await (client.from("deals").update(values).eq("id", id).select().single() as any);
+  if (error) throw new Error(error.message);
+  return mapDeal(data);
 }
 
 export async function deleteDeal(id: string) {
@@ -1144,6 +1174,17 @@ export async function uploadCircleIcon(circleId: string, file: File): Promise<st
   const { error } = await client.storage.from("circle-icons").upload(path, file, { upsert: true });
   if (error) throw new Error(error.message);
   const { data } = client.storage.from("circle-icons").getPublicUrl(path);
+  return data.publicUrl;
+}
+
+export async function uploadDealImage(dealId: string, file: File): Promise<string> {
+  const client = assertSupabase();
+  if (file.size > 5_000_000) throw new Error("Image must be under 5 MB.");
+  const ext = file.name.split(".").pop() ?? "jpg";
+  const path = `${dealId}/image.${ext}`;
+  const { error } = await client.storage.from("deal-images").upload(path, file, { upsert: true });
+  if (error) throw new Error(error.message);
+  const { data } = client.storage.from("deal-images").getPublicUrl(path);
   return data.publicUrl;
 }
 
