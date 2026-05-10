@@ -68,13 +68,16 @@ async function insertSupabase<TTable extends PublicTable, TItem>(
   const client = assertSupabase();
   const { signal, cleanup } = abortAfter();
   try {
+    console.log(`[db] insert ${table}`, values);
     const { data, error } = await (
       client.from(table).insert(values).select("*").maybeSingle() as any
     ).abortSignal(signal) as { data: Row<TTable> | null; error: any };
     if (error) throw new Error(error.message);
     if (!data) throw new Error("Insert succeeded but no row returned — check RLS policies.");
+    console.log(`[db] insert ${table} ✓`, data);
     return mapRow(data as Row<TTable>);
   } catch (err) {
+    console.error(`[db] insert ${table} ✗`, err);
     throwAbort(err);
   } finally {
     cleanup();
@@ -90,6 +93,7 @@ async function updateSupabase<TTable extends PublicTable, TItem>(
   const client = assertSupabase();
   const { signal, cleanup } = abortAfter();
   try {
+    console.log(`[db] update ${table} id=${id}`, values);
     const { data, error } = await (
       client.from(table).update(values).eq("id", id).select("*").maybeSingle() as any
     ).abortSignal(signal) as { data: Row<TTable> | null; error: any };
@@ -99,8 +103,10 @@ async function updateSupabase<TTable extends PublicTable, TItem>(
         `Could not update ${table} record. It may not exist in Supabase, or your Row Level Security policy denied the update.`,
       );
     }
+    console.log(`[db] update ${table} ✓`, data);
     return mapRow(data as Row<TTable>);
   } catch (err) {
+    console.error(`[db] update ${table} ✗`, err);
     throwAbort(err);
   } finally {
     cleanup();
@@ -109,9 +115,10 @@ async function updateSupabase<TTable extends PublicTable, TItem>(
 
 async function deleteSupabase(table: PublicTable, id: string): Promise<void> {
   const client = assertSupabase();
+  console.log(`[db] delete ${table} id=${id}`);
   const { error } = await client.from(table).delete().eq("id", id);
-
-  if (error) throw new Error(error.message);
+  if (error) { console.error(`[db] delete ${table} ✗`, error); throw new Error(error.message); }
+  console.log(`[db] delete ${table} ✓`);
 }
 
 function mapCircle(row: Row<"circles">): Circle {
@@ -186,7 +193,6 @@ function mapDeal(row: Row<"deals">): Deal {
     description: row.description ?? undefined,
     studentOnly: row.student_only ?? true,
     mode: row.mode ?? "In-Person",
-    emoji: row.emoji,
     socialLinks: normalizeSocialLinks(row.social_links),
   };
 }
@@ -226,7 +232,9 @@ function findByHandle<T>(
 }
 
 export function getCircleHandle(circle: Pick<Circle, "id" | "name">) {
-  return toSlug(circle.name) || circle.id;
+  const slug = toSlug(circle.name);
+  const suffix = circle.id.replace(/^circle-/, "").slice(0, 8);
+  return slug ? `${slug}-${suffix}` : circle.id;
 }
 
 export function getEventHandle(event: Pick<EventItem, "id" | "title">) {
@@ -236,7 +244,9 @@ export function getEventHandle(event: Pick<EventItem, "id" | "title">) {
 }
 
 export function getDealHandle(deal: Pick<Deal, "id" | "title">) {
-  return toSlug(deal.title) || deal.id;
+  const slug = toSlug(deal.title);
+  const suffix = deal.id.replace(/^deal-/, "").slice(0, 8);
+  return slug ? `${slug}-${suffix}` : deal.id;
 }
 
 export function getJobHandle(job: Pick<Job, "id" | "company" | "role">) {
@@ -362,8 +372,10 @@ export async function deleteCircle(id: string) {
 
 export async function deleteAllCircles() {
   const client = assertSupabase();
+  console.log("[db] delete all circles");
   const { error } = await (client.from("circles").delete().neq("id", "") as any);
-  if (error) throw new Error(error.message);
+  if (error) { console.error("[db] delete all circles ✗", error); throw new Error(error.message); }
+  console.log("[db] delete all circles ✓");
 }
 
 export async function addEvent(
@@ -702,8 +714,10 @@ export async function deleteEvent(id: string) {
 
 export async function deleteAllEvents() {
   const client = assertSupabase();
+  console.log("[db] delete all events");
   const { error } = await (client.from("events").delete().neq("id", "") as any);
-  if (error) throw new Error(error.message);
+  if (error) { console.error("[db] delete all events ✗", error); throw new Error(error.message); }
+  console.log("[db] delete all events ✓");
 }
 
 export async function addDeal(input: Omit<Deal, "id">) {
@@ -721,7 +735,6 @@ export async function addDeal(input: Omit<Deal, "id">) {
       description: input.description ?? null,
       student_only: input.studentOnly,
       mode: input.mode,
-      emoji: input.emoji,
       social_links: input.socialLinks ?? {},
     } as any,
     mapDeal,
@@ -740,11 +753,12 @@ export async function updateDeal(id: string, input: Partial<Omit<Deal, "id">>) {
   if (input.description !== undefined) values.description = input.description || null;
   if (input.studentOnly !== undefined) values.student_only = input.studentOnly;
   if (input.mode !== undefined) values.mode = input.mode;
-  if (input.emoji !== undefined) values.emoji = input.emoji;
   if (input.socialLinks !== undefined) values.social_links = input.socialLinks;
-  const client = await getClient();
+  const client = assertSupabase();
+  console.log(`[db] update deals id=${id}`, values);
   const { data, error } = await (client.from("deals").update(values).eq("id", id).select().single() as any);
-  if (error) throw new Error(error.message);
+  if (error) { console.error("[db] update deals ✗", error); throw new Error(error.message); }
+  console.log("[db] update deals ✓", data);
   return mapDeal(data);
 }
 
@@ -754,8 +768,10 @@ export async function deleteDeal(id: string) {
 
 export async function deleteAllDeals() {
   const client = assertSupabase();
+  console.log("[db] delete all deals");
   const { error } = await (client.from("deals").delete().neq("id", "") as any);
-  if (error) throw new Error(error.message);
+  if (error) { console.error("[db] delete all deals ✗", error); throw new Error(error.message); }
+  console.log("[db] delete all deals ✓");
 }
 
 export async function addJob(input: Omit<Job, "id">) {
@@ -801,8 +817,10 @@ export async function deleteGuide(id: string) {
 
 export async function deleteAllGuides() {
   const client = assertSupabase();
+  console.log("[db] delete all guides");
   const { error } = await (client.from("guides").delete().neq("id", "") as any);
-  if (error) throw new Error(error.message);
+  if (error) { console.error("[db] delete all guides ✗", error); throw new Error(error.message); }
+  console.log("[db] delete all guides ✓");
 }
 
 export type SpokenLanguage = { language: string; fluency: string };

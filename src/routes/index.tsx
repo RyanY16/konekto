@@ -6,6 +6,7 @@ import {
 import { deals } from "@/data/mock";
 import type { Circle, EventItem } from "@/data/mock";
 import { getCircles, getEvents, getCircleHandle, getEventHandle } from "@/data/backend";
+import { DEAL_CATEGORY_EMOJI } from "@/data/profile-options";
 import { SaveButton } from "@/components/SaveButton";
 import { useEffect, useState } from "react";
 
@@ -202,7 +203,7 @@ function Dashboard() {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           {trendingDeals.map((d) => (
             <article key={d.id} className="card-base card-hover p-5 flex gap-4">
-              <div className="text-4xl">{d.emoji}</div>
+              <div className="text-4xl">{DEAL_CATEGORY_EMOJI[d.category] ?? "🏷️"}</div>
               <div className="flex-1 min-w-0">
                 <p className="text-xs text-muted-foreground">{d.brand}</p>
                 <h3 className="font-semibold truncate">{d.title}</h3>

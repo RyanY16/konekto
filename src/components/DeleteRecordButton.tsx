@@ -1,4 +1,4 @@
-import { useRouter } from "@tanstack/react-router";
+import { useRouter, useNavigate } from "@tanstack/react-router";
 import { Trash2 } from "lucide-react";
 import { useState, type MouseEvent } from "react";
 import {
@@ -18,12 +18,15 @@ export function DeleteRecordButton({
   label,
   onDelete,
   onDeleted,
+  navigateTo,
 }: {
   label: string;
   onDelete: () => Promise<void>;
   onDeleted?: () => void;
+  navigateTo?: string;
 }) {
   const router = useRouter();
+  const navigate = useNavigate();
   const [error, setError] = useState("");
   const [deleting, setDeleting] = useState(false);
 
@@ -36,6 +39,7 @@ export function DeleteRecordButton({
       await onDelete();
       onDeleted?.();
       router.invalidate();
+      if (navigateTo) navigate({ to: navigateTo as any });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not delete this item.");
     } finally {

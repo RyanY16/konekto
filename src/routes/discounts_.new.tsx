@@ -1,13 +1,12 @@
-import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate, useRouter } from "@tanstack/react-router";
 import { useState, useRef, type FormEvent } from "react";
-import { Globe, Instagram, Linkedin, MessageCircle } from "lucide-react";
+import { Globe } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { addDeal, getDealHandle, uploadDealImage } from "@/data/backend";
+import { addDeal, uploadDealImage } from "@/data/backend";
 import { useAuth } from "@/components/AuthProvider";
-import { DEAL_CATEGORIES } from "@/data/profile-options";
-import EmojiPicker from "@/components/EmojiPicker";
+import { DEAL_CATEGORIES, DEAL_CATEGORY_EMOJI } from "@/data/profile-options";
 import { PageHeader } from "@/components/PageHeader";
 import type { Deal } from "@/data/mock";
 
@@ -15,16 +14,70 @@ export const Route = createFileRoute("/discounts_/new")({
   component: NewDiscountPage,
 });
 
+const STORAGE_KEY = "konekto_new_deal_draft";
+
+type FormDraft = {
+  brand: string;
+  title: string;
+  category: Deal["category"];
+  originalPrice: string;
+  newPrice: string;
+  saleEnd: string;
+  description: string;
+  studentOnly: boolean;
+  mode: Deal["mode"];
+  url: string;
+};
+
+const defaultDraft: FormDraft = {
+  brand: "",
+  title: "",
+  category: DEAL_CATEGORIES[0],
+  originalPrice: "",
+  newPrice: "",
+  saleEnd: "",
+  description: "",
+  studentOnly: true,
+  mode: "In-Person",
+  url: "",
+};
+
+function loadDraft(): FormDraft {
+  try {
+    const raw = sessionStorage.getItem(STORAGE_KEY);
+    if (!raw) return defaultDraft;
+    return { ...defaultDraft, ...JSON.parse(raw) };
+  } catch {
+    return defaultDraft;
+  }
+}
+
+function saveDraft(d: FormDraft) {
+  try { sessionStorage.setItem(STORAGE_KEY, JSON.stringify(d)); } catch {}
+}
+
+function clearDraft() {
+  try { sessionStorage.removeItem(STORAGE_KEY); } catch {}
+}
+
 function NewDiscountPage() {
   const navigate = useNavigate();
+  const router = useRouter();
   const { user } = useAuth();
+  const [draft, setDraftState] = useState<FormDraft>(loadDraft);
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
-  const [emoji, setEmoji] = useState("🏷️");
-  const [studentOnly, setStudentOnly] = useState(true);
   const [pendingImage, setPendingImage] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  function setDraft(update: Partial<FormDraft>) {
+    setDraftState((prev) => {
+      const next = { ...prev, ...update };
+      saveDraft(next);
+      return next;
+    });
+  }
 
   if (!user) {
     return (
@@ -43,7 +96,6 @@ function NewDiscountPage() {
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    const form = new FormData(event.currentTarget);
     setSaving(true);
     setError("");
 
@@ -56,29 +108,25 @@ function NewDiscountPage() {
       }
 
       const deal = await addDeal({
-        brand: String(form.get("brand") ?? "").trim(),
-        title: String(form.get("title") ?? "").trim(),
-        category: String(form.get("category") ?? DEAL_CATEGORIES[0]) as Deal["category"],
-        originalPrice: String(form.get("originalPrice") ?? "").trim() || undefined,
-        newPrice: String(form.get("newPrice") ?? "").trim() || undefined,
-        saleEnd: String(form.get("saleEnd") ?? "").trim() || undefined,
-        description: String(form.get("description") ?? "").trim() || undefined,
-        studentOnly,
-        mode: String(form.get("mode") ?? "In-Person") as Deal["mode"],
+        brand: draft.brand.trim(),
+        title: draft.title.trim(),
+        category: draft.category,
+        originalPrice: draft.originalPrice.trim() || undefined,
+        newPrice: draft.newPrice.trim() || undefined,
+        saleEnd: draft.saleEnd.trim() || undefined,
+        description: draft.description.trim() || undefined,
+        studentOnly: draft.studentOnly,
+        mode: draft.mode,
         imageUrl,
-        emoji,
-        socialLinks: {
-          website: String(form.get("website") ?? "").trim() || undefined,
-          instagram: String(form.get("instagram") ?? "").trim() || undefined,
-          linkedin: String(form.get("linkedin") ?? "").trim() || undefined,
-          line: String(form.get("line") ?? "").trim() || undefined,
-        },
+        socialLinks: { website: draft.url.trim() || undefined },
       });
 
-      const handle = getDealHandle(deal ?? { id: dealId, title: String(form.get("title") ?? "") });
-      await navigate({ to: "/discounts/$dealHandle" as any, params: { dealHandle: handle } as any });
+      clearDraft();
+      await router.invalidate();
+      navigate({ to: "/discounts" });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not add deal.");
+    } finally {
       setSaving(false);
     }
   };
@@ -131,26 +179,23 @@ function NewDiscountPage() {
             <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) handleImageFile(f); e.target.value = ""; }} />
           </div>
 
-          {/* Brand + Emoji */}
+          {/* Brand */}
           <div className={field}>
             <label className={lbl}>Brand / store name {req}</label>
-            <div className="flex gap-2">
-              <EmojiPicker value={emoji} onChange={setEmoji} />
-              <Input name="brand" placeholder="e.g. Uniqlo" required className="flex-1" />
-            </div>
+            <Input value={draft.brand} onChange={(e) => setDraft({ brand: e.target.value })} placeholder="e.g. Uniqlo" required />
           </div>
 
           {/* Title */}
           <div className={field}>
             <label className={lbl}>Deal title {req}</label>
-            <Input name="title" placeholder="e.g. 20% off all items with student ID" required />
+            <Input value={draft.title} onChange={(e) => setDraft({ title: e.target.value })} placeholder="e.g. 20% off all items with student ID" required />
           </div>
 
           {/* Category */}
           <div className={field}>
             <label className={lbl}>Category {req}</label>
-            <select name="category" className={sel} required>
-              {DEAL_CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
+            <select className={sel} value={draft.category} onChange={(e) => setDraft({ category: e.target.value as Deal["category"] })} required>
+              {DEAL_CATEGORIES.map((c) => <option key={c} value={c}>{DEAL_CATEGORY_EMOJI[c]} {c}</option>)}
             </select>
           </div>
 
@@ -158,30 +203,30 @@ function NewDiscountPage() {
           <div className="grid grid-cols-2 gap-3">
             <div className={field}>
               <label className={lbl}>Original price {opt}</label>
-              <Input name="originalPrice" placeholder="e.g. ¥1,200" />
+              <Input value={draft.originalPrice} onChange={(e) => setDraft({ originalPrice: e.target.value })} placeholder="e.g. ¥1,200" />
             </div>
             <div className={field}>
               <label className={lbl}>New price {opt}</label>
-              <Input name="newPrice" placeholder="e.g. ¥960" />
+              <Input value={draft.newPrice} onChange={(e) => setDraft({ newPrice: e.target.value })} placeholder="e.g. ¥960" />
             </div>
           </div>
 
           {/* Sale end */}
           <div className={field}>
             <label className={lbl}>Sale ends {opt}</label>
-            <Input name="saleEnd" placeholder="e.g. June 30, 2026" />
+            <Input value={draft.saleEnd} onChange={(e) => setDraft({ saleEnd: e.target.value })} placeholder="e.g. June 30, 2026" />
           </div>
 
           {/* Description */}
           <div className={field}>
             <label className={lbl}>Description {opt}</label>
-            <Textarea name="description" placeholder="How to redeem, any conditions, etc." rows={4} />
+            <Textarea value={draft.description} onChange={(e) => setDraft({ description: e.target.value })} placeholder="How to redeem, any conditions, etc." rows={4} />
           </div>
 
           {/* Mode */}
           <div className={field}>
             <label className={lbl}>Available {req}</label>
-            <select name="mode" className={sel} required>
+            <select className={sel} value={draft.mode} onChange={(e) => setDraft({ mode: e.target.value as Deal["mode"] })} required>
               <option value="In-Person">In-Person</option>
               <option value="Online">Online</option>
               <option value="Both">Both (Online & In-Person)</option>
@@ -190,32 +235,16 @@ function NewDiscountPage() {
 
           {/* Student only */}
           <label className="flex items-center gap-2.5 text-sm cursor-pointer select-none">
-            <input type="checkbox" className="h-4 w-4 rounded" checked={studentOnly} onChange={(e) => setStudentOnly(e.target.checked)} />
+            <input type="checkbox" className="h-4 w-4 rounded" checked={draft.studentOnly} onChange={(e) => setDraft({ studentOnly: e.target.checked })} />
             <span>🎓 Student only</span>
           </label>
 
-          {/* Social links */}
+          {/* URL */}
           <div className={field}>
-            <label className={lbl}>Links {opt}</label>
-            <div className="space-y-2">
-              <div className="relative">
-                <Globe className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
-                <Input name="website" placeholder="https://yoursite.com" className="pl-9" />
-              </div>
-              <div className="relative">
-                <Instagram className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
-                <span className="absolute left-9 top-1/2 -translate-y-1/2 text-sm text-muted-foreground select-none pointer-events-none">@</span>
-                <Input name="instagram" placeholder="handle" className="pl-14" />
-              </div>
-              <div className="relative">
-                <Linkedin className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
-                <Input name="linkedin" placeholder="linkedin.com/in/yourprofile" className="pl-9" />
-              </div>
-              <div className="relative">
-                <MessageCircle className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
-                <span className="absolute left-9 top-1/2 -translate-y-1/2 text-sm text-muted-foreground select-none pointer-events-none">@</span>
-                <Input name="line" placeholder="LINE ID" className="pl-14" />
-              </div>
+            <label className={lbl}>Link {opt}</label>
+            <div className="relative">
+              <Globe className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+              <Input value={draft.url} onChange={(e) => setDraft({ url: e.target.value })} placeholder="https://" className="pl-9" />
             </div>
           </div>
 

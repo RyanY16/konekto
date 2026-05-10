@@ -30,12 +30,31 @@ export const INTERESTS = TAGS;
 
 export const DEAL_CATEGORIES = [
   "Food & Drink",
+  "Technology",
   "Fashion",
-  "Tech",
+  "Travel",
   "Entertainment",
-  "Transport",
+  "Education",
+  "Beauty & Wellness",
   "Lifestyle",
+  "Services",
+  "Careers",
+  "Other",
 ] as const;
+
+export const DEAL_CATEGORY_EMOJI: Record<string, string> = {
+  "Food & Drink":    "🍜",
+  "Technology":      "💻",
+  "Fashion":         "👗",
+  "Travel":          "✈️",
+  "Entertainment":   "🎭",
+  "Education":       "📚",
+  "Beauty & Wellness": "💅",
+  "Lifestyle":       "🌿",
+  "Services":        "🔧",
+  "Careers":         "💼",
+  "Other":           "🏷️",
+};
 
 export const CIRCLE_CATEGORIES = [
   "Technology",

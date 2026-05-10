@@ -8,6 +8,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { getDeals, getDealHandle, deleteAllDeals } from "@/data/backend";
 import { deals as mockDeals } from "@/data/mock";
 import { useAuth } from "@/components/AuthProvider";
+import { DEAL_CATEGORY_EMOJI } from "@/data/profile-options";
 
 export const Route = createFileRoute("/discounts")({
   head: () => ({
@@ -175,7 +176,7 @@ function DiscountsPage() {
               </div>
             ) : (
               <div className="h-28 flex items-center justify-center bg-muted text-6xl">
-                {d.emoji}
+                {DEAL_CATEGORY_EMOJI[d.category] ?? "🏷️"}
               </div>
             )}
             <div className="p-5 flex flex-col flex-1">

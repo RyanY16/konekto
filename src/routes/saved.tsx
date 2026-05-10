@@ -3,12 +3,13 @@ import { useState, useEffect } from "react";
 import { Bookmark, Calendar, MapPin, Users } from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
 import { SaveButton } from "@/components/SaveButton";
-import { getCircles, getEvents, getCircleHandle, getEventHandle } from "@/data/backend";
+import { getCircles, getEvents, getDeals, getCircleHandle, getEventHandle, getDealHandle } from "@/data/backend";
 import { useSaves } from "@/lib/saves";
 import { filterValidTags } from "@/data/tags";
 import { tagClass } from "@/lib/tag-class";
 import { useAuth } from "@/components/AuthProvider";
-import type { Circle, EventItem } from "@/data/mock";
+import { DEAL_CATEGORY_EMOJI } from "@/data/profile-options";
+import type { Circle, EventItem, Deal } from "@/data/mock";
 
 export const Route = createFileRoute("/saved")({
   head: () => ({ meta: [{ title: "Saved — Konekto" }] }),
@@ -27,23 +28,27 @@ function SavedPage() {
   const { saves } = useSaves(user?.id);
   const [circles, setCircles] = useState<Circle[]>([]);
   const [events, setEvents] = useState<EventItem[]>([]);
+  const [deals, setDeals] = useState<Deal[]>([]);
   const [loading, setLoading] = useState(true);
-  const [tab, setTab] = useState<"all" | "circles" | "events">("all");
+  const [tab, setTab] = useState<"all" | "circles" | "events" | "discounts">("all");
 
   useEffect(() => {
-    Promise.all([getCircles(), getEvents()]).then(([cs, es]) => {
+    Promise.all([getCircles(), getEvents(), getDeals()]).then(([cs, es, ds]) => {
       setCircles(cs);
       setEvents(es);
+      setDeals(ds);
       setLoading(false);
     });
   }, []);
 
   const savedCircles = circles.filter((c) => saves.circleIds.includes(c.id));
   const savedEvents = events.filter((e) => saves.eventIds.includes(e.id));
-  const total = savedCircles.length + savedEvents.length;
+  const savedDeals = deals.filter((d) => saves.dealIds.includes(d.id));
+  const total = savedCircles.length + savedEvents.length + savedDeals.length;
 
   const showCircles = tab === "all" || tab === "circles";
   const showEvents = tab === "all" || tab === "events";
+  const showDeals = tab === "all" || tab === "discounts";
 
   return (
     <div>
@@ -67,8 +72,8 @@ function SavedPage() {
         </div>
       ) : (
         <>
-      <div className="flex gap-2 mb-6">
-        {(["all", "circles", "events"] as const).map((t) => (
+      <div className="flex gap-2 mb-6 flex-wrap">
+        {(["all", "circles", "events", "discounts"] as const).map((t) => (
           <button
             key={t}
             onClick={() => setTab(t)}
@@ -78,7 +83,7 @@ function SavedPage() {
                 : "bg-card border-border hover:bg-muted"
             }`}
           >
-            {t === "all" ? `All (${total})` : t === "circles" ? `Circles (${savedCircles.length})` : `Events (${savedEvents.length})`}
+            {t === "all" ? `All (${total})` : t === "circles" ? `Circles (${savedCircles.length})` : t === "events" ? `Events (${savedEvents.length})` : `Discounts (${savedDeals.length})`}
           </button>
         ))}
       </div>
@@ -93,10 +98,11 @@ function SavedPage() {
         <div className="text-center py-16 text-muted-foreground">
           <Bookmark className="h-10 w-10 mx-auto mb-3 opacity-30" />
           <p className="font-medium">Nothing saved yet</p>
-          <p className="text-sm mt-1">Tap the bookmark icon on any circle or event to save it here.</p>
-          <div className="flex gap-3 justify-center mt-6">
+          <p className="text-sm mt-1">Tap the bookmark icon on any circle, event, or discount to save it here.</p>
+          <div className="flex gap-3 justify-center mt-6 flex-wrap">
             <Link to="/circles" className="text-sm font-medium text-primary hover:underline">Browse circles →</Link>
             <Link to="/events" className="text-sm font-medium text-primary hover:underline">Browse events →</Link>
+            <Link to="/discounts" className="text-sm font-medium text-primary hover:underline">Browse discounts →</Link>
           </div>
         </div>
       ) : (
@@ -165,6 +171,39 @@ function SavedPage() {
                     </div>
                     <div className="relative z-10 shrink-0">
                       <SaveButton itemId={e.id} itemType="event" />
+                    </div>
+                  </article>
+                ))}
+              </div>
+            </section>
+          )}
+
+          {showDeals && savedDeals.length > 0 && (
+            <section>
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3">Discounts</p>
+              <div className="space-y-2">
+                {savedDeals.map((d) => (
+                  <article key={d.id} className="card-base card-hover p-4 flex items-center gap-3 relative">
+                    <Link
+                      to="/discounts/$dealHandle"
+                      params={{ dealHandle: getDealHandle(d) }}
+                      className="absolute inset-0 rounded-[inherit]"
+                      aria-label={`View ${d.title}`}
+                    />
+                    <div className="shrink-0 w-10 h-10 rounded-lg bg-muted flex items-center justify-center overflow-hidden">
+                      {(d as any).imageUrl ? (
+                        <img src={(d as any).imageUrl} alt={d.brand} className="w-full h-full object-cover" />
+                      ) : (
+                        <span className="text-2xl leading-none">{DEAL_CATEGORY_EMOJI[d.category] ?? "🏷️"}</span>
+                      )}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-semibold text-sm truncate">{d.title}</p>
+                      <p className="text-xs text-muted-foreground">{d.brand} · {d.category}</p>
+                      {d.newPrice && <p className="text-xs font-semibold text-primary mt-0.5">{d.newPrice}</p>}
+                    </div>
+                    <div className="relative z-10 shrink-0">
+                      <SaveButton itemId={d.id} itemType="deal" />
                     </div>
                   </article>
                 ))}

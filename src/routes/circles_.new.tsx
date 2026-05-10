@@ -88,9 +88,10 @@ function NewCirclePage() {
       });
 
       const handle = getCircleHandle({ id: circleId, name });
-      await navigate({ to: "/circles/$circleHandle" as any, params: { circleHandle: handle } as any });
+      navigate({ to: "/circles/$circleHandle" as any, params: { circleHandle: handle } as any });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not add circle.");
+    } finally {
       setSaving(false);
     }
   };

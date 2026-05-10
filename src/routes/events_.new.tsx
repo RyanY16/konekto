@@ -164,9 +164,10 @@ function NewEventPage() {
       }
 
       const handle = getEventHandle({ id: eventId, title });
-      await navigate({ to: "/events/$eventHandle", params: { eventHandle: handle } });
+      navigate({ to: "/events/$eventHandle", params: { eventHandle: handle } });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not add event.");
+    } finally {
       setSaving(false);
     }
   };

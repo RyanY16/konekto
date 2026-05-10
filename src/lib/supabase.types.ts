@@ -129,7 +129,7 @@ export type Database = {
           id: string;
           brand: string;
           title: string;
-          category: "Food & Drink" | "Fashion" | "Tech" | "Entertainment" | "Transport" | "Lifestyle";
+          category: "Food & Drink" | "Technology" | "Fashion" | "Travel" | "Entertainment" | "Education" | "Beauty & Wellness" | "Lifestyle" | "Services" | "Careers" | "Other";
           original_price: string | null;
           new_price: string | null;
           sale_end: string | null;
@@ -137,7 +137,6 @@ export type Database = {
           description: string | null;
           student_only: boolean;
           mode: "Online" | "In-Person" | "Both";
-          emoji: string;
           social_links: Json;
           created_at: string;
         };

@@ -1,6 +1,6 @@
 import { Link, createFileRoute, useRouter } from "@tanstack/react-router";
 import { useState, useRef } from "react";
-import { Globe, Instagram, Linkedin, MessageCircle } from "lucide-react";
+import { Globe } from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
 import { SocialLinks } from "@/components/SocialLinks";
 import { Button } from "@/components/ui/button";
@@ -9,10 +9,10 @@ import { Textarea } from "@/components/ui/textarea";
 import { DeleteRecordButton } from "@/components/DeleteRecordButton";
 import { useAuth } from "@/components/AuthProvider";
 import { getDealByHandle, updateDeal, deleteDeal, uploadDealImage } from "@/data/backend";
-import { DEAL_CATEGORIES } from "@/data/profile-options";
+import { ShareButton } from "@/components/ShareButton";
+import { SaveButton } from "@/components/SaveButton";
+import { DEAL_CATEGORIES, DEAL_CATEGORY_EMOJI } from "@/data/profile-options";
 import type { Deal } from "@/data/mock";
-import { socialLinksFromForm } from "@/lib/social-links";
-import EmojiPicker from "@/components/EmojiPicker";
 
 export const Route = createFileRoute("/discounts_/$dealHandle")({
   loader: ({ params }) => getDealByHandle(params.dealHandle),
@@ -29,11 +29,7 @@ type Draft = {
   description: string;
   studentOnly: boolean;
   mode: Deal["mode"];
-  emoji: string;
-  website: string;
-  instagram: string;
-  linkedin: string;
-  line: string;
+  url: string;
 };
 
 function toDraft(d: Deal): Draft {
@@ -47,11 +43,7 @@ function toDraft(d: Deal): Draft {
     description: d.description ?? "",
     studentOnly: d.studentOnly,
     mode: d.mode,
-    emoji: d.emoji,
-    website: d.socialLinks?.website ?? "",
-    instagram: d.socialLinks?.instagram ?? "",
-    linkedin: d.socialLinks?.linkedin ?? "",
-    line: d.socialLinks?.line ?? "",
+    url: d.socialLinks?.website ?? "",
   };
 }
 
@@ -60,7 +52,7 @@ function DealDetailPage() {
   const { isAdmin } = useAuth();
   const router = useRouter();
   const [editing, setEditing] = useState(false);
-  const [draft, setDraft] = useState<Draft>(() => deal ? toDraft(deal) : toDraft({ id: "", brand: "", title: "", category: "Lifestyle", studentOnly: true, mode: "In-Person", emoji: "🏷️" }));
+  const [draft, setDraft] = useState<Draft>(() => toDraft(deal ?? { id: "", brand: "", title: "", category: "Lifestyle", studentOnly: true, mode: "In-Person" }));
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [pendingImage, setPendingImage] = useState<File | null>(null);
@@ -101,13 +93,9 @@ function DealDetailPage() {
         description: draft.description || undefined,
         studentOnly: draft.studentOnly,
         mode: draft.mode,
-        emoji: draft.emoji,
         imageUrl,
         socialLinks: {
-          website: draft.website || undefined,
-          instagram: draft.instagram || undefined,
-          linkedin: draft.linkedin || undefined,
-          line: draft.line || undefined,
+          website: draft.url || undefined,
         },
       });
       setPendingImage(null);
@@ -154,7 +142,7 @@ function DealDetailPage() {
                     </div>
                   </>
                 ) : (
-                  <span className="text-4xl group-hover:scale-110 transition-transform">{draft.emoji}</span>
+                  <span className="text-4xl group-hover:scale-110 transition-transform">{DEAL_CATEGORY_EMOJI[draft.category] ?? "🏷️"}</span>
                 )}
               </button>
               <div className="text-xs text-muted-foreground space-y-1">
@@ -170,13 +158,10 @@ function DealDetailPage() {
             <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) handleImageFile(f); e.target.value = ""; }} />
           </div>
 
-          {/* Brand + Emoji */}
+          {/* Brand */}
           <div className={field}>
             <label className={lbl}>Brand / store name *</label>
-            <div className="flex gap-2">
-              <EmojiPicker value={draft.emoji} onChange={(v) => setDraft((d) => ({ ...d, emoji: v }))} />
-              <Input value={draft.brand} onChange={(e) => setDraft((d) => ({ ...d, brand: e.target.value }))} placeholder="e.g. Uniqlo" className="flex-1" />
-            </div>
+            <Input value={draft.brand} onChange={(e) => setDraft((d) => ({ ...d, brand: e.target.value }))} placeholder="e.g. Uniqlo" />
           </div>
 
           {/* Title */}
@@ -189,7 +174,7 @@ function DealDetailPage() {
           <div className={field}>
             <label className={lbl}>Category *</label>
             <select className={sel} value={draft.category} onChange={(e) => setDraft((d) => ({ ...d, category: e.target.value as Deal["category"] }))}>
-              {DEAL_CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
+              {DEAL_CATEGORIES.map((c) => <option key={c} value={c}>{DEAL_CATEGORY_EMOJI[c]} {c}</option>)}
             </select>
           </div>
 
@@ -233,18 +218,12 @@ function DealDetailPage() {
             <span>🎓 Student only</span>
           </label>
 
-          {/* Social links */}
+          {/* URL */}
           <div className={field}>
-            <label className={lbl}>Links (optional)</label>
-            <div className="space-y-2">
-              <div className="relative">
-                <Globe className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
-                <Input value={draft.website} onChange={(e) => setDraft((d) => ({ ...d, website: e.target.value }))} placeholder="https://yoursite.com" className="pl-9" />
-              </div>
-              <div className="relative">
-                <Instagram className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
-                <Input value={draft.instagram} onChange={(e) => setDraft((d) => ({ ...d, instagram: e.target.value }))} placeholder="@handle" className="pl-9" />
-              </div>
+            <label className={lbl}>Link (optional)</label>
+            <div className="relative">
+              <Globe className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+              <Input value={draft.url} onChange={(e) => setDraft((d) => ({ ...d, url: e.target.value }))} placeholder="https://" className="pl-9" />
             </div>
           </div>
 
@@ -252,7 +231,7 @@ function DealDetailPage() {
 
           <div className="flex gap-3 pt-2">
             <Button onClick={save} disabled={saving}>{saving ? "Saving…" : "Save"}</Button>
-            <Button variant="outline" onClick={() => { setEditing(false); setDraft(toDraft(deal)); setPendingImage(null); setImagePreview(null); }}>Cancel</Button>
+            <Button variant="outline" onClick={() => { setEditing(false); if (deal) setDraft(toDraft(deal)); setPendingImage(null); setImagePreview(null); }}>Cancel</Button>
           </div>
         </div>
       ) : (
@@ -263,11 +242,17 @@ function DealDetailPage() {
             </div>
           )}
 
-          <PageHeader
-            eyebrow={deal.category}
-            title={deal.title}
-            subtitle={deal.brand}
-          />
+          <div className="flex items-start justify-between gap-4">
+            <PageHeader
+              eyebrow={deal.category}
+              title={deal.title}
+              subtitle={deal.brand}
+            />
+            <div className="flex items-center gap-2 mt-1 shrink-0">
+              <SaveButton itemId={deal.id} itemType="deal" />
+              <ShareButton title={deal.title} />
+            </div>
+          </div>
 
           <section className="card-base p-6 space-y-4">
             {(deal.originalPrice || deal.newPrice) && (
@@ -295,7 +280,7 @@ function DealDetailPage() {
             {isAdmin && (
               <div className="flex gap-3 pt-2 border-t border-border">
                 <Button onClick={() => setEditing(true)}>Edit</Button>
-                <DeleteRecordButton label={deal.title} onDelete={() => deleteDeal(deal.id)} />
+                <DeleteRecordButton label={deal.title} onDelete={() => deleteDeal(deal.id)} navigateTo="/discounts" />
               </div>
             )}
           </section>
