@@ -1,9 +1,12 @@
 import { createFileRoute, Link, useNavigate, useRouter } from "@tanstack/react-router";
 import { useState, useRef, type FormEvent } from "react";
-import { Globe } from "lucide-react";
+import { Globe, CalendarIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
+import { format } from "date-fns";
 import { addDeal, uploadDealImage } from "@/data/backend";
 import { useAuth } from "@/components/AuthProvider";
 import { DEAL_CATEGORIES, DEAL_CATEGORY_EMOJI } from "@/data/profile-options";
@@ -69,6 +72,7 @@ function NewDiscountPage() {
   const [saving, setSaving] = useState(false);
   const [pendingImage, setPendingImage] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [saleEndOpen, setSaleEndOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   function setDraft(update: Partial<FormDraft>) {
@@ -214,7 +218,24 @@ function NewDiscountPage() {
           {/* Sale end */}
           <div className={field}>
             <label className={lbl}>Sale ends {opt}</label>
-            <Input value={draft.saleEnd} onChange={(e) => setDraft({ saleEnd: e.target.value })} placeholder="e.g. June 30, 2026" />
+            <Popover open={saleEndOpen} onOpenChange={setSaleEndOpen}>
+              <PopoverTrigger asChild>
+                <button type="button" className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm text-left flex items-center gap-2 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring">
+                  <CalendarIcon className="h-4 w-4 text-muted-foreground shrink-0" />
+                  <span className={draft.saleEnd ? "" : "text-muted-foreground"}>
+                    {draft.saleEnd ? format(new Date(draft.saleEnd + "T00:00:00"), "EEE, MMM d, yyyy") : "Select date…"}
+                  </span>
+                </button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="start">
+                <Calendar
+                  mode="single"
+                  selected={draft.saleEnd ? new Date(draft.saleEnd + "T00:00:00") : undefined}
+                  onSelect={(val) => { setDraft({ saleEnd: val ? format(val, "yyyy-MM-dd") : "" }); setSaleEndOpen(false); }}
+                  initialFocus
+                />
+              </PopoverContent>
+            </Popover>
           </div>
 
           {/* Description */}

@@ -1,6 +1,9 @@
 import { Link, createFileRoute, useRouter } from "@tanstack/react-router";
 import { useState, useRef } from "react";
-import { Globe } from "lucide-react";
+import { Globe, CalendarIcon } from "lucide-react";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
+import { format } from "date-fns";
 import { PageHeader } from "@/components/PageHeader";
 import { SocialLinks } from "@/components/SocialLinks";
 import { Button } from "@/components/ui/button";
@@ -57,6 +60,7 @@ function DealDetailPage() {
   const [error, setError] = useState("");
   const [pendingImage, setPendingImage] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [saleEndOpen, setSaleEndOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   if (!deal) {
@@ -193,7 +197,24 @@ function DealDetailPage() {
           {/* Sale end */}
           <div className={field}>
             <label className={lbl}>Sale ends (optional)</label>
-            <Input value={draft.saleEnd} onChange={(e) => setDraft((d) => ({ ...d, saleEnd: e.target.value }))} placeholder="e.g. June 30, 2026" />
+            <Popover open={saleEndOpen} onOpenChange={setSaleEndOpen}>
+              <PopoverTrigger asChild>
+                <button type="button" className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm text-left flex items-center gap-2 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring">
+                  <CalendarIcon className="h-4 w-4 text-muted-foreground shrink-0" />
+                  <span className={draft.saleEnd ? "" : "text-muted-foreground"}>
+                    {draft.saleEnd ? format(new Date(draft.saleEnd + "T00:00:00"), "EEE, MMM d, yyyy") : "Select date…"}
+                  </span>
+                </button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="start">
+                <Calendar
+                  mode="single"
+                  selected={draft.saleEnd ? new Date(draft.saleEnd + "T00:00:00") : undefined}
+                  onSelect={(val) => { setDraft((d) => ({ ...d, saleEnd: val ? format(val, "yyyy-MM-dd") : "" })); setSaleEndOpen(false); }}
+                  initialFocus
+                />
+              </PopoverContent>
+            </Popover>
           </div>
 
           {/* Description */}
@@ -265,7 +286,7 @@ function DealDetailPage() {
             <div className="grid grid-cols-2 gap-3">
               <Detail label="Available" value={deal.mode} />
               <Detail label="Student only" value={deal.studentOnly ? "Yes 🎓" : "No"} />
-              {deal.saleEnd && <Detail label="Sale ends" value={deal.saleEnd} />}
+              {deal.saleEnd && <Detail label="Sale ends" value={deal.saleEnd.match(/^\d{4}-\d{2}-\d{2}$/) ? new Date(deal.saleEnd + "T00:00:00").toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" }) : deal.saleEnd} />}
             </div>
 
             {deal.description && (
