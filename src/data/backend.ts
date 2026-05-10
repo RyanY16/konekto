@@ -793,6 +793,12 @@ export async function deleteGuide(id: string) {
   return deleteSupabase("guides", id);
 }
 
+export async function deleteAllGuides() {
+  const client = assertSupabase();
+  const { error } = await (client.from("guides").delete().neq("id", "") as any);
+  if (error) throw new Error(error.message);
+}
+
 export type SpokenLanguage = { language: string; fluency: string };
 
 export type UserProfile = {
