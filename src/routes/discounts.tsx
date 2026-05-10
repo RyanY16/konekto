@@ -1,9 +1,11 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useRouter } from "@tanstack/react-router";
 import { useState, useMemo } from "react";
-import { Search } from "lucide-react";
+import { Search, Trash2 } from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
 import { SaveButton } from "@/components/SaveButton";
-import { getDeals, getDealHandle } from "@/data/backend";
+import { Button } from "@/components/ui/button";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
+import { getDeals, getDealHandle, deleteAllDeals } from "@/data/backend";
 import { deals as mockDeals } from "@/data/mock";
 import { useAuth } from "@/components/AuthProvider";
 
@@ -41,12 +43,14 @@ function DiscountsSkeleton() {
 const CATEGORIES = ["All", "Food & Drink", "Fashion", "Tech", "Entertainment", "Transport", "Lifestyle"] as const;
 
 function DiscountsPage() {
-  const { user } = useAuth();
+  const { user, isAdmin } = useAuth();
   const { deals } = Route.useLoaderData();
+  const router = useRouter();
   const [cat, setCat] = useState<string>("All");
   const [q, setQ] = useState("");
   const [modeFilter, setModeFilter] = useState<string>("All");
   const [studentOnly, setStudentOnly] = useState(false);
+  const [deletingAll, setDeletingAll] = useState(false);
 
   const filtered = useMemo(() => {
     return deals.filter((d) => {
@@ -69,16 +73,45 @@ function DiscountsPage() {
           title="Student perks, sorted."
           subtitle="Exclusive deals for students — food, tech, fashion, and more."
         />
-        {user && (
-          <div className="mt-1 shrink-0">
+        <div className="mt-1 shrink-0 flex items-center gap-2">
+          {isAdmin && (
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button variant="destructive" size="sm" className="gap-1.5">
+                  <Trash2 className="h-3.5 w-3.5" /> Delete all
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Delete all deals?</AlertDialogTitle>
+                  <AlertDialogDescription>This permanently deletes every deal. This cannot be undone.</AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel disabled={deletingAll}>Cancel</AlertDialogCancel>
+                  <AlertDialogAction
+                    disabled={deletingAll}
+                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                    onClick={async (e) => {
+                      e.preventDefault();
+                      setDeletingAll(true);
+                      try { await deleteAllDeals(); router.invalidate(); } finally { setDeletingAll(false); }
+                    }}
+                  >
+                    {deletingAll ? "Deleting…" : "Delete all"}
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          )}
+          {user && (
             <Link
               to="/discounts/new"
               className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-semibold bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
             >
               + Add deal
             </Link>
-          </div>
-        )}
+          )}
+        </div>
       </div>
 
       <div className="mb-6 space-y-3">

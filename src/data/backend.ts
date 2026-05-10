@@ -752,6 +752,12 @@ export async function deleteDeal(id: string) {
   return deleteSupabase("deals", id);
 }
 
+export async function deleteAllDeals() {
+  const client = assertSupabase();
+  const { error } = await (client.from("deals").delete().neq("id", "") as any);
+  if (error) throw new Error(error.message);
+}
+
 export async function addJob(input: Omit<Job, "id">) {
   return insertSupabase(
     "jobs",
