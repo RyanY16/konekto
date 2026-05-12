@@ -1,4 +1,4 @@
-import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useAuth } from "@/components/AuthProvider";
 import {
   Users, Calendar, Tag, Briefcase, MapPin, ArrowRight, Sparkles, TrendingUp,
@@ -22,13 +22,12 @@ export const Route = createFileRoute("/")({
 
 function IndexPage() {
   const { user, loading } = useAuth();
-  // Show landing until auth resolves — avoids blank flash
-  if (loading) return <Landing />;
+  if (loading) return null;
   if (user) return <Dashboard />;
   return <Landing />;
 }
 
-// ── Landing page ───────────────────────────────────────────────────────────────
+// ── Landing ────────────────────────────────────────────────────────────────────
 
 const features = [
   { icon: Users,     title: "Circles",    desc: "Find student clubs and communities that match your interests." },
@@ -42,7 +41,6 @@ function Landing() {
   return (
     <div>
       <div className="mx-auto max-w-6xl px-4">
-        {/* Hero */}
         <section className="py-20 md:py-28 text-center">
           <p className="inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-widest text-primary mb-4">
             <Sparkles className="h-3.5 w-3.5" /> For students in Japan
@@ -74,7 +72,6 @@ function Landing() {
           </div>
         </section>
 
-        {/* Feature grid */}
         <section className="pb-20">
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {features.map(({ icon: Icon, title, desc }) => (
@@ -86,7 +83,6 @@ function Landing() {
                 <p className="mt-1 text-sm text-muted-foreground">{desc}</p>
               </div>
             ))}
-            {/* CTA card */}
             <div className="rounded-2xl bg-gradient-to-br from-primary to-primary/70 p-6 text-primary-foreground flex flex-col justify-between">
               <div>
                 <p className="text-xs font-semibold uppercase tracking-widest opacity-80 mb-2">Ready?</p>
@@ -107,7 +103,7 @@ function Landing() {
   );
 }
 
-// ── Dashboard (shown when logged in) ──────────────────────────────────────────
+// ── Dashboard ──────────────────────────────────────────────────────────────────
 
 function Dashboard() {
   const [events, setEvents] = useState<EventItem[]>([]);
@@ -121,7 +117,6 @@ function Dashboard() {
 
   return (
     <div className="space-y-10">
-      {/* Hero */}
       <section className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-primary-soft via-background to-accent-soft p-6 md:p-10 border border-border">
         <div className="max-w-2xl">
           <p className="text-xs font-semibold uppercase tracking-wider text-primary mb-3">

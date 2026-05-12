@@ -109,6 +109,8 @@ type Draft = {
   discord: string;
   lineVisibility: "everyone" | "members";
   discordVisibility: "everyone" | "members";
+  memberTitles: Record<string, string>;
+  vibe: string;
 };
 
 function toDraft(c: Circle): Draft {
@@ -134,6 +136,8 @@ function toDraft(c: Circle): Draft {
     discord: sl.discord ?? "",
     lineVisibility: vis.line ?? "everyone",
     discordVisibility: vis.discord ?? "members",
+    memberTitles: {},
+    vibe: (c as any).vibe || "Casual",
   };
 }
 
@@ -317,33 +321,7 @@ function CircleDetailPage() {
     }
   }
 
-  async function handleSaveTitle(userId: string) {
-    if (!circle) return;
-    const trimmed = titleDraft.trim();
-    try {
-      const isMember = members.some((m) => m.id === userId);
-      if (!isMember) await joinCircle(userId, circle.id);
-      await updateMemberTitle(circle.id, userId, trimmed);
-      setMembers((prev) => {
-        const exists = prev.some((m) => m.id === userId);
-        if (exists) return prev.map((m) => m.id === userId ? { ...m, title: trimmed } : m);
-        if (owner && owner.id === userId) {
-          const newEntry: CircleMember = {
-            id: owner.id, username: owner.username, displayName: owner.displayName,
-            avatarUrl: owner.avatarUrl, title: trimmed,
-            university: "", year: "", bio: "", careerField: "",
-            goals: [], tags: [], interests: [], languages: [], nationality: "",
-          };
-          return [...prev, newEntry];
-        }
-        return prev;
-      });
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setEditingTitleId(null);
-    }
-  }
+
 
   async function handleKickManager(m: CircleMember) {
     if (!circle) return;
@@ -444,7 +422,9 @@ function CircleDetailPage() {
   }
 
   function startEditing() {
-    setDraft(toDraft(circle!));
+    const d = toDraft(circle!);
+    d.memberTitles = Object.fromEntries(members.map((m) => [m.id, m.title ?? ""]));
+    setDraft(d);
     setPendingIcon(null);
     setIconPreview(null);
     setSaveError(null);
@@ -484,6 +464,7 @@ function CircleDetailPage() {
         tags: draft.tags,
         university: draft.university,
         primaryLanguage: draft.primaryLanguage,
+        vibe: draft.vibe || undefined,
         englishFriendly: draft.englishFriendly,
         recruiting: draft.recruiting,
         recruitingPeriod: draft.recruitingPeriod,
@@ -503,6 +484,20 @@ function CircleDetailPage() {
         },
         iconUrl: newIconUrl,
       });
+
+      // Save any pending member title changes
+      const titleChanges = Object.entries(draft.memberTitles).filter(([id, title]) => {
+        const member = members.find((m) => m.id === id);
+        return member && member.title !== title;
+      });
+      if (titleChanges.length > 0) {
+        await Promise.all(titleChanges.map(([id, title]) => updateMemberTitle(circle!.id, id, title)));
+        setMembers((prev) => prev.map((m) => {
+          const updated = draft.memberTitles[m.id];
+          return updated !== undefined ? { ...m, title: updated } : m;
+        }));
+      }
+
       setEditing(false);
       const newHandle = getCircleHandle({ id: circle!.id, name: draft.name });
       await navigate({ to: "/circles/$circleHandle", params: { circleHandle: newHandle }, replace: true });
@@ -618,7 +613,6 @@ function CircleDetailPage() {
               <UniversityPicker
                 value={draft.university}
                 onChange={(v) => setDraft((d) => ({ ...d, university: v }))}
-                extraOptions={["Online", "No university"]}
               />
             </div>
 
@@ -632,6 +626,36 @@ function CircleDetailPage() {
                 <option value="">— Select —</option>
                 {LANGUAGES.map((l) => <option key={l.name} value={l.name}>{l.flag} {l.name}</option>)}
               </select>
+            </div>
+
+            <label className="flex items-center gap-2 text-sm cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={draft.englishFriendly}
+                onChange={(e) => setDraft((d) => ({ ...d, englishFriendly: e.target.checked }))}
+                className="h-4 w-4 rounded"
+              />
+              🌏 English-friendly
+            </label>
+
+            <div className="space-y-1">
+              <label className="text-xs font-medium text-muted-foreground">Vibe</label>
+              <div className="flex gap-2 flex-wrap">
+                {["Casual", "Serious", "Drinking-friendly"].map((v) => (
+                  <button
+                    key={v}
+                    type="button"
+                    onClick={() => setDraft((d) => ({ ...d, vibe: d.vibe === v ? "" : v }))}
+                    className={`px-3 py-1 rounded-full text-xs border transition-colors ${
+                      draft.vibe === v
+                        ? "bg-orange-500 border-orange-500 text-white"
+                        : "border-border text-muted-foreground hover:bg-muted"
+                    }`}
+                  >
+                    {v}
+                  </button>
+                ))}
+              </div>
             </div>
 
             <div className="space-y-2">
@@ -694,16 +718,6 @@ function CircleDetailPage() {
                 {CIRCLE_CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
               </select>
             </div>
-
-            <label className="flex items-center gap-2 text-sm cursor-pointer select-none">
-              <input
-                type="checkbox"
-                checked={draft.englishFriendly}
-                onChange={(e) => setDraft((d) => ({ ...d, englishFriendly: e.target.checked }))}
-                className="h-4 w-4 rounded"
-              />
-              🌏 English-friendly
-            </label>
 
             <div className="space-y-1">
               <label className="text-xs font-medium text-muted-foreground">Tags</label>
@@ -858,6 +872,12 @@ function CircleDetailPage() {
             )}
             {circle.englishFriendly && (
               <p className="text-sm text-muted-foreground">🌏 English-friendly</p>
+            )}
+
+            {(circle as any).vibe && (
+              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-300">
+                {(circle as any).vibe}
+              </span>
             )}
 
             {circle.primaryLanguage && (() => {
@@ -1204,7 +1224,8 @@ function CircleDetailPage() {
                       const isAlreadyManager = managers.some((mgr) => mgr.id === m.id);
                       const actioning = promotingId === m.id;
                       const initials = (m.displayName || m.username || "?").slice(0, 2).toUpperCase();
-                      const hasTag = !!(m.title && m.title !== "Member");
+                      const displayTitle = editing ? (draft.memberTitles?.[m.id] ?? m.title) : m.title;
+                      const hasTag = !!(displayTitle && displayTitle !== "Member");
                       const canEditThisTag = !!(user && (isOwner || isAdmin || (isManager && m.id === user.id)));
                       const isEditingTag = editingTitleId === m.id;
                       return (
@@ -1224,7 +1245,7 @@ function CircleDetailPage() {
                               <div className="flex items-center gap-1.5 flex-wrap">
                                 {m.username && <p className="text-xs text-muted-foreground truncate">@{m.username}</p>}
                                 {hasTag && (
-                                  <span className="text-[11px] px-1.5 py-0 rounded-full bg-blue-50 text-blue-600 dark:bg-blue-950 dark:text-blue-400 font-medium leading-5">{m.title}</span>
+                                  <span className="text-[11px] px-1.5 py-0 rounded-full bg-blue-50 text-blue-600 dark:bg-blue-950 dark:text-blue-400 font-medium leading-5">{displayTitle}</span>
                                 )}
                               </div>
                             </div>
@@ -1238,17 +1259,20 @@ function CircleDetailPage() {
                                 value={titleDraft}
                                 onChange={(e) => setTitleDraft(e.target.value)}
                                 onKeyDown={(e) => {
-                                  if (e.key === "Enter") handleSaveTitle(m.id);
+                                  if (e.key === "Enter") {
+                                    setDraft((d) => ({ ...d, memberTitles: { ...d.memberTitles, [m.id]: titleDraft.trim() } }));
+                                    setEditingTitleId(null);
+                                  }
                                   if (e.key === "Escape") setEditingTitleId(null);
                                 }}
-                                onBlur={() => handleSaveTitle(m.id)}
+                                onBlur={() => setEditingTitleId(null)}
                                 placeholder="e.g. Finance Lead"
                                 className="h-7 w-32 text-xs rounded border border-input bg-transparent px-2 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring shrink-0"
                               />
                             ) : (
                               <button
                                 type="button"
-                                onClick={() => { setEditingTitleId(m.id); setTitleDraft(hasTag ? m.title : ""); }}
+                                onClick={() => { setEditingTitleId(m.id); setTitleDraft(hasTag ? (draft.memberTitles?.[m.id] ?? m.title ?? "") : ""); }}
                                 className="text-xs text-muted-foreground hover:text-foreground border border-border rounded px-1.5 py-0.5 shrink-0"
                               >
                                 {hasTag ? "Edit tag" : "Add tag"}

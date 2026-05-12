@@ -26,6 +26,7 @@ export type Circle = {
   university?: string;
   country?: string;
   primaryLanguage?: string;
+  vibe?: string;
   recruiting?: boolean;
   recruitingPeriod?: string;
   recruitingConditions?: string;

@@ -14,7 +14,7 @@ const nav: NavItem[] = [
   { to: "/", label: "Home", icon: Home },
   { to: "/circles", label: "Circles", icon: Users },
   { to: "/events", label: "Events", icon: Calendar },
-  { to: "/discounts", label: "Discounts", icon: Tag },
+  { to: "/discounts", label: "Deals", icon: Tag },
   { to: "/profile", label: "Profile", icon: User },
 ];
 
@@ -142,7 +142,7 @@ function AuthBottomNav({ isActive }: { isActive: (to: string) => boolean }) {
       className="md:hidden fixed bottom-0 inset-x-0 z-40 border-t border-border bg-background/95 backdrop-blur-md"
       style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
     >
-      <div className="grid grid-cols-4 h-16">
+      <div className="grid grid-cols-5 h-16">
         {nav.map((item) => {
           const Icon = item.icon;
           const active = isActive(item.to);

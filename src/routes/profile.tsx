@@ -417,9 +417,6 @@ function ProfilePage() {
       degree,
       yearNum: num || "1",
       bio: profile?.bio ?? "",
-      interests: profile?.interests ?? [],
-      careerField: profile?.careerField ?? "",
-      goals: profile?.goals ?? [],
       languages: profile?.languages ?? [],
       socialLinks: profile?.socialLinks ?? {},
     });
@@ -467,9 +464,6 @@ function ProfilePage() {
         bio: draft.bio ?? "",
         avatarUrl,
         tags: profile?.tags ?? [],
-        interests: draft.interests ?? [],
-        careerField: draft.careerField ?? "",
-        goals: draft.goals ?? [],
         languages: draft.languages ?? [],
         socialLinks: draft.socialLinks ?? {},
       });

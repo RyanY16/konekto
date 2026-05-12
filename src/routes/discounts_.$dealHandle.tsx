@@ -72,6 +72,14 @@ function DealDetailPage() {
     );
   }
 
+  function startEditing() {
+    if (deal) setDraft(toDraft(deal));
+    setPendingImage(null);
+    setImagePreview(null);
+    setError("");
+    setEditing(true);
+  }
+
   function handleImageFile(file: File) {
     if (imagePreview) URL.revokeObjectURL(imagePreview);
     setPendingImage(file);
@@ -300,7 +308,7 @@ function DealDetailPage() {
 
             {isAdmin && (
               <div className="flex gap-3 pt-2 border-t border-border">
-                <Button onClick={() => setEditing(true)}>Edit</Button>
+                <Button onClick={startEditing}>Edit</Button>
                 <DeleteRecordButton label={deal.title} onDelete={() => deleteDeal(deal.id)} navigateTo="/discounts" />
               </div>
             )}

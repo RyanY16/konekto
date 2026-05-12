@@ -106,7 +106,8 @@ function CirclesPage() {
 
   const universities = useMemo(() => {
     const set = new Set(allCircles.map((c) => (c as any).university).filter(Boolean) as string[]);
-    return ["All", ...Array.from(set).sort()];
+    const sorted = Array.from(set).filter((u) => u !== "Other").sort();
+    return ["All", ...(set.has("Other") ? ["Other"] : []), ...sorted];
   }, [allCircles]);
 
   const languages = useMemo(() => {
@@ -312,6 +313,7 @@ function CirclesPage() {
             <div className="mt-3 flex flex-wrap gap-1.5">
               {c.recruiting && <span className="chip bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-400">✅ Recruiting</span>}
               {c.englishFriendly && <span className="chip">🌏 English-friendly</span>}
+              {(c as any).vibe && <span className="chip bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-300">{(c as any).vibe}</span>}
             </div>
 
             <div className="mt-4 pt-4 border-t border-border flex items-center justify-between relative z-10">

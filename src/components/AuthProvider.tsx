@@ -55,20 +55,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // overwrite a valid user with null if the JWT validation request was slow.
     const { data: sub } = supabase.auth.onAuthStateChange(async (_event, session) => {
       const gen = ++generation;
+      if (mounted) setLoading(true);
       const u = session?.user ?? null;
       if (!u) {
-        if (mounted && gen === generation) setUser(null);
-        if (_event === "INITIAL_SESSION") setLoading(false);
+        if (mounted && gen === generation) { setUser(null); setLoading(false); }
         return;
       }
       const resolved = await resolveUser(u, gen);
       if (!mounted || gen !== generation) return;
       setUser(resolved);
-
-      // INITIAL_SESSION is the very first event — use it to unblock the loading state.
-      if (_event === "INITIAL_SESSION") {
-        setLoading(false);
-      }
+      setLoading(false);
 
       // On first sign-in, backfill profile fields from signup metadata if the
       // row exists but is still empty (trigger may have created it without data).

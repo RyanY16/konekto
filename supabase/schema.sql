@@ -151,6 +151,7 @@ alter table public.circles add column if not exists recruiting boolean not null 
 alter table public.circles add column if not exists recruiting_period text not null default '';
 alter table public.circles add column if not exists recruiting_conditions text not null default '';
 alter table public.circles add column if not exists membership_fee text not null default '';
+alter table public.circles add column if not exists vibe text not null default 'Casual';
 alter table public.events add column if not exists social_links jsonb not null default '{}'::jsonb;
 alter table public.events add column if not exists description text not null default '';
 alter table public.events add column if not exists owner_id uuid references auth.users(id);

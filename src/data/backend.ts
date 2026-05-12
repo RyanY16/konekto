@@ -30,22 +30,33 @@ async function fromSupabase<TTable extends PublicTable, TItem>(
 ): Promise<TItem[]> {
   if (!supabase) return fallback;
 
-  const { data, error } = await supabase.from(table).select("*").order("created_at");
-
-  if (error || !data) {
-    if (import.meta.env.DEV && error) {
-      console.warn(`Supabase ${table} query failed; using mock data.`, error.message);
+  try {
+    const { data, error } = await Promise.race([
+      supabase.from(table).select("*").order("created_at") as any,
+      timeoutAfter(5_000),
+    ]) as { data: unknown[] | null; error: any };
+    if (error || !data) {
+      if (import.meta.env.DEV && error) {
+        console.warn(`Supabase ${table} query failed; using mock data.`, error.message);
+      }
+      return fallback;
     }
-    return fallback;
+    return data.map((row) => mapRow(row as Row<TTable>));
+  } catch (err) {
+    throw err;
   }
-
-  return data.map((row) => mapRow(row as Row<TTable>));
 }
 
-function abortAfter(ms = 20_000): { signal: AbortSignal; cleanup: () => void } {
+function abortAfter(ms = 5_000): { signal: AbortSignal; cleanup: () => void } {
   const controller = new AbortController();
   const tid = setTimeout(() => controller.abort(), ms);
   return { signal: controller.signal, cleanup: () => clearTimeout(tid) };
+}
+
+function timeoutAfter(ms = 5_000): Promise<never> {
+  return new Promise((_, reject) =>
+    setTimeout(() => reject(new Error("Request timed out — please try again.")), ms),
+  );
 }
 
 function throwAbort(error: any): never {
@@ -66,21 +77,19 @@ async function insertSupabase<TTable extends PublicTable, TItem>(
   mapRow: (row: Row<TTable>) => TItem,
 ): Promise<TItem> {
   const client = assertSupabase();
-  const { signal, cleanup } = abortAfter();
   try {
     console.log(`[db] insert ${table}`, values);
-    const { data, error } = await (
-      client.from(table).insert(values).select("*").maybeSingle() as any
-    ).abortSignal(signal) as { data: Row<TTable> | null; error: any };
+    const { data, error } = await Promise.race([
+      client.from(table).insert(values).select("*").maybeSingle() as any,
+      timeoutAfter(),
+    ]) as { data: Row<TTable> | null; error: any };
     if (error) throw new Error(error.message);
     if (!data) throw new Error("Insert succeeded but no row returned — check RLS policies.");
     console.log(`[db] insert ${table} ✓`, data);
     return mapRow(data as Row<TTable>);
   } catch (err) {
     console.error(`[db] insert ${table} ✗`, err);
-    throwAbort(err);
-  } finally {
-    cleanup();
+    throw err;
   }
 }
 
@@ -91,12 +100,12 @@ async function updateSupabase<TTable extends PublicTable, TItem>(
   mapRow: (row: Row<TTable>) => TItem,
 ): Promise<TItem> {
   const client = assertSupabase();
-  const { signal, cleanup } = abortAfter();
   try {
     console.log(`[db] update ${table} id=${id}`, values);
-    const { data, error } = await (
-      client.from(table).update(values).eq("id", id).select("*").maybeSingle() as any
-    ).abortSignal(signal) as { data: Row<TTable> | null; error: any };
+    const { data, error } = await Promise.race([
+      client.from(table).update(values).eq("id", id).select("*").maybeSingle() as any,
+      timeoutAfter(),
+    ]) as { data: Row<TTable> | null; error: any };
     if (error) throw new Error(error.message);
     if (!data) {
       throw new Error(
@@ -107,9 +116,7 @@ async function updateSupabase<TTable extends PublicTable, TItem>(
     return mapRow(data as Row<TTable>);
   } catch (err) {
     console.error(`[db] update ${table} ✗`, err);
-    throwAbort(err);
-  } finally {
-    cleanup();
+    throw err;
   }
 }
 
@@ -139,6 +146,7 @@ function mapCircle(row: Row<"circles">): Circle {
     university: (row as any).university ?? undefined,
     country: (row as any).country ?? undefined,
     primaryLanguage: (row as any).primary_language ?? undefined,
+    vibe: (row as any).vibe ?? undefined,
     recruiting: (row as any).recruiting ?? false,
     recruitingPeriod: (row as any).recruiting_period ?? undefined,
     recruitingConditions: (row as any).recruiting_conditions ?? undefined,
@@ -297,6 +305,7 @@ export async function addCircle(
     country: input.country ?? "Japan",
     location: (input as any).location ?? "",
     primary_language: input.primaryLanguage ?? "",
+    vibe: (input as any).vibe ?? "Casual",
     recruiting: input.recruiting ?? false,
     recruiting_period: input.recruitingPeriod ?? "",
     recruiting_conditions: input.recruitingConditions ?? "",
@@ -311,15 +320,11 @@ export async function addCircle(
     },
   };
 
-  const { signal, cleanup } = abortAfter();
-  try {
-    const { error } = await (client.from("circles").insert(values) as any).abortSignal(signal) as { error: any };
-    if (error) throw new Error(error.message);
-  } catch (err) {
-    throwAbort(err);
-  } finally {
-    cleanup();
-  }
+  const { error } = await Promise.race([
+    client.from("circles").insert(values) as any,
+    timeoutAfter(),
+  ]) as { error: any };
+  if (error) throw new Error(error.message);
 }
 
 export async function updateCircle(
@@ -341,6 +346,7 @@ export async function updateCircle(
     country: input.country ?? "Japan",
     location: (input as any).location ?? "",
     primary_language: input.primaryLanguage ?? "",
+    vibe: (input as any).vibe ?? "Casual",
     recruiting: input.recruiting ?? false,
     recruiting_period: input.recruitingPeriod ?? "",
     recruiting_conditions: input.recruitingConditions ?? "",
@@ -355,15 +361,11 @@ export async function updateCircle(
     },
   };
 
-  const { signal, cleanup } = abortAfter();
-  try {
-    const { error } = await (client.from("circles").update(values).eq("id", id) as any).abortSignal(signal) as { error: any };
-    if (error) throw new Error(error.message);
-  } catch (err) {
-    throwAbort(err);
-  } finally {
-    cleanup();
-  }
+  const { error } = await Promise.race([
+    client.from("circles").update(values).eq("id", id) as any,
+    timeoutAfter(),
+  ]) as { error: any };
+  if (error) throw new Error(error.message);
 }
 
 export async function deleteCircle(id: string) {
@@ -405,15 +407,11 @@ export async function addEvent(
   if ((input as any).startDate) (values as any).start_date = (input as any).startDate;
   if ((input as any).recurrence) (values as any).recurrence = (input as any).recurrence;
   (values as any).cancelled_dates = (input as any).cancelledDates ?? [];
-  const { signal, cleanup } = abortAfter();
-  try {
-    const { error } = await (client.from("events").insert(values) as any).abortSignal(signal) as { error: any };
-    if (error) throw new Error(error.message);
-  } catch (err) {
-    throwAbort(err);
-  } finally {
-    cleanup();
-  }
+  const { error } = await Promise.race([
+    client.from("events").insert(values) as any,
+    timeoutAfter(),
+  ]) as { error: any };
+  if (error) throw new Error(error.message);
 
   return id;
 }
@@ -443,15 +441,11 @@ export async function updateEvent(
   if ((input as any).cancelledDates !== undefined) values.cancelled_dates = (input as any).cancelledDates;
   values.updated_at = new Date().toISOString();
 
-  const { signal, cleanup } = abortAfter();
-  try {
-    const { error } = await (client.from("events").update(values).eq("id", id) as any).abortSignal(signal) as { error: any };
-    if (error) throw new Error(error.message);
-  } catch (err) {
-    throwAbort(err);
-  } finally {
-    cleanup();
-  }
+  const { error } = await Promise.race([
+    client.from("events").update(values).eq("id", id) as any,
+    timeoutAfter(),
+  ]) as { error: any };
+  if (error) throw new Error(error.message);
 }
 
 export async function cancelEventOccurrence(eventId: string, dateIso: string): Promise<void> {
@@ -917,26 +911,21 @@ export async function upsertProfile(
   if (input.socialLinks !== undefined) fields.social_links = input.socialLinks;
   fields.updated_at = new Date().toISOString();
 
-  const { signal, cleanup } = abortAfter();
-  try {
-    const { data, error } = await (client.from("users") as any)
+  const { data, error } = await Promise.race([
+    (client.from("users") as any)
       .upsert(fields, { onConflict: "id" })
       .select("*")
-      .maybeSingle()
-      .abortSignal(signal);
+      .maybeSingle(),
+    timeoutAfter(),
+  ]);
 
-    if (error) throw new Error(error.message);
-    if (!data) {
-      const { data: refetch } = await (client.from("users") as any).select("*").eq("id", userId).maybeSingle();
-      if (!refetch) throw new Error("Save succeeded but could not read back profile.");
-      return mapUser(refetch as unknown as Row<"users">);
-    }
-    return mapUser(data as unknown as Row<"users">);
-  } catch (err) {
-    throwAbort(err);
-  } finally {
-    cleanup();
+  if (error) throw new Error(error.message);
+  if (!data) {
+    const { data: refetch } = await (client.from("users") as any).select("*").eq("id", userId).maybeSingle();
+    if (!refetch) throw new Error("Save succeeded but could not read back profile.");
+    return mapUser(refetch as unknown as Row<"users">);
   }
+  return mapUser(data as unknown as Row<"users">);
 }
 
 export async function getCircleManagerIds(circleId: string): Promise<string[]> {
@@ -1245,14 +1234,22 @@ export async function getHomeData() {
 
 export async function getCircleByHandle(handle: string) {
   if (supabase) {
-    // Try direct ID lookup first (fast, no slug ambiguity)
-    const { data: byId } = await supabase.from("circles").select("*").eq("id", handle).maybeSingle();
-    if (byId) return mapCircle(byId as unknown as Row<"circles">);
-    // Fall back to fetching all and matching slug
-    const { data: all, error } = await supabase.from("circles").select("*").order("created_at");
-    if (!error && all) {
-      const items = all.map((r) => mapCircle(r as unknown as Row<"circles">));
-      return findByHandle(items, handle, getCircleHandle, (item) => item.id) ?? null;
+    try {
+      const { data: byId } = await Promise.race([
+        supabase.from("circles").select("*").eq("id", handle).maybeSingle() as any,
+        timeoutAfter(5_000),
+      ]) as { data: unknown | null };
+      if (byId) return mapCircle(byId as unknown as Row<"circles">);
+      const { data: all, error } = await Promise.race([
+        supabase.from("circles").select("*").order("created_at") as any,
+        timeoutAfter(5_000),
+      ]) as { data: unknown[] | null; error: any };
+      if (!error && all) {
+        const items = all.map((r) => mapCircle(r as unknown as Row<"circles">));
+        return findByHandle(items, handle, getCircleHandle, (item) => item.id) ?? null;
+      }
+    } catch (err) {
+      throw err;
     }
   }
   const items = await getCircles();
@@ -1260,22 +1257,27 @@ export async function getCircleByHandle(handle: string) {
 }
 
 export async function getEventByHandle(handle: string) {
-  try {
-    if (supabase) {
-      const { data: byId } = await supabase.from("events").select("*").eq("id", handle).maybeSingle();
+  if (supabase) {
+    try {
+      const { data: byId } = await Promise.race([
+        supabase.from("events").select("*").eq("id", handle).maybeSingle() as any,
+        timeoutAfter(5_000),
+      ]) as { data: unknown | null };
       if (byId) return mapEvent(byId as unknown as Row<"events">);
-      const { data: all, error } = await supabase.from("events").select("*").order("created_at");
+      const { data: all, error } = await Promise.race([
+        supabase.from("events").select("*").order("created_at") as any,
+        timeoutAfter(5_000),
+      ]) as { data: unknown[] | null; error: any };
       if (!error && all) {
         const items = all.map((r) => mapEvent(r as unknown as Row<"events">));
         return findByHandle(items, handle, getEventHandle, (item) => item.id) ?? null;
       }
+    } catch (err) {
+      throw err;
     }
-    const items = await getEvents();
-    return findByHandle(items, handle, getEventHandle, (item) => item.id) ?? null;
-  } catch {
-    const items = await getEvents().catch(() => []);
-    return findByHandle(items, handle, getEventHandle, (item) => item.id) ?? null;
   }
+  const items = await getEvents().catch(() => []);
+  return findByHandle(items, handle, getEventHandle, (item) => item.id) ?? null;
 }
 
 export async function getDealByHandle(handle: string) {

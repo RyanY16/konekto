@@ -29,6 +29,7 @@ function NewCirclePage() {
   const [university, setUniversity] = useState("");
   const [country, setCountry] = useState("Japan");
   const [primaryLanguage, setPrimaryLanguage] = useState("");
+  const [vibe, setVibe] = useState("Casual");
   const [recruiting, setRecruiting] = useState(false);
   const [pendingIcon, setPendingIcon] = useState<File | null>(null);
   const [iconPreview, setIconPreview] = useState<string | null>(null);
@@ -76,6 +77,7 @@ function NewCirclePage() {
         university: university.trim() || undefined,
         country: country || "Japan",
         primaryLanguage: primaryLanguage || undefined,
+        vibe: vibe || undefined,
         recruiting,
         recruitingPeriod: recruiting ? String(form.get("recruitingPeriod") ?? "").trim() || undefined : undefined,
         recruitingConditions: recruiting ? String(form.get("recruitingConditions") ?? "").trim() || undefined : undefined,
@@ -174,7 +176,7 @@ function NewCirclePage() {
           {/* University */}
           <div className={field}>
             <label className={lbl}>University {opt}</label>
-            <UniversityPicker value={university} onChange={setUniversity} extraOptions={["Online", "No university"]} />
+            <UniversityPicker value={university} onChange={setUniversity} />
           </div>
 
           {/* Country */}
@@ -192,6 +194,31 @@ function NewCirclePage() {
               <option value="">— Select language —</option>
               {LANGUAGES.map((l) => <option key={l.name} value={l.name}>{l.flag} {l.name}</option>)}
             </select>
+          </div>
+
+          <label className="flex items-center gap-2.5 text-sm cursor-pointer select-none">
+            <input name="englishFriendly" type="checkbox" className="h-4 w-4 rounded" />
+            <span>🌏 English-friendly</span>
+          </label>
+
+          <div className={field}>
+            <label className={lbl}>Vibe {opt}</label>
+            <div className="flex gap-2 flex-wrap">
+              {["Casual", "Serious", "Drinking-friendly"].map((v) => (
+                <button
+                  key={v}
+                  type="button"
+                  onClick={() => setVibe((prev) => (prev === v ? "" : v))}
+                  className={`px-3 py-1 rounded-full text-xs border transition-colors ${
+                    vibe === v
+                      ? "bg-orange-500 border-orange-500 text-white"
+                      : "border-border text-muted-foreground hover:bg-muted"
+                  }`}
+                >
+                  {v}
+                </button>
+              ))}
+            </div>
           </div>
 
           {/* Recruiting */}
@@ -271,11 +298,6 @@ function NewCirclePage() {
               </div>
             </div>
           </div>
-
-          <label className="flex items-center gap-2.5 text-sm cursor-pointer select-none">
-            <input name="englishFriendly" type="checkbox" className="h-4 w-4 rounded" />
-            <span>🌏 English-friendly</span>
-          </label>
 
           {error && <p className="text-sm text-destructive">{error}</p>}
 

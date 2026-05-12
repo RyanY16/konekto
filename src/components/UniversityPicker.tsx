@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { Input } from "@/components/ui/input";
 import { JAPAN_UNIVERSITIES } from "@/data/universities";
 
-const PINNED_OPTIONS = ["High School", "Graduated"];
+const PINNED_OPTIONS = ["Other"];
 
 export function UniversityPicker({ value, onChange, className, extraOptions }: {
   value: string;
