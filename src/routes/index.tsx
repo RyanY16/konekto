@@ -1,7 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useAuth } from "@/components/AuthProvider";
 import {
-  Users, Calendar, Tag, Briefcase, MapPin, ArrowRight, Sparkles, TrendingUp,
+  Users, Calendar, Tag, Briefcase, MapPin, ArrowRight, Sparkles, TrendingUp, RefreshCw,
 } from "lucide-react";
 import { deals } from "@/data/mock";
 import type { Circle, EventItem } from "@/data/mock";
@@ -83,7 +83,7 @@ function Landing() {
                 <p className="mt-1 text-sm text-muted-foreground">{desc}</p>
               </div>
             ))}
-            <div className="rounded-2xl bg-gradient-to-br from-primary to-primary/70 p-6 text-primary-foreground flex flex-col justify-between">
+            <div className="rounded-2xl bg-gradient-to-br from-primary to-accent p-6 text-primary-foreground flex flex-col justify-between">
               <div>
                 <p className="text-xs font-semibold uppercase tracking-widest opacity-80 mb-2">Ready?</p>
                 <h3 className="font-bold text-lg">Join Konekto today</h3>
@@ -108,12 +108,33 @@ function Landing() {
 function Dashboard() {
   const [events, setEvents] = useState<EventItem[]>([]);
   const [circles, setCircles] = useState<Circle[]>([]);
+  const [dataLoading, setDataLoading] = useState(true);
+  const [dataError, setDataError] = useState(false);
   const trendingDeals = deals.slice(0, 3);
 
-  useEffect(() => {
-    getEvents().then((data) => setEvents(data.slice(0, 3))).catch(() => {});
-    getCircles().then((data) => setCircles(data.slice(0, 3))).catch(() => {});
-  }, []);
+  function fetchData() {
+    console.log("[home] fetchData start");
+    setDataLoading(true);
+    setDataError(false);
+    let cancelled = false;
+    Promise.all([getEvents(), getCircles()])
+      .then(([evts, circs]) => {
+        if (cancelled) { console.log("[home] fetchData cancelled"); return; }
+        console.log(`[home] fetchData done — events=${evts.length} circles=${circs.length}`);
+        setEvents(evts.slice(0, 3));
+        setCircles(circs.slice(0, 3));
+        setDataLoading(false);
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        console.error("[home] fetchData error", err);
+        setDataLoading(false);
+        setDataError(true);
+      });
+    return () => { cancelled = true; };
+  }
+
+  useEffect(fetchData, []);
 
   return (
     <div className="space-y-10">
@@ -145,9 +166,23 @@ function Dashboard() {
         </div>
       </section>
 
+      {dataError && (
+        <div className="flex items-center justify-between rounded-2xl border border-border bg-card px-5 py-4">
+          <p className="text-sm text-muted-foreground">Couldn't load your feed. Check your connection.</p>
+          <button
+            onClick={fetchData}
+            className="inline-flex items-center gap-1.5 text-sm font-medium text-primary hover:underline"
+          >
+            <RefreshCw className="h-3.5 w-3.5" /> Retry
+          </button>
+        </div>
+      )}
+
       <Section title="Upcoming events" subtitle="The latest events happening now." icon={<Sparkles className="h-5 w-5" />} link="/events">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {events.map((e) => (
+          {dataLoading
+            ? Array.from({ length: 3 }).map((_, i) => <CardSkeleton key={i} />)
+            : events.map((e) => (
             <Link
               key={e.id}
               to="/events/$eventHandle"
@@ -172,7 +207,9 @@ function Dashboard() {
 
       <Section title="Featured circles" icon={<Users className="h-5 w-5" />} link="/circles">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {circles.map((c) => (
+          {dataLoading
+            ? Array.from({ length: 3 }).map((_, i) => <CardSkeleton key={i} />)
+            : circles.map((c) => (
             <Link
               key={c.id}
               to="/circles/$circleHandle"
@@ -209,6 +246,17 @@ function Dashboard() {
           ))}
         </div>
       </Section>
+    </div>
+  );
+}
+
+function CardSkeleton() {
+  return (
+    <div className="card-base p-5 space-y-3 animate-pulse">
+      <div className="h-8 w-8 rounded-lg bg-muted" />
+      <div className="h-4 w-1/3 rounded bg-muted" />
+      <div className="h-4 w-2/3 rounded bg-muted" />
+      <div className="h-3 w-1/2 rounded bg-muted" />
     </div>
   );
 }

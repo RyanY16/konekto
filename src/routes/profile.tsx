@@ -2,7 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { Globe, Instagram, Linkedin, MessageCircle } from "lucide-react";
 import { tagClass } from "@/lib/tag-class";
-import { Bookmark, Users, Briefcase, Pencil, Check, X, LogOut, Camera } from "lucide-react";
+import { Bookmark, Users, Briefcase, Pencil, Check, X, LogOut, Camera, CheckCircle2, Loader2 } from "lucide-react";
 import { CropDialog } from "@/components/CropDialog";
 import { events } from "@/data/mock";
 import { PageHeader } from "@/components/PageHeader";
@@ -11,7 +11,7 @@ import { Input } from "@/components/ui/input";
 import { useAuth } from "@/components/AuthProvider";
 import {
   getProfile, upsertProfile, uploadAvatar, getCircles, getJoinedCircleIds,
-  joinCircle, leaveCircle, getCircleHandle, type UserProfile,
+  joinCircle, leaveCircle, getCircleHandle, getProfileByUsername, type UserProfile,
 } from "@/data/backend";
 import type { Circle } from "@/data/mock";
 import { UniversityPicker } from "@/components/UniversityPicker";
@@ -309,6 +309,8 @@ function ProfilePage() {
   const [pendingAvatar, setPendingAvatar] = useState<File | null>(null);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+  const [usernameStatus, setUsernameStatus] = useState<"idle" | "checking" | "taken" | "available">("idle");
+  const usernameTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const [allCircles, setAllCircles] = useState<Circle[]>([]);
   const [joinedIds, setJoinedIds] = useState<Set<string>>(new Set());
@@ -320,6 +322,18 @@ function ProfilePage() {
   const [tagsSaving, setTagsSaving] = useState(false);
 
   const savedEvents = events.slice(0, 3);
+
+  useEffect(() => {
+    if (!editing) { setUsernameStatus("idle"); return; }
+    const trimmed = draft.username?.trim() ?? "";
+    if (!trimmed || trimmed === profile?.username) { setUsernameStatus("idle"); return; }
+    setUsernameStatus("checking");
+    if (usernameTimer.current) clearTimeout(usernameTimer.current);
+    usernameTimer.current = setTimeout(async () => {
+      const existing = await getProfileByUsername(trimmed).catch(() => null);
+      setUsernameStatus(existing ? "taken" : "available");
+    }, 400);
+  }, [draft.username, editing]);
 
   useEffect(() => {
     if (!user) return;
@@ -423,6 +437,7 @@ function ProfilePage() {
     setAvatarPreview(null);
     setPendingAvatar(null);
     setSaveError(null);
+    setUsernameStatus("idle");
     setEditing(true);
   }
 
@@ -549,7 +564,7 @@ function ProfilePage() {
           <AvatarUploader src={avatarSrc} initials={initials} editing={editing} onUpload={handleAvatarFile} />
           {editing ? (
             <div className="flex gap-2 shrink-0">
-              <Button size="sm" onClick={save} disabled={saving}>
+              <Button size="sm" onClick={save} disabled={saving || usernameStatus === "checking" || usernameStatus === "taken"}>
                 <Check className="h-4 w-4 mr-1" />{saving ? "Saving…" : "Save"}
               </Button>
               <Button size="sm" variant="outline" onClick={cancelEditing} disabled={saving}>
@@ -585,9 +600,24 @@ function ProfilePage() {
                   value={draft.username ?? ""}
                   onChange={(e) => setDraft((d) => ({ ...d, username: e.target.value.replace(/[^a-zA-Z0-9_]/g, "").toLowerCase() }))}
                   placeholder="username"
-                  className="pl-7"
+                  className={`pl-7 pr-8 ${
+                    usernameStatus === "taken" ? "border-destructive focus-visible:ring-destructive" :
+                    usernameStatus === "available" ? "border-green-500 focus-visible:ring-green-500" : ""
+                  }`}
                 />
+                {usernameStatus === "checking" && (
+                  <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-muted-foreground" />
+                )}
+                {usernameStatus === "available" && (
+                  <CheckCircle2 className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-green-500" />
+                )}
               </div>
+              {usernameStatus === "taken" && (
+                <p className="text-xs text-destructive">@{draft.username} is already taken</p>
+              )}
+              {usernameStatus === "available" && (
+                <p className="text-xs text-green-600 dark:text-green-400">@{draft.username} is available ✓</p>
+              )}
             </div>
             <div className="space-y-1">
               <p className="text-xs font-medium text-muted-foreground">School</p>

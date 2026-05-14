@@ -55,16 +55,31 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // overwrite a valid user with null if the JWT validation request was slow.
     const { data: sub } = supabase.auth.onAuthStateChange(async (_event, session) => {
       const gen = ++generation;
+      console.log(`[auth] event=${_event} gen=${gen} uid=${session?.user?.id ?? "none"}`);
       if (mounted) setLoading(true);
       const u = session?.user ?? null;
       if (!u) {
+        console.log(`[auth] no user → clearing`);
         if (mounted && gen === generation) { setUser(null); setLoading(false); }
         return;
       }
-      const resolved = await resolveUser(u, gen);
+      let resolved = null;
+      try {
+        console.log(`[auth] resolveUser start uid=${u.id}`);
+        resolved = await resolveUser(u, gen);
+        console.log(`[auth] resolveUser done`, resolved);
+      } catch (err) {
+        console.error(`[auth] resolveUser threw`, err);
+      } finally {
+        if (mounted && gen === generation) {
+          console.log(`[auth] setUser gen=${gen} username=${(resolved as any)?.username ?? null}`);
+          setUser(resolved);
+          setLoading(false);
+        } else {
+          console.log(`[auth] stale gen=${gen} current=${generation} mounted=${mounted} — skipping setUser`);
+        }
+      }
       if (!mounted || gen !== generation) return;
-      setUser(resolved);
-      setLoading(false);
 
       // On first sign-in, backfill profile fields from signup metadata if the
       // row exists but is still empty (trigger may have created it without data).

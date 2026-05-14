@@ -10,6 +10,7 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as SignupRouteImport } from './routes/signup'
+import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as SavedRouteImport } from './routes/saved'
 import { Route as ProfileRouteImport } from './routes/profile'
 import { Route as LoginRouteImport } from './routes/login'
@@ -37,6 +38,11 @@ import { Route as CareersJobHandleRouteImport } from './routes/careers_.$jobHand
 const SignupRoute = SignupRouteImport.update({
   id: '/signup',
   path: '/signup',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SettingsRoute = SettingsRouteImport.update({
+  id: '/settings',
+  path: '/settings',
   getParentRoute: () => rootRouteImport,
 } as any)
 const SavedRoute = SavedRouteImport.update({
@@ -169,6 +175,7 @@ export interface FileRoutesByFullPath {
   '/login': typeof LoginRoute
   '/profile': typeof ProfileRoute
   '/saved': typeof SavedRoute
+  '/settings': typeof SettingsRoute
   '/signup': typeof SignupRoute
   '/careers/$jobHandle': typeof CareersJobHandleRoute
   '/circles/$circleHandle': typeof CirclesCircleHandleRoute
@@ -195,6 +202,7 @@ export interface FileRoutesByTo {
   '/login': typeof LoginRoute
   '/profile': typeof ProfileRoute
   '/saved': typeof SavedRoute
+  '/settings': typeof SettingsRoute
   '/signup': typeof SignupRoute
   '/careers/$jobHandle': typeof CareersJobHandleRoute
   '/circles/$circleHandle': typeof CirclesCircleHandleRoute
@@ -222,6 +230,7 @@ export interface FileRoutesById {
   '/login': typeof LoginRoute
   '/profile': typeof ProfileRoute
   '/saved': typeof SavedRoute
+  '/settings': typeof SettingsRoute
   '/signup': typeof SignupRoute
   '/careers_/$jobHandle': typeof CareersJobHandleRoute
   '/circles_/$circleHandle': typeof CirclesCircleHandleRoute
@@ -250,6 +259,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/profile'
     | '/saved'
+    | '/settings'
     | '/signup'
     | '/careers/$jobHandle'
     | '/circles/$circleHandle'
@@ -276,6 +286,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/profile'
     | '/saved'
+    | '/settings'
     | '/signup'
     | '/careers/$jobHandle'
     | '/circles/$circleHandle'
@@ -302,6 +313,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/profile'
     | '/saved'
+    | '/settings'
     | '/signup'
     | '/careers_/$jobHandle'
     | '/circles_/$circleHandle'
@@ -329,6 +341,7 @@ export interface RootRouteChildren {
   LoginRoute: typeof LoginRoute
   ProfileRoute: typeof ProfileRoute
   SavedRoute: typeof SavedRoute
+  SettingsRoute: typeof SettingsRoute
   SignupRoute: typeof SignupRoute
   CareersJobHandleRoute: typeof CareersJobHandleRoute
   CirclesCircleHandleRoute: typeof CirclesCircleHandleRoute
@@ -349,6 +362,13 @@ declare module '@tanstack/react-router' {
       path: '/signup'
       fullPath: '/signup'
       preLoaderRoute: typeof SignupRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/settings': {
+      id: '/settings'
+      path: '/settings'
+      fullPath: '/settings'
+      preLoaderRoute: typeof SettingsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/saved': {
@@ -529,6 +549,7 @@ const rootRouteChildren: RootRouteChildren = {
   LoginRoute: LoginRoute,
   ProfileRoute: ProfileRoute,
   SavedRoute: SavedRoute,
+  SettingsRoute: SettingsRoute,
   SignupRoute: SignupRoute,
   CareersJobHandleRoute: CareersJobHandleRoute,
   CirclesCircleHandleRoute: CirclesCircleHandleRoute,

@@ -1,8 +1,7 @@
 import { Link, Outlet, useRouterState, useNavigate } from "@tanstack/react-router";
-import { Home, Users, User, Calendar, Tag } from "lucide-react";
+import { Home, Users, User, Calendar, Tag, Settings } from "lucide-react";
 import type { ComponentType } from "react";
 import { useEffect } from "react";
-import { SettingsPopover } from "./SettingsPopover";
 import AuthProvider, { useAuth } from "@/components/AuthProvider";
 import { GlobalSearch } from "@/components/GlobalSearch";
 import { NotificationsDropdown } from "@/components/NotificationsDropdown";
@@ -49,66 +48,70 @@ export function AppShell() {
   const isBare = BARE_ROUTES.includes(pathname);
   const isActive = (to: string) => (to === "/" ? pathname === "/" : pathname.startsWith(to));
 
-  if (isBare) {
-    return (
-      <AuthProvider>
+  return (
+    <AuthProvider>
+      {isBare ? (
         <div className="min-h-screen bg-background">
           <Outlet />
         </div>
-      </AuthProvider>
-    );
-  }
-
-  return (
-    <AuthProvider>
-      <ProfileGuard />
-      <div className="min-h-screen bg-background">
-        {/* Top bar */}
-        <header className="sticky top-0 z-40 border-b border-border bg-background/80 backdrop-blur-md">
-          <div className="mx-auto max-w-7xl px-4 h-14 flex items-center gap-2 min-w-0">
-            <Logo />
-            <div className="flex-1 min-w-0 mx-2">
-              <GlobalSearch />
-            </div>
-            <div className="flex items-center gap-1 shrink-0">
-              <AuthNav isActive={isActive} />
-              <NotificationsButton />
-              <SettingsPopover />
-              <div className="flex items-center gap-2">
-                <AuthControls />
+      ) : (
+        <>
+          <ProfileGuard />
+          <div className="min-h-screen bg-background">
+            {/* Top bar */}
+            <header className="sticky top-0 z-40 border-b border-border bg-background/80 backdrop-blur-md">
+              <div className="mx-auto max-w-7xl px-4 h-14 flex items-center gap-2 min-w-0">
+                <Logo />
+                <div className="flex-1 min-w-0 mx-2">
+                  <GlobalSearch />
+                </div>
+                <div className="flex items-center gap-1 shrink-0">
+                  <AuthNav isActive={isActive} />
+                  <NotificationsButton />
+                  <Link
+                    to="/settings"
+                    aria-label="Settings"
+                    className="inline-flex items-center justify-center h-9 w-9 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+                  >
+                    <Settings className="h-4 w-4" />
+                  </Link>
+                  <div className="flex items-center gap-2">
+                    <AuthControls />
+                  </div>
+                </div>
               </div>
-            </div>
+            </header>
+
+            <main className="mx-auto max-w-7xl px-4 py-6 md:pb-10 animate-fade-up" style={{ paddingBottom: "calc(6rem + env(safe-area-inset-bottom))" }}>
+              <Outlet />
+            </main>
+
+            {/* Footer */}
+            <footer className="hidden md:block border-t border-border bg-background">
+              <div className="mx-auto max-w-7xl px-4 py-4 flex items-center justify-between text-xs text-muted-foreground">
+                <span>© {new Date().getFullYear()} Konekto</span>
+                <div className="flex items-center gap-2">
+                  <Link
+                    to="/about"
+                    className="rounded-full border border-border px-3 py-1.5 font-medium hover:text-foreground hover:bg-muted transition-colors"
+                  >
+                    About
+                  </Link>
+                  <Link
+                    to="/features"
+                    className="rounded-full border border-border px-3 py-1.5 font-medium hover:text-foreground hover:bg-muted transition-colors"
+                  >
+                    Features
+                  </Link>
+                </div>
+              </div>
+            </footer>
+
+            {/* Bottom nav (mobile) */}
+            <AuthBottomNav isActive={isActive} />
           </div>
-        </header>
-
-        <main className="mx-auto max-w-7xl px-4 py-6 md:pb-10 animate-fade-up" style={{ paddingBottom: "calc(6rem + env(safe-area-inset-bottom))" }}>
-          <Outlet />
-        </main>
-
-        {/* Footer */}
-        <footer className="hidden md:block border-t border-border bg-background">
-          <div className="mx-auto max-w-7xl px-4 py-4 flex items-center justify-between text-xs text-muted-foreground">
-            <span>© {new Date().getFullYear()} Konekto</span>
-            <div className="flex items-center gap-2">
-              <Link
-                to="/about"
-                className="rounded-full border border-border px-3 py-1.5 font-medium hover:text-foreground hover:bg-muted transition-colors"
-              >
-                About
-              </Link>
-              <Link
-                to="/features"
-                className="rounded-full border border-border px-3 py-1.5 font-medium hover:text-foreground hover:bg-muted transition-colors"
-              >
-                Features
-              </Link>
-            </div>
-          </div>
-        </footer>
-
-        {/* Bottom nav (mobile) */}
-        <AuthBottomNav isActive={isActive} />
-      </div>
+        </>
+      )}
     </AuthProvider>
   );
 }
