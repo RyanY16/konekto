@@ -10,7 +10,7 @@ i18next
       en: { translation: en },
       ja: { translation: ja },
     },
-    lng: localStorage.getItem("konekto_lang") ?? "en",
+    lng: (typeof localStorage !== "undefined" ? localStorage.getItem("konekto_lang") : null) ?? "en",
     fallbackLng: "en",
     interpolation: { escapeValue: false },
   });
