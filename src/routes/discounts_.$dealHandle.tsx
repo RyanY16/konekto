@@ -12,6 +12,9 @@ import { Textarea } from "@/components/ui/textarea";
 import { DeleteRecordButton } from "@/components/DeleteRecordButton";
 import { useAuth } from "@/components/AuthProvider";
 import { getDealByHandle, updateDeal, deleteDeal, uploadDealImage } from "@/data/backend";
+import { anyContainsSlur } from "@/lib/profanity";
+import { checkBeforePost } from "@/lib/moderation";
+import { CropDialog } from "@/components/CropDialog";
 import { ShareButton } from "@/components/ShareButton";
 import { SaveButton } from "@/components/SaveButton";
 import { DEAL_CATEGORIES, DEAL_CATEGORY_EMOJI } from "@/data/profile-options";
@@ -60,8 +63,24 @@ function DealDetailPage() {
   const [error, setError] = useState("");
   const [pendingImage, setPendingImage] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [cropFile, setCropFile] = useState<File | null>(null);
+  const [fetchingCrop, setFetchingCrop] = useState(false);
   const [saleEndOpen, setSaleEndOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
+
+  async function openCropForExisting() {
+    const src = imagePreview ?? deal.imageUrl;
+    if (!src) return;
+    setFetchingCrop(true);
+    try {
+      const res = await fetch(src);
+      const blob = await res.blob();
+      setCropFile(new File([blob], "deal.jpg", { type: blob.type }));
+    } finally {
+      setFetchingCrop(false);
+    }
+  }
 
   if (!deal) {
     return (
@@ -90,6 +109,18 @@ function DealDetailPage() {
     if (!deal) return;
     setSaving(true);
     setError("");
+    if (anyContainsSlur(draft.brand, draft.title, draft.description)) {
+      setError("Your post contains inappropriate language and could not be submitted. Please review and try again.");
+      setSaving(false);
+      return;
+    }
+    const aiCheck = await checkBeforePost([draft.brand, draft.title, draft.description].filter(Boolean).join(" "))
+      .catch(() => ({ blocked: true as const, reason: "Content safety check failed — please try again in a moment." }));
+    if (aiCheck.blocked) {
+      setError(aiCheck.reason!);
+      setSaving(false);
+      return;
+    }
     try {
       let imageUrl = deal.imageUrl;
       if (pendingImage) {
@@ -138,36 +169,47 @@ function DealDetailPage() {
           <PageHeader eyebrow="Discounts" title="Edit deal" />
 
           {/* Image */}
+          {cropFile && (
+            <CropDialog
+              file={cropFile}
+              onCrop={(cropped) => { setCropFile(null); handleImageFile(cropped); }}
+              onCancel={() => setCropFile(null)}
+            />
+          )}
           <div className={field}>
-            <label className={lbl}>Image (optional)</label>
-            <div className="flex items-center gap-4">
-              <button
-                type="button"
-                onClick={() => fileInputRef.current?.click()}
-                className="relative group w-24 h-24 rounded-xl border-2 border-dashed border-border hover:border-primary transition-colors overflow-hidden flex items-center justify-center bg-muted shrink-0"
-              >
-                {displayImage ? (
-                  <>
-                    <img src={displayImage} alt="Preview" className="w-full h-full object-cover" />
-                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                      <span className="text-white text-xl">📷</span>
-                    </div>
-                  </>
-                ) : (
-                  <span className="text-4xl group-hover:scale-110 transition-transform">{DEAL_CATEGORY_EMOJI[draft.category] ?? "🏷️"}</span>
-                )}
-              </button>
-              <div className="text-xs text-muted-foreground space-y-1">
-                <p className="font-medium text-foreground">Upload an image</p>
-                <p>PNG or JPG · Max 5 MB</p>
-                {displayImage && (
-                  <button type="button" className="text-destructive hover:underline" onClick={() => { if (imagePreview) URL.revokeObjectURL(imagePreview); setPendingImage(null); setImagePreview(null); }}>
-                    Remove
+            <label className={lbl}>Photo (optional)</label>
+            <div className="flex gap-4">
+              <div className="w-28 shrink-0 aspect-[3/4] rounded-xl border-2 border-border overflow-hidden flex items-center justify-center bg-muted">
+                {displayImage
+                  ? <img src={displayImage} alt="Preview" className="w-full h-full object-cover" />
+                  : <span className="text-4xl">{DEAL_CATEGORY_EMOJI[draft.category] ?? "🏷️"}</span>
+                }
+              </div>
+              <div className="flex flex-col gap-2 justify-center">
+                <p className="text-xs text-muted-foreground">Photo of the deal — receipt, menu, sign, etc.</p>
+                <div className="flex flex-wrap gap-1.5">
+                  <button type="button" onClick={() => cameraInputRef.current?.click()} className="text-xs font-medium text-primary hover:text-primary/80 border border-primary/30 hover:border-primary/60 rounded-full px-3 py-1 transition-colors">
+                    📸 Take photo
                   </button>
-                )}
+                  <button type="button" onClick={() => fileInputRef.current?.click()} className="text-xs font-medium text-muted-foreground hover:text-foreground border border-border rounded-full px-3 py-1 transition-colors">
+                    {displayImage ? "Replace" : "Upload"}
+                  </button>
+                  {displayImage && (
+                    <button type="button" onClick={openCropForExisting} disabled={fetchingCrop} className="text-xs font-medium text-primary hover:text-primary/80 border border-primary/30 hover:border-primary/60 rounded-full px-3 py-1 transition-colors disabled:opacity-50">
+                      {fetchingCrop ? "Loading…" : "Edit photo"}
+                    </button>
+                  )}
+                  {displayImage && (
+                    <button type="button" className="text-xs font-medium text-destructive hover:text-destructive/80 border border-destructive/30 rounded-full px-3 py-1 transition-colors" onClick={() => { if (imagePreview) URL.revokeObjectURL(imagePreview); setPendingImage(null); setImagePreview(null); }}>
+                      Remove
+                    </button>
+                  )}
+                </div>
+                <p className="text-xs text-muted-foreground">PNG or JPG · Max 5 MB</p>
               </div>
             </div>
-            <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) handleImageFile(f); e.target.value = ""; }} />
+            <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) setCropFile(f); e.target.value = ""; }} />
+            <input ref={cameraInputRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) setCropFile(f); e.target.value = ""; }} />
           </div>
 
           {/* Brand */}
@@ -252,7 +294,7 @@ function DealDetailPage() {
             <label className={lbl}>Link (optional)</label>
             <div className="relative">
               <Globe className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
-              <Input value={draft.url} onChange={(e) => setDraft((d) => ({ ...d, url: e.target.value }))} placeholder="https://" className="pl-9" />
+              <Input value={draft.url} onChange={(e) => { try { setDraft((d) => ({ ...d, url: decodeURI(e.target.value) })); } catch { setDraft((d) => ({ ...d, url: e.target.value })); } }} placeholder="https://" className="pl-9" />
             </div>
           </div>
 
@@ -266,8 +308,10 @@ function DealDetailPage() {
       ) : (
         <div className="max-w-2xl space-y-4">
           {displayImage && (
-            <div className="rounded-2xl overflow-hidden h-64">
-              <img src={displayImage} alt={deal.title} className="w-full h-full object-cover" />
+            <div className="flex justify-center">
+              <div className="rounded-2xl overflow-hidden max-h-[70vh] max-w-sm w-full">
+                <img src={displayImage} alt={deal.title} className="w-full h-auto object-contain" />
+              </div>
             </div>
           )}
 

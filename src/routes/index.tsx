@@ -1,4 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { useTranslation } from "react-i18next";
 import { useAuth } from "@/components/AuthProvider";
 import {
   Users, Calendar, Tag, Briefcase, MapPin, ArrowRight, Sparkles, TrendingUp, RefreshCw,
@@ -29,71 +30,96 @@ function IndexPage() {
 
 // ── Landing ────────────────────────────────────────────────────────────────────
 
-const features = [
-  { icon: Users,     title: "Circles",    desc: "Find student clubs and communities that match your interests." },
-  { icon: Calendar,  title: "Events",     desc: "Discover campus events, meetups, and cultural experiences." },
-  { icon: Tag,       title: "Deals",      desc: "Exclusive student discounts at shops, cafés, and services." },
-  { icon: Briefcase, title: "Careers",    desc: "Internships and job opportunities for international students." },
-  { icon: MapPin,    title: "Japan Life", desc: "Practical guides for navigating daily life in Japan." },
-];
+const featureIcons = [Users, Calendar, Tag, Briefcase, MapPin];
+const featureKeys = ["circles", "events", "deals", "careers", "japanLife"] as const;
 
 function Landing() {
+  const { t } = useTranslation();
   return (
     <div>
       <div className="mx-auto max-w-6xl px-4">
         <section className="py-20 md:py-28 text-center">
           <p className="inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-widest text-primary mb-4">
-            <Sparkles className="h-3.5 w-3.5" /> For students in Japan
+            <Sparkles className="h-3.5 w-3.5" /> {t("home.eyebrow")}
           </p>
           <h1 className="text-4xl md:text-6xl font-bold tracking-tight text-foreground leading-tight">
-            Your campus,<br className="hidden sm:block" /> connected.
+            {t("home.tagline").split("\n").map((line, i) => (
+              <span key={i}>{line}{i === 0 && <br className="hidden sm:block" />}</span>
+            ))}
           </h1>
           <p className="mt-5 text-lg text-muted-foreground max-w-xl mx-auto">
-            With Konekto, discover student circles, events, and opportunities across every university in Japan - all in one place.
+            {t("home.subtitle")}
           </p>
           <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
             <Link
               to="/signup"
               className="inline-flex items-center gap-2 rounded-full bg-primary px-6 py-3 text-sm font-semibold text-primary-foreground hover:bg-primary/90 transition-colors"
             >
-              Get started free <ArrowRight className="h-4 w-4" />
+              {t("home.getStarted")} <ArrowRight className="h-4 w-4" />
             </Link>
             <Link
               to="/login"
               className="inline-flex items-center gap-2 rounded-full border border-border px-6 py-3 text-sm font-semibold hover:bg-muted transition-colors"
             >
-              Log in
+              {t("auth.login")}
             </Link>
           </div>
           <div className="mt-4">
             <Link to="/circles" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
-              Continue as guest →
+              {t("auth.continueAsGuest")}
             </Link>
+          </div>
+          <div className="mt-6 flex items-center justify-center gap-4">
+            <a
+              href="https://www.instagram.com/join.konekto"
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label="Instagram"
+              className="text-muted-foreground hover:text-foreground transition-colors"
+            >
+              <svg viewBox="0 0 24 24" className="h-5 w-5" fill="currentColor" aria-hidden>
+                <path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"/>
+              </svg>
+            </a>
+            <a
+              href="https://www.linkedin.com/company/joinkonekto"
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label="LinkedIn"
+              className="text-muted-foreground hover:text-foreground transition-colors"
+            >
+              <svg viewBox="0 0 24 24" className="h-5 w-5" fill="currentColor" aria-hidden>
+                <path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433c-1.144 0-2.063-.926-2.063-2.065 0-1.138.92-2.063 2.063-2.063 1.14 0 2.064.925 2.064 2.063 0 1.139-.925 2.065-2.064 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"/>
+              </svg>
+            </a>
           </div>
         </section>
 
         <section className="pb-20">
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {features.map(({ icon: Icon, title, desc }) => (
-              <div key={title} className="rounded-2xl border border-border bg-card p-6 hover:shadow-md transition-shadow">
-                <div className="h-10 w-10 rounded-xl bg-primary-soft flex items-center justify-center mb-4">
-                  <Icon className="h-5 w-5 text-primary" />
+            {featureKeys.map((key, i) => {
+              const Icon = featureIcons[i];
+              return (
+                <div key={key} className="rounded-2xl border border-border bg-card p-6 hover:shadow-md transition-shadow">
+                  <div className="h-10 w-10 rounded-xl bg-primary-soft flex items-center justify-center mb-4">
+                    <Icon className="h-5 w-5 text-primary" />
+                  </div>
+                  <h3 className="font-semibold text-foreground">{t(`home.features.${key}.title`)}</h3>
+                  <p className="mt-1 text-sm text-muted-foreground">{t(`home.features.${key}.desc`)}</p>
                 </div>
-                <h3 className="font-semibold text-foreground">{title}</h3>
-                <p className="mt-1 text-sm text-muted-foreground">{desc}</p>
-              </div>
-            ))}
+              );
+            })}
             <div className="rounded-2xl bg-gradient-to-br from-primary to-accent p-6 text-primary-foreground flex flex-col justify-between">
               <div>
-                <p className="text-xs font-semibold uppercase tracking-widest opacity-80 mb-2">Ready?</p>
-                <h3 className="font-bold text-lg">Join Konekto today</h3>
-                <p className="mt-1 text-sm opacity-80">It's free for all students.</p>
+                <p className="text-xs font-semibold uppercase tracking-widest opacity-80 mb-2">{t("home.cta.eyebrow")}</p>
+                <h3 className="font-bold text-lg">{t("home.cta.title")}</h3>
+                <p className="mt-1 text-sm opacity-80">{t("home.cta.subtitle")}</p>
               </div>
               <Link
                 to="/signup"
                 className="mt-6 inline-flex items-center gap-2 self-start rounded-full bg-white/20 hover:bg-white/30 px-4 py-2 text-sm font-semibold transition-colors"
               >
-                Sign up <ArrowRight className="h-4 w-4" />
+                {t("home.cta.button")} <ArrowRight className="h-4 w-4" />
               </Link>
             </div>
           </div>

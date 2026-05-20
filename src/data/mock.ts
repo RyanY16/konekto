@@ -60,6 +60,7 @@ export type EventItem = {
   howToJoin?: string;
   recurrence?: "weekly";
   cancelledDates?: string[]; // YYYY-MM-DD
+  imageUrl?: string;
 };
 
 export type Deal = {

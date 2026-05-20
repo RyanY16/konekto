@@ -1,5 +1,6 @@
 import { createRootRoute, HeadContent, Link, Scripts } from "@tanstack/react-router";
 import { AppShell } from "@/components/AppShell";
+import "@/i18n";
 
 import appCss from "../styles.css?url";
 

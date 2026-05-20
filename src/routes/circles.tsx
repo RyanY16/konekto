@@ -1,5 +1,6 @@
 import { createFileRoute, Link, useRouter } from "@tanstack/react-router";
 import { useState, useMemo } from "react";
+import { useTranslation } from "react-i18next";
 import { Search, Trash2, ArrowUpDown } from "lucide-react";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
@@ -93,6 +94,7 @@ function tagOverlap(circleTags: string[], userInterests: string[]): number {
 }
 
 function CirclesPage() {
+  const { t } = useTranslation();
   const { user, isAdmin } = useAuth();
   const { circles: allCircles, ownerMap, userInterests } = Route.useLoaderData();
   const router = useRouter();
@@ -152,9 +154,9 @@ function CirclesPage() {
     <div>
       <div className="flex items-start justify-between mb-0">
         <PageHeader
-          eyebrow="Circles"
-          title="Find your circles."
-          subtitle="From hackathons to hiking clubs — discover the communities that fit you."
+          eyebrow={t("circles.eyebrow")}
+          title={t("circles.title")}
+          subtitle={t("circles.subtitle")}
         />
         <div className="mt-1 shrink-0 flex items-center gap-2">
           {isAdmin && (
@@ -166,13 +168,11 @@ function CirclesPage() {
               </AlertDialogTrigger>
               <AlertDialogContent>
                 <AlertDialogHeader>
-                  <AlertDialogTitle>Delete all circles?</AlertDialogTitle>
-                  <AlertDialogDescription>
-                    This permanently deletes every circle. This cannot be undone.
-                  </AlertDialogDescription>
+                  <AlertDialogTitle>{t("circles.confirmDeleteAll")}</AlertDialogTitle>
+                  <AlertDialogDescription>{t("circles.confirmDeleteAllDesc")}</AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
-                  <AlertDialogCancel disabled={deletingAll}>Cancel</AlertDialogCancel>
+                  <AlertDialogCancel disabled={deletingAll}>{t("common.cancel")}</AlertDialogCancel>
                   <AlertDialogAction
                     disabled={deletingAll}
                     className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
@@ -182,7 +182,7 @@ function CirclesPage() {
                       try { await deleteAllCircles(); router.invalidate(); } finally { setDeletingAll(false); }
                     }}
                   >
-                    {deletingAll ? "Deleting…" : "Delete all"}
+                    {deletingAll ? t("common.deleting") : t("common.deleteAll")}
                   </AlertDialogAction>
                 </AlertDialogFooter>
               </AlertDialogContent>

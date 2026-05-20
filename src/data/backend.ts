@@ -95,7 +95,7 @@ async function insertSupabase<TTable extends PublicTable, TItem>(
     console.log(`[db] insert ${table}`, values);
     const { data, error } = await Promise.race([
       client.from(table).insert(values).select("*").maybeSingle() as any,
-      timeoutAfter(),
+      timeoutAfter(15_000),
     ]) as { data: Row<TTable> | null; error: any };
     if (error) throw new Error(error.message);
     if (!data) throw new Error("Insert succeeded but no row returned — check RLS policies.");
@@ -118,7 +118,7 @@ async function updateSupabase<TTable extends PublicTable, TItem>(
     console.log(`[db] update ${table} id=${id}`, values);
     const { data, error } = await Promise.race([
       client.from(table).update(values).eq("id", id).select("*").maybeSingle() as any,
-      timeoutAfter(),
+      timeoutAfter(15_000),
     ]) as { data: Row<TTable> | null; error: any };
     if (error) throw new Error(error.message);
     if (!data) {
@@ -199,6 +199,7 @@ function mapEvent(row: Row<"events">): EventItem {
     startDate: (row as any).start_date ?? undefined,
     recurrence: (row as any).recurrence ?? undefined,
     cancelledDates: (row as any).cancelled_dates ?? [],
+    imageUrl: (row as any).image_url ?? undefined,
   };
 }
 
@@ -421,6 +422,7 @@ export async function addEvent(
   if ((input as any).startDate) (values as any).start_date = (input as any).startDate;
   if ((input as any).recurrence) (values as any).recurrence = (input as any).recurrence;
   (values as any).cancelled_dates = (input as any).cancelledDates ?? [];
+  if (input.imageUrl) (values as any).image_url = input.imageUrl;
   const { error } = await Promise.race([
     client.from("events").insert(values) as any,
     timeoutAfter(),
@@ -453,6 +455,7 @@ export async function updateEvent(
   if ((input as any).startDate !== undefined) values.start_date = (input as any).startDate;
   if ((input as any).recurrence !== undefined) values.recurrence = (input as any).recurrence || null;
   if ((input as any).cancelledDates !== undefined) values.cancelled_dates = (input as any).cancelledDates;
+  if (input.imageUrl !== undefined) values.image_url = input.imageUrl || null;
   values.updated_at = new Date().toISOString();
 
   const { error } = await Promise.race([
@@ -1207,6 +1210,17 @@ export async function uploadCircleIcon(circleId: string, file: File): Promise<st
   const { error } = await client.storage.from("circle-icons").upload(path, file, { upsert: true });
   if (error) throw new Error(error.message);
   const { data } = client.storage.from("circle-icons").getPublicUrl(path);
+  return data.publicUrl;
+}
+
+export async function uploadEventImage(eventId: string, file: File): Promise<string> {
+  const client = assertSupabase();
+  if (file.size > 5_000_000) throw new Error("Image must be under 5 MB.");
+  const ext = file.name.split(".").pop() ?? "jpg";
+  const path = `${eventId}/image.${ext}`;
+  const { error } = await client.storage.from("event-images").upload(path, file, { upsert: true });
+  if (error) throw new Error(error.message);
+  const { data } = client.storage.from("event-images").getPublicUrl(path);
   return data.publicUrl;
 }
 

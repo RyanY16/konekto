@@ -67,7 +67,6 @@ export const UNIVERSITIES: string[] = [
   "Osaka Kyoiku University",
   "Hyogo University of Teacher Education",
   "Naruto University of Education",
-  "Fukuoka University of Education",
   "Miyagi University of Education",
   "Akita University of Teacher Education",
   "Iwate University (Education)",

@@ -27,7 +27,7 @@ export function SocialLinks({ links }: { links?: SocialLinksType }) {
     <div className="flex flex-wrap gap-2">
       {visible.map((item) => {
         const Icon = item.icon;
-        const raw = links?.[item.key] ?? "";
+        const raw = tryDecode(links?.[item.key] ?? "");
         const href = toHref(item.key, raw);
         const display = toDisplay(item.key, raw);
 
@@ -60,6 +60,10 @@ function toHref(key: keyof SocialLinksType, value: string): string {
   if (key === "discord")   return /^https?:\/\//i.test(value) ? value : `https://discord.gg/${handle}`;
   if (key === "linkedin")  return `https://linkedin.com/in/${handle}`;
   return `https://${value}`;
+}
+
+function tryDecode(url: string): string {
+  try { return decodeURI(url); } catch { return url; }
 }
 
 function toDisplay(key: keyof SocialLinksType, value: string): string {

@@ -161,53 +161,51 @@ function DiscountsPage() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+      <div className="flex flex-col gap-3">
         {filtered.map((d) => (
-          <article key={d.id} className="card-base card-hover flex flex-col relative overflow-hidden">
+          <article key={d.id} className="card-base card-hover relative overflow-hidden">
             <Link
               to="/discounts/$dealHandle"
               params={{ dealHandle: getDealHandle(d) }}
               className="absolute inset-0 rounded-[inherit]"
               aria-label={`View ${d.title}`}
             />
-            {d.imageUrl ? (
-              <div className="h-40 overflow-hidden">
-                <img src={d.imageUrl} alt={d.title} className="w-full h-full object-cover" />
+            <div className="flex gap-4 p-4">
+              {/* Portrait photo or emoji placeholder */}
+              <div className="w-20 shrink-0 aspect-[3/4] rounded-xl overflow-hidden bg-muted flex items-center justify-center">
+                {d.imageUrl
+                  ? <img src={d.imageUrl} alt={d.title} className="w-full h-full object-cover" />
+                  : <span className="text-3xl">{DEAL_CATEGORY_EMOJI[d.category] ?? "🏷️"}</span>
+                }
               </div>
-            ) : (
-              <div className="h-28 flex items-center justify-center bg-muted text-6xl">
-                {DEAL_CATEGORY_EMOJI[d.category] ?? "🏷️"}
-              </div>
-            )}
-            <div className="p-5 flex flex-col flex-1">
-              <div className="flex items-start justify-between gap-2">
-                <div className="min-w-0">
-                  <p className="text-xs text-muted-foreground">{d.brand}</p>
-                  <h3 className="font-semibold leading-snug">{d.title}</h3>
+
+              {/* Text content */}
+              <div className="flex flex-col flex-1 min-w-0 py-0.5">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <p className="text-xs text-muted-foreground">{d.brand}</p>
+                    <h3 className="font-semibold leading-snug">{d.title}</h3>
+                  </div>
+                  <SaveButton itemId={d.id} itemType="deal" />
                 </div>
-                <SaveButton itemId={d.id} itemType="deal" />
-              </div>
 
-              {(d.originalPrice || d.newPrice) && (
-                <div className="mt-3 flex items-center gap-2">
-                  {d.newPrice && <span className="text-lg font-bold text-primary">{d.newPrice}</span>}
-                  {d.originalPrice && <span className="text-sm text-muted-foreground line-through">{d.originalPrice}</span>}
+                {(d.originalPrice || d.newPrice) && (
+                  <div className="mt-1.5 flex items-center gap-2">
+                    {d.newPrice && <span className="text-base font-bold text-primary">{d.newPrice}</span>}
+                    {d.originalPrice && <span className="text-sm text-muted-foreground line-through">{d.originalPrice}</span>}
+                  </div>
+                )}
+
+                {d.description && (
+                  <p className="mt-1 text-sm text-muted-foreground line-clamp-2">{d.description}</p>
+                )}
+
+                <div className="mt-2 flex flex-wrap gap-1.5">
+                  {d.studentOnly && <span className="chip bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-400">🎓 Student only</span>}
+                  <span className="chip">{d.mode === "Online" ? "🌐 Online" : d.mode === "In-Person" ? "📍 In-Person" : "🌐📍 Both"}</span>
+                  {d.saleEnd && <span className="chip">⏳ Ends {d.saleEnd}</span>}
+                  <span className="chip">{d.category}</span>
                 </div>
-              )}
-
-              {d.description && (
-                <p className="mt-2 text-sm text-muted-foreground line-clamp-2">{d.description}</p>
-              )}
-
-              <div className="mt-3 flex flex-wrap gap-1.5">
-                {d.studentOnly && <span className="chip bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-400">🎓 Student only</span>}
-                <span className="chip">{d.mode === "Online" ? "🌐 Online" : d.mode === "In-Person" ? "📍 In-Person" : "🌐📍 Online & In-Person"}</span>
-                {d.saleEnd && <span className="chip">⏳ Ends {d.saleEnd}</span>}
-              </div>
-
-              <div className="mt-auto pt-3 flex items-center justify-between">
-                <span className="text-xs font-medium text-muted-foreground">{d.category}</span>
-                <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-primary text-primary-foreground shrink-0 relative z-10">View →</span>
               </div>
             </div>
           </article>

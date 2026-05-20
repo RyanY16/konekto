@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<title>Konekto · Instagram Post Templates</title>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&family=Noto+Sans+JP:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  html, body { margin: 0; padding: 0; background: #04060B; font-family: "Inter", system-ui, sans-serif; color: #F5F8FF; }
+  * { box-sizing: border-box; }
+</style>
+
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+
+<script type="text/babel" src="design-canvas.jsx"></script>
+<script type="text/babel" src="templates.jsx"></script>
+</head>
+<body>
+<div id="root"></div>
+
+<script type="text/babel" data-presets="react">
+function App() {
+  const { DesignCanvas: DC, DCSection: DS, DCArtboard: DA } = window;
+  // Each artboard renders at 540×540 (50% of 1080×1080) for canvas display.
+  // Internally each Post uses a 1080-coord system scaled down — designs are
+  // production-accurate at full Instagram resolution.
+  const S = 540;
+
+  return (
+    <DC
+      title="Konekto · Instagram Post Templates"
+      subtitle="Square 1080×1080 — eight reusable layouts you can repurpose for events, deals, circles, welcomes & more. Drag to reorder, click any to focus."
+    >
+      <DS id="hero" title="Hero & welcome" subtitle="Brand-leading posts with bold type">
+        <DA id="welcome" label="01 · Welcome / brand" width={S} height={S}>
+          <WelcomePost/>
+        </DA>
+        <DA id="minimal" label="02 · Light announcement" width={S} height={S}>
+          <MinimalPost/>
+        </DA>
+        <DA id="carousel" label="03 · Carousel cover" width={S} height={S}>
+          <CarouselPost/>
+        </DA>
+      </DS>
+
+      <DS id="content" title="Content & community" subtitle="Events, circles and member stories">
+        <DA id="event" label="04 · Event announcement" width={S} height={S}>
+          <EventPost/>
+        </DA>
+        <DA id="circle" label="05 · Circle spotlight" width={S} height={S}>
+          <CirclePost/>
+        </DA>
+        <DA id="testimonial" label="06 · Member story" width={S} height={S}>
+          <TestimonialPost/>
+        </DA>
+      </DS>
+
+      <DS id="promo" title="Promo & social" subtitle="Deals, quotes, shareables">
+        <DA id="deal" label="07 · Deal / offer" width={S} height={S}>
+          <DealPost/>
+        </DA>
+        <DA id="quote" label="08 · Quote / tip" width={S} height={S}>
+          <QuotePost/>
+        </DA>
+      </DS>
+    </DC>
+  );
+}
+
+const root = ReactDOM.createRoot(document.getElementById('root'));
+root.render(<App/>);
+</script>
+
+</body>
+</html>

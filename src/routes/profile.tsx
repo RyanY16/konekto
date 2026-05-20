@@ -261,31 +261,31 @@ function AvatarUploader({
           <div className="h-20 w-20 rounded-full bg-gradient-to-br from-primary to-accent flex items-center justify-center text-3xl text-primary-foreground font-bold overflow-hidden">
             {src ? <img src={src} alt="avatar" className="h-full w-full object-cover" /> : initials}
           </div>
-          {editing && (
-            <>
+          <input
+            ref={fileRef} type="file" accept="image/*" className="hidden"
+            onChange={(e) => { const f = e.target.files?.[0]; if (f) setCropFile(f); e.target.value = ""; }}
+          />
+        </div>
+        {editing && (
+          <div className="flex items-center gap-1.5">
+            {src && (
               <button
                 type="button"
-                onClick={() => fileRef.current?.click()}
-                className="absolute inset-0 rounded-full flex items-center justify-center bg-black/40 text-white opacity-0 hover:opacity-100 transition-opacity"
+                onClick={openCropForExisting}
+                disabled={fetchingCrop}
+                className="text-xs font-medium text-primary hover:text-primary/80 border border-primary/30 hover:border-primary/60 rounded-full px-3 py-1 transition-colors disabled:opacity-50"
               >
-                <Camera className="h-6 w-6" />
+                {fetchingCrop ? "Loading…" : "Edit photo"}
               </button>
-              <input
-                ref={fileRef} type="file" accept="image/*" className="hidden"
-                onChange={(e) => { const f = e.target.files?.[0]; if (f) setCropFile(f); e.target.value = ""; }}
-              />
-            </>
-          )}
-        </div>
-        {editing && src && (
-          <button
-            type="button"
-            onClick={openCropForExisting}
-            disabled={fetchingCrop}
-            className="text-xs text-muted-foreground hover:text-foreground border border-border rounded-full px-2.5 py-0.5 transition-colors disabled:opacity-50"
-          >
-            {fetchingCrop ? "Loading…" : "Crop"}
-          </button>
+            )}
+            <button
+              type="button"
+              onClick={() => fileRef.current?.click()}
+              className="text-xs font-medium text-muted-foreground hover:text-foreground border border-border rounded-full px-3 py-1 transition-colors"
+            >
+              {src ? "Replace" : "Upload photo"}
+            </button>
+          </div>
         )}
       </div>
     </>
