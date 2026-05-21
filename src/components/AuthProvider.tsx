@@ -29,9 +29,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [profileReady, setProfileReady] = useState(false);
+  // Only true when the DB fetch completed without throwing — prevents incorrect
+  // "profile incomplete" redirects when the network / RLS causes a fetch error.
+  const [profileFetchOk, setProfileFetchOk] = useState(false);
 
   useEffect(() => {
+    console.log("[auth] init — configured:", isSupabaseConfigured);
+
     if (!isSupabaseConfigured || !supabase) {
+      console.log("[auth] supabase not configured, skipping auth");
       setLoading(false);
       setProfileReady(true);
       return;
@@ -44,25 +50,39 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // This sets loading=false before onAuthStateChange fires (which waits for JWT validation).
     // If onAuthStateChange has already run (generation > 0), skip to avoid overwriting fresh state.
     supabase.auth.getSession().then(({ data: { session } }) => {
-      if (!mounted || generation > 0) return;
+      console.log(`[auth] getSession resolved — generation=${generation} user=${session?.user?.id ?? "null"}`);
+      if (!mounted || generation > 0) {
+        console.log("[auth] getSession: skipped (mounted=" + mounted + ", generation=" + generation + ")");
+        return;
+      }
       const u = session?.user ?? null;
       if (!u) {
+        console.log("[auth] getSession: no user → loading=false profileReady=true");
         setUser(null);
         setLoading(false);
         setProfileReady(true);
       } else {
+        console.log("[auth] getSession: user found → partial user set, loading=false, awaiting profileReady from onAuthStateChange");
         setUser({ id: u.id, email: u.email, role: "user", username: null });
         setLoading(false);
-        // profileReady will be set once onAuthStateChange completes the profile fetch
+        // profileReady / profileFetchOk will be set once onAuthStateChange completes the profile fetch
+      }
+    }).catch((err) => {
+      console.error("[auth] getSession error", err);
+      if (mounted && generation === 0) {
+        setLoading(false);
+        setProfileReady(true);
       }
     });
 
     const { data: sub } = supabase.auth.onAuthStateChange(async (_event, session) => {
       const gen = ++generation;
       const u = session?.user ?? null;
+      console.log(`[auth] onAuthStateChange — event=${_event} user=${u?.id ?? "null"} gen=${gen}`);
 
       if (!u) {
         if (mounted && gen === generation) {
+          console.log("[auth] no user → clearing state");
           setUser(null);
           setLoading(false);
           setProfileReady(true);
@@ -76,24 +96,42 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
 
       // Fetch the profile in the background, then update user + signal ready.
+      console.log(`[auth] profile fetch start — userId=${u.id} gen=${gen}`);
+      let fetchOk = false;
       try {
-        const { data: profile } = await supabase!
+        const { data: profile, error: profileError } = await supabase!
           .from("users")
           .select("role, username")
           .eq("id", u.id)
           .maybeSingle();
-        if (mounted && gen === generation) {
-          setUser({
-            id: u.id,
-            email: u.email,
-            role: (profile?.role ?? "user") as "user" | "admin",
-            username: (profile as any)?.username ?? null,
-          });
+
+        console.log(`[auth] profile fetch result — gen=${gen} generation=${generation} username=${(profile as any)?.username ?? null} error=${profileError?.message ?? null}`);
+
+        if (profileError) {
+          console.error("[auth] profile fetch DB error:", profileError);
+          // Don't mark fetchOk — guard will not redirect on DB error
+        } else {
+          fetchOk = true;
+          if (mounted && gen === generation) {
+            setUser({
+              id: u.id,
+              email: u.email,
+              role: (profile?.role ?? "user") as "user" | "admin",
+              username: (profile as any)?.username ?? null,
+            });
+          }
         }
       } catch (err) {
-        console.error(`[auth] profile fetch failed`, err);
+        console.error(`[auth] profile fetch threw — gen=${gen}`, err);
+        // fetchOk stays false → profileIncomplete stays false → no redirect
       } finally {
-        if (mounted && gen === generation) setProfileReady(true);
+        if (mounted && gen === generation) {
+          console.log(`[auth] profileReady=true fetchOk=${fetchOk} gen=${gen}`);
+          setProfileFetchOk(fetchOk);
+          setProfileReady(true);
+        } else {
+          console.log(`[auth] finally: stale gen=${gen} generation=${generation} mounted=${mounted} — skipped`);
+        }
       }
 
       if (!mounted || gen !== generation) return;
@@ -126,6 +164,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     });
 
     return () => {
+      console.log("[auth] cleanup");
       mounted = false;
       sub?.subscription.unsubscribe();
     };
@@ -163,6 +202,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   async function signOut() {
     if (!isSupabaseConfigured || !supabase) return;
     setUser(null);
+    setProfileFetchOk(false);
     supabase.auth.signOut({ scope: "local" }).catch(() => {});
   }
 
@@ -170,17 +210,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (!supabase) return;
     const { data: { user: u } } = await supabase.auth.getUser();
     if (!u) return;
-    const { data: profile } = await supabase.from("users").select("role, username").eq("id", u.id).maybeSingle();
-    setUser({
-      id: u.id,
-      email: u.email,
-      role: (profile?.role ?? "user") as "user" | "admin",
-      username: (profile as any)?.username ?? null,
-    });
+    const { data: profile, error } = await supabase.from("users").select("role, username").eq("id", u.id).maybeSingle();
+    if (!error) {
+      setProfileFetchOk(true);
+      setUser({
+        id: u.id,
+        email: u.email,
+        role: (profile?.role ?? "user") as "user" | "admin",
+        username: (profile as any)?.username ?? null,
+      });
+    }
   }
 
   const isAdmin = user?.role === "admin";
-  const profileIncomplete = !!(user && !user.username);
+  // Only consider the profile incomplete when the DB fetch confirmed username is null.
+  // If the fetch errored, profileFetchOk=false → profileIncomplete=false → no redirect.
+  const profileIncomplete = !!(user && !user.username && profileFetchOk);
+
+  console.log(`[auth] render — loading=${loading} profileReady=${profileReady} profileFetchOk=${profileFetchOk} user=${user?.id ?? "null"} username=${user?.username ?? "null"} profileIncomplete=${profileIncomplete}`);
 
   return (
     <AuthContext.Provider value={{ user, loading, profileReady, isAdmin, profileIncomplete, signIn, signUp, signInWithGoogle, signOut, refreshUser }}>

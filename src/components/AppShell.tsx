@@ -57,8 +57,10 @@ function ProfileGuard() {
   const navigate = useNavigate();
 
   useEffect(() => {
+    console.log(`[guard] check — loading=${loading} profileReady=${profileReady} user=${user?.id ?? "null"} profileIncomplete=${profileIncomplete} pathname=${pathname}`);
     if (loading || !profileReady || !user || profileIncomplete === false) return;
     if (pathname === "/signup" || pathname === "/login") return;
+    console.log("[guard] → redirecting to /signup");
     navigate({ to: "/signup" });
   }, [loading, profileReady, user, profileIncomplete, pathname]);
 
