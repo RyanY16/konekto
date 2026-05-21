@@ -46,6 +46,7 @@
 }
 
 :root {
+  color-scheme: light;
   --radius: 0.875rem;
 
   /* Warm off-white background, dark slate text */
@@ -103,6 +104,7 @@
 }
 
 .dark {
+  color-scheme: dark;
   --background: oklch(0.18 0.02 260);
   --foreground: oklch(0.97 0.005 80);
   --card: oklch(0.22 0.02 260);

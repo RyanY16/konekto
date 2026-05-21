@@ -43,9 +43,10 @@ import {
 import type { Circle } from "@/data/mock";
 import type { AttendeeStatus, EventAttendee, EventCircleLink } from "@/data/backend";
 import { LANGUAGES } from "@/data/profile-options";
+import { NativeSelect } from "@/components/ui/native-select";
 import type { EventItem } from "@/data/mock";
 
-const EVENT_CATEGORIES = ["Social", "Career", "Hackathon", "Networking"] as const;
+const EVENT_CATEGORIES = ["Social", "Career", "Hackathon", "Workshop", "Casual"] as const;
 
 const CATEGORY_EMOJI: Record<string, string> = {
   Social: "🥂",
@@ -491,15 +492,11 @@ function EventDetailPage() {
 
             <div className="space-y-1">
               <label className="text-xs font-medium text-muted-foreground">Category</label>
-              <select
-                value={draft.category}
-                onChange={(e) => setDraft((d) => ({ ...d, category: e.target.value }))}
-                className={sel}
-              >
+              <NativeSelect value={draft.category} onChange={(e) => setDraft((d) => ({ ...d, category: e.target.value }))}>
                 {EVENT_CATEGORIES.map((c) => (
                   <option key={c} value={c}>{CATEGORY_EMOJI[c]} {c}</option>
                 ))}
-              </select>
+              </NativeSelect>
             </div>
 
             <div className="space-y-1.5">
@@ -574,15 +571,15 @@ function EventDetailPage() {
               <div className="flex gap-2 mt-2">
                 <div className="flex-1 space-y-1">
                   <span className="text-xs text-muted-foreground">Start Time</span>
-                  <select className={sel} value={editStartTime} onChange={(e) => setEditStartTime(e.target.value)}>
+                  <NativeSelect value={editStartTime} onChange={(e) => setEditStartTime(e.target.value)}>
                     {TIME_OPTIONS.map((t) => <option key={t} value={t}>{t}</option>)}
-                  </select>
+                  </NativeSelect>
                 </div>
                 <div className="flex-1 space-y-1">
                   <span className="text-xs text-muted-foreground">End Time</span>
-                  <select className={sel} value={editEndTime} onChange={(e) => setEditEndTime(e.target.value)}>
+                  <NativeSelect value={editEndTime} onChange={(e) => setEditEndTime(e.target.value)}>
                     {TIME_OPTIONS.map((t) => <option key={t} value={t}>{t}</option>)}
-                  </select>
+                  </NativeSelect>
                 </div>
               </div>
             </div>
@@ -626,13 +623,9 @@ function EventDetailPage() {
               </label>
               {draft.isWeekly && (
                 <div className="pl-6">
-                  <select
-                    value={draft.recurringDay}
-                    onChange={(e) => setDraft((d) => ({ ...d, recurringDay: Number(e.target.value) }))}
-                    className={sel}
-                  >
+                  <NativeSelect value={draft.recurringDay} onChange={(e) => setDraft((d) => ({ ...d, recurringDay: Number(e.target.value) }))}>
                     {DAY_NAMES.map((d, i) => <option key={d} value={i}>{d}</option>)}
-                  </select>
+                  </NativeSelect>
                 </div>
               )}
             </div>
@@ -673,16 +666,12 @@ function EventDetailPage() {
 
             <div className="space-y-1">
               <label className="text-xs font-medium text-muted-foreground">Primary language</label>
-              <select
-                value={draft.primaryLanguage}
-                onChange={(e) => setDraft((d) => ({ ...d, primaryLanguage: e.target.value }))}
-                className={sel}
-              >
+              <NativeSelect value={draft.primaryLanguage} onChange={(e) => setDraft((d) => ({ ...d, primaryLanguage: e.target.value }))}>
                 <option value="">— Select language —</option>
                 {LANGUAGES.map((l) => (
                   <option key={l.name} value={l.name}>{l.flag} {l.name}</option>
                 ))}
-              </select>
+              </NativeSelect>
             </div>
 
             <div className="space-y-1">

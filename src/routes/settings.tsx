@@ -1,5 +1,5 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Moon, Sun, Bell, Palette, UserX, ChevronRight, ChevronLeft } from "lucide-react";
 import { useAuth } from "@/components/AuthProvider";
 import { Button } from "@/components/ui/button";
@@ -135,16 +135,8 @@ function SettingsPage() {
 // ── Appearance ──────────────────────────────────────────────────────────────
 
 function AppearancePanel() {
-  const [color, setColor] = useState<ColorScheme>("default");
-  const [theme, setTheme] = useState<"light" | "dark">("light");
-
-  useEffect(() => {
-    const c = getInitialColor();
-    const t = getInitialTheme();
-    setColor(c);
-    setTheme(t);
-    applyScheme(c, t);
-  }, []);
+  const [color, setColor] = useState<ColorScheme>(() => getInitialColor());
+  const [theme, setTheme] = useState<"light" | "dark">(() => getInitialTheme());
 
   function setColorScheme(c: ColorScheme) {
     setColor(c);

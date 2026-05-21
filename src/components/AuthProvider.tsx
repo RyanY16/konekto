@@ -13,6 +13,7 @@ type User = {
 type AuthContextValue = {
   user: User | null;
   loading: boolean;
+  profileReady: boolean;
   isAdmin: boolean;
   profileIncomplete: boolean;
   signIn: (email: string, password: string) => Promise<void>;
@@ -27,58 +28,59 @@ const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  const [profileReady, setProfileReady] = useState(false);
 
   useEffect(() => {
     if (!isSupabaseConfigured || !supabase) {
       setLoading(false);
+      setProfileReady(true);
       return;
     }
 
     let mounted = true;
     let generation = 0;
 
-    async function resolveUser(u: { id: string; email?: string | null } | null, gen: number) {
-      if (!u) return null;
-      const { data: profile } = await supabase!.from("users").select("role, username").eq("id", u.id).maybeSingle();
-      if (!mounted || gen !== generation) return null;
-      return {
-        id: u.id,
-        email: u.email,
-        role: (profile?.role ?? "user") as "user" | "admin",
-        username: (profile as any)?.username ?? null,
-      };
-    }
-
-    // onAuthStateChange fires INITIAL_SESSION immediately on subscribe with the
-    // locally-cached session — no extra network round-trip needed. We dropped the
-    // separate getUser() IIFE because it raced against INITIAL_SESSION and could
-    // overwrite a valid user with null if the JWT validation request was slow.
     const { data: sub } = supabase.auth.onAuthStateChange(async (_event, session) => {
       const gen = ++generation;
-      console.log(`[auth] event=${_event} gen=${gen} uid=${session?.user?.id ?? "none"}`);
-      if (mounted) setLoading(true);
       const u = session?.user ?? null;
+
       if (!u) {
-        console.log(`[auth] no user → clearing`);
-        if (mounted && gen === generation) { setUser(null); setLoading(false); }
+        if (mounted && gen === generation) {
+          setUser(null);
+          setLoading(false);
+          setProfileReady(true);
+        }
         return;
       }
-      let resolved = null;
-      try {
-        console.log(`[auth] resolveUser start uid=${u.id}`);
-        resolved = await resolveUser(u, gen);
-        console.log(`[auth] resolveUser done`, resolved);
-      } catch (err) {
-        console.error(`[auth] resolveUser threw`, err);
-      } finally {
-        if (mounted && gen === generation) {
-          console.log(`[auth] setUser gen=${gen} username=${(resolved as any)?.username ?? null}`);
-          setUser(resolved);
-          setLoading(false);
-        } else {
-          console.log(`[auth] stale gen=${gen} current=${generation} mounted=${mounted} — skipping setUser`);
-        }
+
+      // Resolve loading immediately — don't wait for the profile DB fetch.
+      // This prevents a cold Supabase DB query from blocking the entire page.
+      if (mounted && gen === generation) {
+        setUser({ id: u.id, email: u.email, role: "user", username: null });
+        setLoading(false);
       }
+
+      // Fetch the profile in the background, then update user + signal ready.
+      try {
+        const { data: profile } = await supabase!
+          .from("users")
+          .select("role, username")
+          .eq("id", u.id)
+          .maybeSingle();
+        if (mounted && gen === generation) {
+          setUser({
+            id: u.id,
+            email: u.email,
+            role: (profile?.role ?? "user") as "user" | "admin",
+            username: (profile as any)?.username ?? null,
+          });
+        }
+      } catch (err) {
+        console.error(`[auth] profile fetch failed`, err);
+      } finally {
+        if (mounted && gen === generation) setProfileReady(true);
+      }
+
       if (!mounted || gen !== generation) return;
 
       // On first sign-in, backfill profile fields from signup metadata if the
@@ -166,7 +168,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const profileIncomplete = !!(user && !user.username);
 
   return (
-    <AuthContext.Provider value={{ user, loading, isAdmin, profileIncomplete, signIn, signUp, signInWithGoogle, signOut, refreshUser }}>
+    <AuthContext.Provider value={{ user, loading, profileReady, isAdmin, profileIncomplete, signIn, signUp, signInWithGoogle, signOut, refreshUser }}>
       {children}
     </AuthContext.Provider>
   );

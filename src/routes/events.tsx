@@ -1,17 +1,20 @@
 import { createFileRoute, Link, useRouter } from "@tanstack/react-router";
 import { useState, useMemo } from "react";
+import { useTranslation } from "react-i18next";
 import { Users, MapPin, Calendar, Search, Trash2, ArrowUpDown } from "lucide-react";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { events as mockEvents } from "@/data/mock";
 import { eventGradient } from "@/lib/placeholders";
 import { useOgImage } from "@/hooks/useOgImage";
+import { NativeSelect } from "@/components/ui/native-select";
 
 const CATEGORY_EMOJI: Record<string, string> = {
-  Social: "🥂",
-  Career: "💼",
+  Social:    "🥂",
+  Career:    "💼",
   Hackathon: "⚡",
-  Networking: "🚀",
+  Workshop:  "🛠️",
+  Casual:    "🌸",
 };
 import { PageHeader } from "@/components/PageHeader";
 import { SaveButton } from "@/components/SaveButton";
@@ -64,14 +67,9 @@ export const Route = createFileRoute("/events")({
   component: EventsPage,
 });
 
-const cats = ["All", "Social", "Career", "Hackathon", "Networking"] as const;
+const cats = ["All", "Social", "Career", "Hackathon", "Workshop", "Casual"] as const;
 
 type TimeFilter = "all" | "this-week" | "this-month";
-const TIME_FILTERS: { value: TimeFilter; label: string }[] = [
-  { value: "all",        label: "Any time" },
-  { value: "this-week",  label: "This week" },
-  { value: "this-month", label: "This month" },
-];
 
 function getTimeRange(filter: TimeFilter): { start: Date; end: Date } | null {
   if (filter === "all") return null;
@@ -91,11 +89,6 @@ function getTimeRange(filter: TimeFilter): { start: Date; end: Date } | null {
 }
 
 type SortKey = "date-asc" | "date-desc" | "popular";
-const SORT_OPTIONS: { value: SortKey; label: string }[] = [
-  { value: "date-asc",  label: "Date ↑ (soonest first)" },
-  { value: "date-desc", label: "Date ↓ (latest first)" },
-  { value: "popular",   label: "Most popular" },
-];
 
 function getNextOccurrence(e: { recurrence?: string; startDate?: string; cancelledDates?: string[] }): Date | null {
   if (e.recurrence !== "weekly" || !e.startDate) return null;
@@ -133,6 +126,7 @@ function parseSortDate(e: { startDate?: string; date: string; updatedAt?: string
 import type { EventItem } from "@/data/mock";
 
 function EventCard({ event: e, ownerMap }: { event: EventItem; ownerMap: Record<string, { username: string; displayName: string; avatarUrl: string | null }> }) {
+  const { t } = useTranslation();
   const ogImage = useOgImage(!e.imageUrl ? e.socialLinks?.website : undefined);
   const displayImage = e.imageUrl || ogImage;
   const isPast = parseSortDate(e) < new Date();
@@ -152,7 +146,7 @@ function EventCard({ event: e, ownerMap }: { event: EventItem; ownerMap: Record<
             : CATEGORY_EMOJI[e.category] || "📅"
           }
           {isPast && (
-            <span className="absolute top-1 left-1 text-[9px] font-semibold uppercase tracking-wide bg-muted-foreground/20 text-muted-foreground px-1 py-0.5 rounded">Past</span>
+            <span className="absolute top-1 left-1 text-[9px] font-semibold uppercase tracking-wide bg-muted-foreground/20 text-muted-foreground px-1 py-0.5 rounded">{t("events.card.past")}</span>
           )}
         </div>
 
@@ -161,7 +155,7 @@ function EventCard({ event: e, ownerMap }: { event: EventItem; ownerMap: Record<
             <div className="min-w-0 flex items-center gap-1.5 flex-wrap">
               <span className="chip chip-primary">{e.category}</span>
               {e.recurrence === "weekly" && (
-                <span className="chip bg-violet-100 text-violet-700 dark:bg-violet-900/40 dark:text-violet-400">Weekly</span>
+                <span className="chip bg-violet-100 text-violet-700 dark:bg-violet-900/40 dark:text-violet-400">{t("events.card.weekly")}</span>
               )}
             </div>
             <SaveButton itemId={e.id} itemType="event" />
@@ -186,16 +180,21 @@ function EventCard({ event: e, ownerMap }: { event: EventItem; ownerMap: Record<
             <p className="flex items-center gap-1">
               <MapPin className="h-3 w-3 shrink-0" />
               {e.location}
-              {e.online && <span className="text-blue-600 dark:text-blue-400 font-medium">· Online</span>}
+              {e.online && <span className="text-blue-600 dark:text-blue-400 font-medium">{t("events.card.online")}</span>}
             </p>
           </div>
 
-          <div className="mt-auto pt-2 flex items-center justify-between relative z-10">
-            <div className="flex items-center gap-1 text-xs text-muted-foreground">
-              <Users className="h-3 w-3" />
-              <span className="font-medium text-foreground">{e.going}</span> going
+          {e.tags && filterValidTags(e.tags).length > 0 && (
+            <div className="mt-2 flex flex-wrap gap-1.5">
+              {filterValidTags(e.tags).slice(0, 2).map((tag) => (
+                <span key={tag} className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${tagClass(tag)}`}>{tag}</span>
+              ))}
             </div>
-            <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-primary text-primary-foreground shrink-0">View →</span>
+          )}
+
+          <div className="mt-auto pt-2 flex items-center gap-1 text-xs text-muted-foreground relative z-10">
+            <Users className="h-3 w-3" />
+            <span className="font-medium text-foreground">{e.going}</span> {t("events.card.going")}
           </div>
         </div>
       </div>
@@ -228,6 +227,7 @@ function EventsSkeleton() {
 }
 
 function EventsPage() {
+  const { t } = useTranslation();
   const { user, isAdmin } = useAuth();
   const { events: allEvents, ownerMap } = Route.useLoaderData();
   const router = useRouter();
@@ -237,6 +237,17 @@ function EventsPage() {
   const [showPast, setShowPast] = useState(false);
   const [sortKey, setSortKey] = useState<SortKey>("date-asc");
   const [timeFilter, setTimeFilter] = useState<TimeFilter>("all");
+
+  const TIME_FILTERS: { value: TimeFilter; label: string }[] = [
+    { value: "all",        label: t("events.filters.anyTime") },
+    { value: "this-week",  label: t("events.filters.thisWeek") },
+    { value: "this-month", label: t("events.filters.thisMonth") },
+  ];
+  const SORT_OPTIONS: { value: SortKey; label: string }[] = [
+    { value: "date-asc",  label: t("events.sort.dateAsc") },
+    { value: "date-desc", label: t("events.sort.dateDesc") },
+    { value: "popular",   label: t("events.sort.popular") },
+  ];
 
   const filtered = useMemo(() => {
     const timeRange = getTimeRange(timeFilter);
@@ -274,9 +285,9 @@ function EventsPage() {
     <div>
       <div className="flex items-start justify-between mb-0">
         <PageHeader
-          eyebrow="Events"
-          title="What's happening."
-          subtitle="From hanami picnics to career fairs — your weekend plans, sorted."
+          eyebrow={t("events.eyebrow")}
+          title={t("events.title")}
+          subtitle={t("events.subtitle")}
         />
         <div className="mt-1 shrink-0 flex items-center gap-2">
           {isAdmin && (
@@ -288,13 +299,11 @@ function EventsPage() {
               </AlertDialogTrigger>
               <AlertDialogContent>
                 <AlertDialogHeader>
-                  <AlertDialogTitle>Delete all events?</AlertDialogTitle>
-                  <AlertDialogDescription>
-                    This permanently deletes every event. This cannot be undone.
-                  </AlertDialogDescription>
+                  <AlertDialogTitle>{t("events.confirmDeleteAll")}</AlertDialogTitle>
+                  <AlertDialogDescription>{t("events.confirmDeleteAllDesc")}</AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
-                  <AlertDialogCancel disabled={deletingAll}>Cancel</AlertDialogCancel>
+                  <AlertDialogCancel disabled={deletingAll}>{t("common.cancel")}</AlertDialogCancel>
                   <AlertDialogAction
                     disabled={deletingAll}
                     className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
@@ -304,7 +313,7 @@ function EventsPage() {
                       try { await deleteAllEvents(); router.invalidate(); } finally { setDeletingAll(false); }
                     }}
                   >
-                    {deletingAll ? "Deleting…" : "Delete all"}
+                    {deletingAll ? t("common.deleting") : t("common.deleteAll")}
                   </AlertDialogAction>
                 </AlertDialogFooter>
               </AlertDialogContent>
@@ -314,7 +323,7 @@ function EventsPage() {
             to={user ? "/events/new" : "/signup"}
             className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-semibold bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
           >
-            + Add event
+            {t("events.addEvent")}
           </Link>
         </div>
       </div>
@@ -325,7 +334,7 @@ function EventsPage() {
           <input
             value={q}
             onChange={(e) => setQ(e.target.value)}
-            placeholder="Search by name, location or tag…"
+            placeholder={t("events.searchPlaceholder")}
             className="w-full pl-10 pr-4 h-11 rounded-full border border-border bg-card text-sm focus:outline-none focus:ring-2 focus:ring-ring"
           />
         </div>
@@ -361,14 +370,15 @@ function EventsPage() {
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <div className="relative flex items-center">
-            <ArrowUpDown className="absolute left-3 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
-            <select
+            <ArrowUpDown className="absolute left-3 z-10 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
+            <NativeSelect
+              wrapperClassName="flex-1"
               value={sortKey}
               onChange={(e) => setSortKey(e.target.value as SortKey)}
-              className="h-9 rounded-full border border-border bg-card pl-8 pr-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring appearance-none"
+              className="h-9 w-auto rounded-full border border-border bg-card pl-8 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
             >
               {SORT_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
-            </select>
+            </NativeSelect>
           </div>
           {timeFilter === "all" && (
             <label className="flex items-center gap-2 cursor-pointer select-none px-3.5 py-1.5 rounded-full text-sm font-medium border border-border bg-card hover:bg-muted transition-colors">
@@ -378,7 +388,7 @@ function EventsPage() {
                 onChange={(e) => setShowPast(e.target.checked)}
                 className="h-3.5 w-3.5 accent-primary"
               />
-              Show past events
+              {t("events.showPast")}
             </label>
           )}
         </div>
@@ -390,7 +400,7 @@ function EventsPage() {
         ))}
         {filtered.length === 0 && (
           <p className="col-span-full text-center text-muted-foreground py-12">
-            No events match your search.
+            {t("events.noResults")}
           </p>
         )}
       </div>

@@ -65,6 +65,7 @@ import { CIRCLE_CATEGORIES, ACTIVITY_LEVELS, CATEGORY_EMOJI, LANGUAGES } from "@
 import { CIRCLE_TAG_GROUPS, filterValidTags } from "@/data/tags";
 import { UniversityPicker } from "@/components/UniversityPicker";
 import type { Circle, EventItem } from "@/data/mock";
+import { NativeSelect } from "@/components/ui/native-select";
 
 function CircleLoadingskeleton() {
   return (
@@ -618,14 +619,10 @@ function CircleDetailPage() {
 
             <div className="space-y-1">
               <label className="text-xs font-medium text-muted-foreground">Primary language</label>
-              <select
-                value={draft.primaryLanguage}
-                onChange={(e) => setDraft((d) => ({ ...d, primaryLanguage: e.target.value }))}
-                className={sel("")}
-              >
+              <NativeSelect value={draft.primaryLanguage} onChange={(e) => setDraft((d) => ({ ...d, primaryLanguage: e.target.value }))}>
                 <option value="">— Select —</option>
                 {LANGUAGES.map((l) => <option key={l.name} value={l.name}>{l.flag} {l.name}</option>)}
-              </select>
+              </NativeSelect>
             </div>
 
             <label className="flex items-center gap-2 text-sm cursor-pointer select-none">
@@ -710,13 +707,9 @@ function CircleDetailPage() {
 
             <div className="space-y-1">
               <label className="text-xs font-medium text-muted-foreground">Category</label>
-              <select
-                value={draft.category}
-                onChange={(e) => setDraft((d) => ({ ...d, category: e.target.value }))}
-                className={sel("")}
-              >
+              <NativeSelect value={draft.category} onChange={(e) => setDraft((d) => ({ ...d, category: e.target.value }))}>
                 {CIRCLE_CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
-              </select>
+              </NativeSelect>
             </div>
 
             <div className="space-y-1">
@@ -784,14 +777,15 @@ function CircleDetailPage() {
                       className="pl-9"
                     />
                   </div>
-                  <select
+                  <NativeSelect
+                    wrapperClassName="shrink-0"
+                    className="h-9 w-auto bg-transparent text-xs"
                     value={draft.discordVisibility}
                     onChange={(e) => setDraft((d) => ({ ...d, discordVisibility: e.target.value as "everyone" | "members" }))}
-                    className="shrink-0 h-9 rounded-md border border-input bg-transparent px-2 text-xs shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                   >
                     <option value="members">Members only</option>
                     <option value="everyone">Everyone</option>
-                  </select>
+                  </NativeSelect>
                 </div>
               </div>
             </div>

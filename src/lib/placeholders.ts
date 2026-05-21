@@ -1,13 +1,10 @@
 // Category → gradient pairs (Tailwind CSS classes)
 const EVENT_CATEGORY_GRADIENTS: Record<string, string> = {
-  Social:      "from-pink-400/30 to-rose-500/30",
-  Career:      "from-blue-400/30 to-indigo-500/30",
-  Hackathon:   "from-violet-400/30 to-purple-600/30",
-  Networking:  "from-cyan-400/30 to-blue-500/30",
-  Sports:      "from-green-400/30 to-emerald-500/30",
-  Arts:        "from-orange-400/30 to-amber-500/30",
-  Music:       "from-fuchsia-400/30 to-pink-500/30",
-  Food:        "from-yellow-400/30 to-orange-400/30",
+  Social:    "from-pink-400/30 to-rose-500/30",
+  Career:    "from-blue-400/30 to-indigo-500/30",
+  Hackathon: "from-violet-400/30 to-purple-600/30",
+  Workshop:  "from-cyan-400/30 to-teal-500/30",
+  Casual:    "from-amber-400/30 to-orange-400/30",
 };
 
 export function eventGradient(category: string): string {

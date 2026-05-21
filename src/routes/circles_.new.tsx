@@ -13,6 +13,7 @@ import { CIRCLE_TAG_GROUPS } from "@/data/tags";
 import { UniversityPicker } from "@/components/UniversityPicker";
 import EmojiPicker from "@/components/EmojiPicker";
 import { PageHeader } from "@/components/PageHeader";
+import { NativeSelect } from "@/components/ui/native-select";
 
 export const Route = createFileRoute("/circles_/new")({
   component: NewCirclePage,
@@ -182,18 +183,18 @@ function NewCirclePage() {
           {/* Country */}
           <div className={field}>
             <label className={lbl}>Country {req}</label>
-            <select className={sel} value={country} onChange={(e) => setCountry(e.target.value)}>
+            <NativeSelect value={country} onChange={(e) => setCountry(e.target.value)}>
               {COUNTRIES.map((c) => <option key={c} value={c}>{c}</option>)}
-            </select>
+            </NativeSelect>
           </div>
 
           {/* Primary language */}
           <div className={field}>
             <label className={lbl}>Primary language {opt}</label>
-            <select className={sel} value={primaryLanguage} onChange={(e) => setPrimaryLanguage(e.target.value)}>
+            <NativeSelect value={primaryLanguage} onChange={(e) => setPrimaryLanguage(e.target.value)}>
               <option value="">— Select language —</option>
               {LANGUAGES.map((l) => <option key={l.name} value={l.name}>{l.flag} {l.name}</option>)}
-            </select>
+            </NativeSelect>
           </div>
 
           <label className="flex items-center gap-2.5 text-sm cursor-pointer select-none">
@@ -257,15 +258,14 @@ function NewCirclePage() {
           {/* Category */}
           <div className={field}>
             <label className={lbl}>Category {req}</label>
-            <select
+            <NativeSelect
               name="category"
-              className={sel}
               required
               value={category}
               onChange={(e) => { setCategory(e.target.value); setEmoji(CATEGORY_EMOJI[e.target.value] ?? "👥"); }}
             >
               {CIRCLE_CATEGORIES.map((c) => <option key={c} value={c}>{CATEGORY_EMOJI[c]} {c}</option>)}
-            </select>
+            </NativeSelect>
           </div>
 
           {/* Tags */}

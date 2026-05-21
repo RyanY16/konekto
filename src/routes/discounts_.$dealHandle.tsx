@@ -18,6 +18,7 @@ import { CropDialog } from "@/components/CropDialog";
 import { ShareButton } from "@/components/ShareButton";
 import { SaveButton } from "@/components/SaveButton";
 import { DEAL_CATEGORIES, DEAL_CATEGORY_EMOJI } from "@/data/profile-options";
+import { NativeSelect } from "@/components/ui/native-select";
 import type { Deal } from "@/data/mock";
 
 export const Route = createFileRoute("/discounts_/$dealHandle")({
@@ -227,9 +228,9 @@ function DealDetailPage() {
           {/* Category */}
           <div className={field}>
             <label className={lbl}>Category *</label>
-            <select className={sel} value={draft.category} onChange={(e) => setDraft((d) => ({ ...d, category: e.target.value as Deal["category"] }))}>
+            <NativeSelect value={draft.category} onChange={(e) => setDraft((d) => ({ ...d, category: e.target.value as Deal["category"] }))}>
               {DEAL_CATEGORIES.map((c) => <option key={c} value={c}>{DEAL_CATEGORY_EMOJI[c]} {c}</option>)}
-            </select>
+            </NativeSelect>
           </div>
 
           {/* Prices */}
@@ -276,11 +277,11 @@ function DealDetailPage() {
           {/* Mode */}
           <div className={field}>
             <label className={lbl}>Available *</label>
-            <select className={sel} value={draft.mode} onChange={(e) => setDraft((d) => ({ ...d, mode: e.target.value as Deal["mode"] }))}>
+            <NativeSelect value={draft.mode} onChange={(e) => setDraft((d) => ({ ...d, mode: e.target.value as Deal["mode"] }))}>
               <option value="Online">Online</option>
               <option value="In-Person">In-Person</option>
               <option value="Both">Both</option>
-            </select>
+            </NativeSelect>
           </div>
 
           {/* Student only */}

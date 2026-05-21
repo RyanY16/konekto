@@ -78,6 +78,12 @@ export const CATEGORY_EMOJI: Record<string, string> = {
   "Community":                         "🤝",
   "Academic":                          "📚",
   "Lifestyle":                         "🌿",
+  // Event categories
+  "Social":                            "🥂",
+  "Career":                            "💼",
+  "Hackathon":                         "⚡",
+  "Workshop":                          "🛠️",
+  "Casual":                            "🌸",
 };
 
 export const ACTIVITY_LEVELS = ["Daily", "Weekly", "Monthly", "Occasionally"] as const;

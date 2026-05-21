@@ -33,32 +33,20 @@ async function fromSupabase<TTable extends PublicTable, TItem>(
     return fallback;
   }
 
-  // Two attempts: first with a generous timeout for cold-start wakeup,
-  // then one retry if that also times out before giving up.
-  for (let attempt = 1; attempt <= 2; attempt++) {
-    const timeout = attempt === 1 ? 15_000 : 20_000;
-    console.log(`[db] ${table}: attempt ${attempt} (timeout ${timeout / 1000}s)…`);
-    try {
-      const { data, error } = await Promise.race([
-        supabase.from(table).select("*").order("created_at") as any,
-        timeoutAfter(timeout),
-      ]) as { data: unknown[] | null; error: any };
-      if (error || !data) {
-        console.warn(`[db] ${table}: error or null data`, error?.message ?? "no data");
-        return fallback;
-      }
-      console.log(`[db] ${table}: got ${data.length} rows (attempt ${attempt})`);
-      return data.map((row) => mapRow(row as Row<TTable>));
-    } catch (err) {
-      console.warn(`[db] ${table}: attempt ${attempt} timed out`);
-      if (attempt === 2) {
-        console.error(`[db] ${table}: all attempts exhausted`);
-        throw err;
-      }
+  try {
+    const { data, error } = await Promise.race([
+      supabase.from(table).select("*").order("created_at") as any,
+      timeoutAfter(8_000),
+    ]) as { data: unknown[] | null; error: any };
+    if (error || !data) {
+      console.warn(`[db] ${table}: error`, error?.message ?? "no data");
+      return fallback;
     }
+    return data.map((row) => mapRow(row as Row<TTable>));
+  } catch {
+    console.warn(`[db] ${table}: timed out, using fallback`);
+    return fallback;
   }
-
-  throw new Error(`[db] ${table}: unreachable`);
 }
 
 function abortAfter(ms = 5_000): { signal: AbortSignal; cleanup: () => void } {

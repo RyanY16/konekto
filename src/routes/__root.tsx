@@ -72,7 +72,8 @@ const themeScript = `
 (function(){
   var t=localStorage.getItem('konekto-theme');
   var prefersDark=window.matchMedia('(prefers-color-scheme: dark)').matches;
-  if(t==='dark'||(t!=='light'&&prefersDark)){document.documentElement.classList.add('dark');}
+  var dark=t==='dark'||(t!=='light'&&prefersDark);
+  if(dark){document.documentElement.classList.add('dark');document.documentElement.style.colorScheme='dark';}
   var c=localStorage.getItem('konekto-color');
   if(c!=='default'){document.documentElement.classList.add('scheme-blue');}
 })();

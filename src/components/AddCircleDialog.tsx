@@ -15,6 +15,7 @@ import { CIRCLE_CATEGORIES, ACTIVITY_LEVELS, CATEGORY_EMOJI, LANGUAGES, COUNTRIE
 import { CIRCLE_TAG_GROUPS } from "@/data/tags";
 import { UniversityPicker } from "@/components/UniversityPicker";
 import EmojiPicker from "@/components/EmojiPicker";
+import { NativeSelect } from "@/components/ui/native-select";
 
 export default function AddCircleDialog() {
   const router = useRouter();
@@ -195,15 +196,11 @@ export default function AddCircleDialog() {
           {/* Country */}
           <div className={field}>
             <label className={lbl}>Country {req}</label>
-            <select
-              className={sel}
-              value={country}
-              onChange={(e) => setCountry(e.target.value)}
-            >
+            <NativeSelect value={country} onChange={(e) => setCountry(e.target.value)}>
               {COUNTRIES.map((c) => (
                 <option key={c} value={c}>{c}</option>
               ))}
-            </select>
+            </NativeSelect>
           </div>
 
           {/* Specific location */}
@@ -215,16 +212,12 @@ export default function AddCircleDialog() {
           {/* Primary language */}
           <div className={field}>
             <label className={lbl}>Primary language {opt}</label>
-            <select
-              className={sel}
-              value={primaryLanguage}
-              onChange={(e) => setPrimaryLanguage(e.target.value)}
-            >
+            <NativeSelect value={primaryLanguage} onChange={(e) => setPrimaryLanguage(e.target.value)}>
               <option value="">— Select language —</option>
               {LANGUAGES.map((l) => (
                 <option key={l.name} value={l.name}>{l.flag} {l.name}</option>
               ))}
-            </select>
+            </NativeSelect>
           </div>
 
           {/* English-friendly */}
@@ -289,21 +282,20 @@ export default function AddCircleDialog() {
           <div className="grid grid-cols-2 gap-3">
             <div className={field}>
               <label className={lbl}>Category {req}</label>
-              <select
+              <NativeSelect
                 name="category"
-                className={sel}
                 required
                 value={category}
                 onChange={(e) => { setCategory(e.target.value); setEmoji(CATEGORY_EMOJI[e.target.value] ?? "👥"); }}
               >
                 {CIRCLE_CATEGORIES.map((c) => <option key={c} value={c}>{CATEGORY_EMOJI[c]} {c}</option>)}
-              </select>
+              </NativeSelect>
             </div>
             <div className={field}>
               <label className={lbl}>Activity {req}</label>
-              <select name="activity" className={sel}>
+              <NativeSelect name="activity">
                 {ACTIVITY_LEVELS.map((a) => <option key={a} value={a}>{a}</option>)}
-              </select>
+              </NativeSelect>
             </div>
           </div>
 

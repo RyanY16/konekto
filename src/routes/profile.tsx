@@ -1,5 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import React, { useState, useEffect, useRef, useCallback } from "react";
+import { useTranslation } from "react-i18next";
 import { Globe, Instagram, Linkedin, MessageCircle } from "lucide-react";
 import { tagClass } from "@/lib/tag-class";
 import { Bookmark, Users, Briefcase, Pencil, Check, X, LogOut, Camera, CheckCircle2, Loader2 } from "lucide-react";
@@ -20,6 +21,7 @@ import { CAREER_FIELDS, INTEREST_GROUPS, GOAL_GROUPS, GOALS, NATIONALITIES, LANG
 import { filterValidTags } from "@/data/tags";
 import type { SpokenLanguage } from "@/data/backend";
 import { useSaves } from "@/lib/saves";
+import { NativeSelect } from "@/components/ui/native-select";
 
 export const Route = createFileRoute("/profile")({
   head: () => ({
@@ -230,6 +232,7 @@ function AvatarUploader({
 }: {
   src: string | null; initials: string; editing: boolean; onUpload: (f: File) => void;
 }) {
+  const { t } = useTranslation();
   const fileRef = useRef<HTMLInputElement>(null);
   const [cropFile, setCropFile] = useState<File | null>(null);
   const [fetchingCrop, setFetchingCrop] = useState(false);
@@ -275,7 +278,7 @@ function AvatarUploader({
                 disabled={fetchingCrop}
                 className="text-xs font-medium text-primary hover:text-primary/80 border border-primary/30 hover:border-primary/60 rounded-full px-3 py-1 transition-colors disabled:opacity-50"
               >
-                {fetchingCrop ? "Loading…" : "Edit photo"}
+                {fetchingCrop ? t("common.loading") : t("profile.photo.edit")}
               </button>
             )}
             <button
@@ -283,7 +286,7 @@ function AvatarUploader({
               onClick={() => fileRef.current?.click()}
               className="text-xs font-medium text-muted-foreground hover:text-foreground border border-border rounded-full px-3 py-1 transition-colors"
             >
-              {src ? "Replace" : "Upload photo"}
+              {src ? t("profile.photo.replace") : t("profile.photo.upload")}
             </button>
           </div>
         )}
@@ -299,6 +302,7 @@ type Draft = Partial<UserProfile> & { degree: DegreeType; yearNum: string; natio
 // ── Main page ─────────────────────────────────────────────────────────────────
 
 function ProfilePage() {
+  const { t } = useTranslation();
   const { user, signOut } = useAuth();
   const { saves } = useSaves(user?.id);
   const [profile, setProfile] = useState<UserProfile | null>(null);
@@ -374,14 +378,14 @@ function ProfilePage() {
       <div className="min-h-[60vh] flex items-center justify-center">
         <div className="text-center max-w-sm">
           <div className="text-4xl mb-4">👤</div>
-          <h2 className="text-xl font-semibold">Create an account to get started</h2>
-          <p className="text-sm text-muted-foreground mt-2 mb-6">Sign up to build your profile, join circles, and connect with other students.</p>
+          <h2 className="text-xl font-semibold">{t("profile.guest.title")}</h2>
+          <p className="text-sm text-muted-foreground mt-2 mb-6">{t("profile.guest.subtitle")}</p>
           <div className="flex flex-col gap-2">
             <Link to="/signup" className="inline-flex items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:bg-primary/90 transition-colors">
-              Create account
+              {t("profile.guest.createAccount")}
             </Link>
             <Link to="/login" className="inline-flex items-center justify-center rounded-md border border-border px-4 py-2 text-sm font-medium hover:bg-muted transition-colors">
-              Log in
+              {t("auth.login")}
             </Link>
           </div>
         </div>
@@ -392,7 +396,7 @@ function ProfilePage() {
   if (profileLoading) {
     return (
       <div>
-        <PageHeader eyebrow="Profile" title="Your hub." />
+        <PageHeader eyebrow={t("profile.eyebrow")} title={t("profile.title")} />
         <div className="card-base p-6 mb-4 space-y-5 animate-pulse">
           <div className="flex items-start gap-4">
             <div className="h-20 w-20 rounded-full bg-muted shrink-0" />
@@ -502,14 +506,14 @@ function ProfilePage() {
   const avatarSrc = avatarPreview ?? profile?.avatarUrl ?? null;
 
   const completionSteps = [
-    { label: "Add your name",        done: Boolean(profile?.displayName) },
-    { label: "Pick a username",      done: Boolean(profile?.username) },
-    { label: "Add a photo",          done: Boolean(profile?.avatarUrl) },
-    { label: "Set your school",  done: Boolean(profile?.university) },
-    { label: "Add your nationality", done: Boolean(profile?.nationality) },
-    { label: "Write a bio",          done: Boolean(profile?.bio) },
-    { label: "Choose interests",     done: (profile?.interests?.length ?? 0) > 0 },
-    { label: "Set your goals",       done: (profile?.goals?.length ?? 0) > 0 },
+    { label: t("profile.completion.steps.name"),        done: Boolean(profile?.displayName) },
+    { label: t("profile.completion.steps.username"),    done: Boolean(profile?.username) },
+    { label: t("profile.completion.steps.photo"),       done: Boolean(profile?.avatarUrl) },
+    { label: t("profile.completion.steps.school"),      done: Boolean(profile?.university) },
+    { label: t("profile.completion.steps.nationality"), done: Boolean(profile?.nationality) },
+    { label: t("profile.completion.steps.bio"),         done: Boolean(profile?.bio) },
+    { label: t("profile.completion.steps.interests"),   done: (profile?.interests?.length ?? 0) > 0 },
+    { label: t("profile.completion.steps.goals"),       done: (profile?.goals?.length ?? 0) > 0 },
   ];
   const doneCount = completionSteps.filter((s) => s.done).length;
   const pct = Math.round((doneCount / completionSteps.length) * 100);
@@ -524,8 +528,8 @@ function ProfilePage() {
         <div className="card-base p-5 mb-4 border-primary/30 bg-primary/5">
           <div className="flex items-start justify-between gap-4 mb-3">
             <div>
-              <p className="font-semibold text-sm">Complete your profile</p>
-              <p className="text-xs text-muted-foreground mt-0.5">{doneCount} of {completionSteps.length} steps done</p>
+              <p className="font-semibold text-sm">{t("profile.completion.title")}</p>
+              <p className="text-xs text-muted-foreground mt-0.5">{t("profile.completion.progress", { done: doneCount, total: completionSteps.length })}</p>
             </div>
             <span className="text-2xl font-bold text-primary shrink-0">{pct}%</span>
           </div>
@@ -551,7 +555,7 @@ function ProfilePage() {
             onClick={startEditing}
             className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-colors"
           >
-            <Pencil className="h-3.5 w-3.5" /> Fill in profile
+            <Pencil className="h-3.5 w-3.5" /> {t("profile.completion.fillIn")}
           </button>
         </div>
       )}
@@ -565,7 +569,7 @@ function ProfilePage() {
           {editing ? (
             <div className="flex gap-2 shrink-0">
               <Button size="sm" onClick={save} disabled={saving || usernameStatus === "checking" || usernameStatus === "taken"}>
-                <Check className="h-4 w-4 mr-1" />{saving ? "Saving…" : "Save"}
+                <Check className="h-4 w-4 mr-1" />{saving ? t("common.saving") : t("common.save")}
               </Button>
               <Button size="sm" variant="outline" onClick={cancelEditing} disabled={saving}>
                 <X className="h-4 w-4" />
@@ -576,7 +580,7 @@ function ProfilePage() {
               onClick={startEditing}
               className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full border border-border text-sm font-medium hover:bg-muted shrink-0"
             >
-              <Pencil className="h-4 w-4" /> Edit
+              <Pencil className="h-4 w-4" /> {t("common.edit")}
             </button>
           )}
         </div>
@@ -585,7 +589,7 @@ function ProfilePage() {
         {editing ? (
           <div className="space-y-4">
             <div className="space-y-1">
-              <p className="text-xs font-medium text-muted-foreground">Name</p>
+              <p className="text-xs font-medium text-muted-foreground">{t("profile.fields.displayName")}</p>
               <Input
                 value={draft.displayName ?? ""}
                 onChange={(e) => setDraft((d) => ({ ...d, displayName: e.target.value }))}
@@ -593,7 +597,7 @@ function ProfilePage() {
               />
             </div>
             <div className="space-y-1">
-              <p className="text-xs font-medium text-muted-foreground">Username</p>
+              <p className="text-xs font-medium text-muted-foreground">{t("profile.fields.username")}</p>
               <div className="relative">
                 <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground select-none pointer-events-none">@</span>
                 <Input
@@ -613,56 +617,57 @@ function ProfilePage() {
                 )}
               </div>
               {usernameStatus === "taken" && (
-                <p className="text-xs text-destructive">@{draft.username} is already taken</p>
+                <p className="text-xs text-destructive">{t("profile.username.taken", { name: draft.username })}</p>
               )}
               {usernameStatus === "available" && (
-                <p className="text-xs text-green-600 dark:text-green-400">@{draft.username} is available ✓</p>
+                <p className="text-xs text-green-600 dark:text-green-400">{t("profile.username.available", { name: draft.username })}</p>
               )}
             </div>
             <div className="space-y-1">
-              <p className="text-xs font-medium text-muted-foreground">School</p>
+              <p className="text-xs font-medium text-muted-foreground">{t("profile.fields.university")}</p>
               <UniversityPicker
                 value={draft.university ?? ""}
                 onChange={(v) => setDraft((d) => ({ ...d, university: v }))}
               />
             </div>
             <div className="space-y-1">
-              <p className="text-xs font-medium text-muted-foreground">Nationality</p>
+              <p className="text-xs font-medium text-muted-foreground">{t("profile.fields.nationality")}</p>
               <NationalityPicker
                 value={draft.nationality ?? ""}
                 onChange={(v) => setDraft((d) => ({ ...d, nationality: v }))}
               />
             </div>
             <div className="space-y-1">
-              <p className="text-xs font-medium text-muted-foreground">Languages spoken</p>
+              <p className="text-xs font-medium text-muted-foreground">{t("profile.fields.languages")}</p>
               <div className="space-y-2">
                 {(draft.languages ?? []).map((l, i) => {
                   const lang = LANGUAGES.find((x) => x.name === l.language);
                   return (
                     <div key={i} className="flex items-center gap-2">
                       <span className="text-base">{lang?.flag ?? "🌐"}</span>
-                      <select
+                      <NativeSelect
+                        wrapperClassName="flex-1"
+                        className="h-8 bg-transparent text-sm"
                         value={l.language}
                         onChange={(e) => setDraft((d) => {
                           const langs = [...(d.languages ?? [])];
                           langs[i] = { ...langs[i], language: e.target.value };
                           return { ...d, languages: langs };
                         })}
-                        className="flex-1 h-8 rounded-md border border-input bg-transparent px-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                       >
                         {LANGUAGES.map((x) => <option key={x.name} value={x.name}>{x.flag} {x.name}</option>)}
-                      </select>
-                      <select
+                      </NativeSelect>
+                      <NativeSelect
+                        className="h-8 w-auto bg-transparent text-sm"
                         value={l.fluency}
                         onChange={(e) => setDraft((d) => {
                           const langs = [...(d.languages ?? [])];
                           langs[i] = { ...langs[i], fluency: e.target.value };
                           return { ...d, languages: langs };
                         })}
-                        className="h-8 rounded-md border border-input bg-transparent px-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                       >
                         {FLUENCY_LEVELS.map((f) => <option key={f} value={f}>{f}</option>)}
-                      </select>
+                      </NativeSelect>
                       <button
                         type="button"
                         onClick={() => setDraft((d) => ({ ...d, languages: (d.languages ?? []).filter((_, j) => j !== i) }))}
@@ -675,22 +680,22 @@ function ProfilePage() {
                   type="button"
                   onClick={() => setDraft((d) => ({ ...d, languages: [...(d.languages ?? []), { language: "English", fluency: "Fluent" }] }))}
                   className="text-xs text-primary hover:underline"
-                >+ Add language</button>
+                >{t("profile.addLanguage")}</button>
               </div>
             </div>
             <div className="space-y-1">
-              <p className="text-xs font-medium text-muted-foreground">Status &amp; Year</p>
+              <p className="text-xs font-medium text-muted-foreground">{t("profile.fields.statusYear")}</p>
               <div className="flex gap-2 flex-wrap items-center">
-                <select
+                <NativeSelect
+                  className="h-9 w-auto bg-transparent"
                   value={draft.degree}
                   onChange={(e) => setDraft((d) => ({ ...d, degree: e.target.value as DegreeType, yearNum: "1" }))}
-                  className="h-9 rounded-md border border-input bg-transparent px-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                 >
                   {DEGREE_TYPES.map((d) => <option key={d} value={d}>{d}</option>)}
-                </select>
+                </NativeSelect>
                 {draft.degree !== "Working Professional" && (
                   <>
-                    <span className="text-sm text-muted-foreground">Year</span>
+                    <span className="text-sm text-muted-foreground">{t("profile.fields.year")}</span>
                     <input
                       type="number" min={1} max={MAX_YEAR[draft.degree ?? "Bachelors"]}
                       value={draft.yearNum ?? "1"}
@@ -702,7 +707,7 @@ function ProfilePage() {
               </div>
             </div>
             <div className="space-y-1">
-              <p className="text-xs font-medium text-muted-foreground">About me</p>
+              <p className="text-xs font-medium text-muted-foreground">{t("profile.fields.bio")}</p>
               <textarea
                 value={draft.bio ?? ""}
                 onChange={(e) => setDraft((d) => ({ ...d, bio: e.target.value }))}
@@ -749,16 +754,16 @@ function ProfilePage() {
         {/* Bio (view mode) */}
         {!editing && (
           <div className="mt-5 pt-5 border-t border-border">
-            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">About me</p>
+            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">{t("profile.fields.bio")}</p>
             <p className="text-sm text-muted-foreground whitespace-pre-wrap">
-              {profile?.bio || <span className="italic">No bio yet — click Edit to add one.</span>}
+              {profile?.bio || <span className="italic">{t("profile.noBio")}</span>}
             </p>
           </div>
         )}
 
         {/* Social links */}
         <div className="mt-5 pt-5 border-t border-border">
-          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3">Social links</p>
+          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3">{t("profile.fields.socialLinks")}</p>
           {editing ? (
             <div className="space-y-2 max-w-sm">
               <div className="relative">
@@ -818,7 +823,7 @@ function ProfilePage() {
                     </a>
                   ))}
                 </div>
-              ) : <p className="text-sm text-muted-foreground italic">No links added yet.</p>;
+              ) : <p className="text-sm text-muted-foreground italic">{t("profile.noLinks")}</p>;
             })()
           )}
         </div>
@@ -827,7 +832,7 @@ function ProfilePage() {
       {/* ── Interests / Career / Goals card ── */}
       <section className="card-base p-6 mb-6 space-y-6">
         <div className="flex items-center justify-between">
-          <h2 className="text-sm font-semibold">Interests & Goals</h2>
+          <h2 className="text-sm font-semibold">{t("profile.interestsGoals")}</h2>
           {!tagsEditing ? (
             <button
               onClick={() => { setTagsDraft({ interests: profile?.interests ?? [], careerField: profile?.careerField ?? "", goals: profile?.goals ?? [] }); setTagsEditing(true); }}
@@ -838,10 +843,10 @@ function ProfilePage() {
           ) : (
             <div className="flex gap-2">
               <button onClick={() => setTagsEditing(false)} className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors">
-                <X className="h-3.5 w-3.5" /> Cancel
+                <X className="h-3.5 w-3.5" /> {t("common.cancel")}
               </button>
               <button onClick={saveTags} disabled={tagsSaving} className="flex items-center gap-1 text-xs text-primary hover:text-primary/80 transition-colors font-medium">
-                <Check className="h-3.5 w-3.5" /> {tagsSaving ? "Saving…" : "Save"}
+                <Check className="h-3.5 w-3.5" /> {tagsSaving ? t("common.saving") : t("common.save")}
               </button>
             </div>
           )}
@@ -849,7 +854,7 @@ function ProfilePage() {
 
         {/* Interests */}
         <div>
-          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3">Interests</p>
+          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3">{t("profile.fields.interests")}</p>
           {tagsEditing ? (
             <InterestPicker
               value={tagsDraft.interests}
@@ -862,38 +867,39 @@ function ProfilePage() {
               ))}
             </div>
           ) : (
-            <p className="text-sm text-muted-foreground italic">No interests added yet.</p>
+            <p className="text-sm text-muted-foreground italic">{t("profile.noInterests")}</p>
           )}
         </div>
 
         {/* Career */}
         <div className="pt-5 border-t border-border">
-          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3">Career field</p>
+          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3">{t("profile.fields.careerField")}</p>
           {tagsEditing ? (
-            <select
+            <NativeSelect
+              wrapperClassName="max-w-xs"
+              className="h-9"
               value={tagsDraft.careerField}
               onChange={(e) => setTagsDraft((d) => ({ ...d, careerField: e.target.value }))}
-              className="h-9 w-full max-w-xs rounded-md border border-input bg-background px-3 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
             >
               <option value="">Select a field…</option>
               {CAREER_FIELDS.map((f) => <option key={f} value={f}>{f}</option>)}
-            </select>
+            </NativeSelect>
           ) : profile?.careerField ? (
             <span className="chip chip-primary">{profile.careerField}</span>
           ) : (
-            <p className="text-sm text-muted-foreground italic">No career field selected.</p>
+            <p className="text-sm text-muted-foreground italic">{t("profile.noCareerField")}</p>
           )}
         </div>
 
         {/* Goals */}
         <div className="pt-5 border-t border-border">
-          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3">Goals</p>
+          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3">{t("profile.fields.goals")}</p>
           {tagsEditing ? (
             <GoalPicker value={tagsDraft.goals} onChange={(v) => setTagsDraft((d) => ({ ...d, goals: v }))} />
           ) : profile?.goals && profile.goals.length > 0 ? (
             <GoalChips goals={profile.goals} />
           ) : (
-            <p className="text-sm text-muted-foreground italic">No goals added yet.</p>
+            <p className="text-sm text-muted-foreground italic">{t("profile.noGoals")}</p>
           )}
         </div>
       </section>
@@ -902,27 +908,27 @@ function ProfilePage() {
       {!editing && <>
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
         <Link to="/saved" className="block hover:opacity-80 transition-opacity">
-          <Stat icon={<Bookmark />} label="Saved items" value={`${saves.circleIds.length + saves.eventIds.length}`} />
+          <Stat icon={<Bookmark />} label={t("profile.stats.savedItems")} value={`${saves.circleIds.length + saves.eventIds.length}`} />
         </Link>
         <button
           type="button"
           onClick={() => document.getElementById("my-circles")?.scrollIntoView({ behavior: "smooth" })}
           className="text-left hover:opacity-80 transition-opacity"
         >
-          <Stat icon={<Users />} label="Joined circles" value={`${allCircles.filter((c) => joinedIds.has(c.id) || c.ownerId === user.id).length}`} />
+          <Stat icon={<Users />} label={t("profile.stats.joinedCircles")} value={`${allCircles.filter((c) => joinedIds.has(c.id) || c.ownerId === user.id).length}`} />
         </button>
-        <Stat icon={<Briefcase />} label="Applications" value="6" />
+        <Stat icon={<Briefcase />} label={t("profile.stats.applications")} value="6" />
       </div>
 
       {/* ── Circles section ── */}
       <section id="my-circles" className="card-base p-6 mb-6">
         <div className="flex items-center justify-between mb-4">
-          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">My circles</p>
+          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">{t("profile.sections.myCircles")}</p>
           <button
             onClick={() => { setCircleEditing((v) => !v); setCircleError(null); }}
             className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-border text-xs font-medium hover:bg-muted"
           >
-            {circleEditing ? <><X className="h-3 w-3" /> Done</> : <><Pencil className="h-3 w-3" /> Manage</>}
+            {circleEditing ? <><X className="h-3 w-3" /> {t("profile.circles.done")}</> : <><Pencil className="h-3 w-3" /> {t("profile.circles.manage")}</>}
           </button>
         </div>
 
@@ -942,7 +948,7 @@ function ProfilePage() {
                     <p className="text-xs text-muted-foreground">{c.category} · {c.members} members</p>
                   </div>
                   {isOwner ? (
-                    <span className="shrink-0 px-3 py-1 rounded-full text-xs font-medium bg-primary/10 text-primary border border-primary/20">Owner</span>
+                    <span className="shrink-0 px-3 py-1 rounded-full text-xs font-medium bg-primary/10 text-primary border border-primary/20">{t("profile.circles.owner")}</span>
                   ) : (
                     <button
                       onClick={() => toggleCircle(c.id)}
@@ -953,7 +959,7 @@ function ProfilePage() {
                           : "bg-transparent text-muted-foreground border-border hover:bg-muted hover:text-foreground"
                       }`}
                     >
-                      {loading ? "…" : joined ? "Joined" : "Join"}
+                      {loading ? "…" : joined ? t("profile.circles.joined") : t("profile.circles.join")}
                     </button>
                   )}
                 </div>
@@ -977,19 +983,19 @@ function ProfilePage() {
                     <p className="text-xs text-muted-foreground">{c.category} · {c.members} members</p>
                   </div>
                   {c.ownerId === user.id && (
-                    <span className="shrink-0 px-2 py-0.5 rounded-full text-xs font-semibold bg-primary/10 text-primary">Owner</span>
+                    <span className="shrink-0 px-2 py-0.5 rounded-full text-xs font-semibold bg-primary/10 text-primary">{t("profile.circles.owner")}</span>
                   )}
                 </Link>
               ))}
             </div>
           ) : (
-            <p className="text-sm text-muted-foreground italic">No circles joined yet — click Manage to join some.</p>
+            <p className="text-sm text-muted-foreground italic">{t("profile.circles.noJoined")}</p>
           );
         })()}
       </section>
 
       {/* ── Saved events ── */}
-      <Block title="Saved events" className="mb-8">
+      <Block title={t("profile.savedEvents")} className="mb-8">
         <div className="space-y-2">
           {savedEvents.map((e) => (
             <div key={e.id} className="card-base p-3 flex items-center gap-3">
@@ -1006,18 +1012,18 @@ function ProfilePage() {
 
       {/* ── Account ── */}
       <section className="card-base p-5">
-        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3">Account</p>
+        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3">{t("profile.account.title")}</p>
         <div className="flex items-center justify-between text-sm border-b border-border pb-3 mb-3">
-          <span className="text-muted-foreground">Email</span>
+          <span className="text-muted-foreground">{t("profile.account.email")}</span>
           <span className="font-medium">{user.email}</span>
         </div>
         <div className="flex items-center justify-between text-sm">
-          <span className="text-muted-foreground">User ID</span>
+          <span className="text-muted-foreground">{t("profile.account.userId")}</span>
           <span className="font-mono text-xs text-muted-foreground">{user.id}</span>
         </div>
         <div className="mt-4">
           <Button variant="outline" size="sm" onClick={() => signOut()}>
-            <LogOut className="h-4 w-4 mr-2" /> Sign out
+            <LogOut className="h-4 w-4 mr-2" /> {t("auth.signout")}
           </Button>
         </div>
       </section>

@@ -32,15 +32,15 @@ function Logo() {
 }
 
 function ProfileGuard() {
-  const { user, loading, profileIncomplete } = useAuth();
+  const { user, loading, profileReady, profileIncomplete } = useAuth();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const navigate = useNavigate();
 
   useEffect(() => {
-    if (loading || !user || profileIncomplete === false) return;
+    if (loading || !profileReady || !user || profileIncomplete === false) return;
     if (pathname === "/signup" || pathname === "/login") return;
     navigate({ to: "/signup" });
-  }, [loading, user, profileIncomplete, pathname]);
+  }, [loading, profileReady, user, profileIncomplete, pathname]);
 
   return null;
 }

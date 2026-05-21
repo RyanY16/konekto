@@ -1,5 +1,6 @@
 import { createFileRoute, Link, useRouter } from "@tanstack/react-router";
 import { useState, useMemo } from "react";
+import { useTranslation } from "react-i18next";
 import { Search, Trash2 } from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
 import { SaveButton } from "@/components/SaveButton";
@@ -45,6 +46,7 @@ function DiscountsSkeleton() {
 const CATEGORIES = ["All", "Food & Drink", "Fashion", "Tech", "Entertainment", "Transport", "Lifestyle"] as const;
 
 function DiscountsPage() {
+  const { t } = useTranslation();
   const { user, isAdmin } = useAuth();
   const { deals } = Route.useLoaderData();
   const router = useRouter();
@@ -71,9 +73,9 @@ function DiscountsPage() {
     <div>
       <div className="flex items-start justify-between mb-0">
         <PageHeader
-          eyebrow="Discounts"
-          title="Student perks, sorted."
-          subtitle="Exclusive deals for students — food, tech, fashion, and more."
+          eyebrow={t("discounts.eyebrow")}
+          title={t("discounts.title")}
+          subtitle={t("discounts.subtitle")}
         />
         <div className="mt-1 shrink-0 flex items-center gap-2">
           {isAdmin && (
@@ -85,11 +87,11 @@ function DiscountsPage() {
               </AlertDialogTrigger>
               <AlertDialogContent>
                 <AlertDialogHeader>
-                  <AlertDialogTitle>Delete all deals?</AlertDialogTitle>
-                  <AlertDialogDescription>This permanently deletes every deal. This cannot be undone.</AlertDialogDescription>
+                  <AlertDialogTitle>{t("discounts.confirmDeleteAll")}</AlertDialogTitle>
+                  <AlertDialogDescription>{t("discounts.confirmDeleteAllDesc")}</AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
-                  <AlertDialogCancel disabled={deletingAll}>Cancel</AlertDialogCancel>
+                  <AlertDialogCancel disabled={deletingAll}>{t("common.cancel")}</AlertDialogCancel>
                   <AlertDialogAction
                     disabled={deletingAll}
                     className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
@@ -99,7 +101,7 @@ function DiscountsPage() {
                       try { await deleteAllDeals(); router.invalidate(); } finally { setDeletingAll(false); }
                     }}
                   >
-                    {deletingAll ? "Deleting…" : "Delete all"}
+                    {deletingAll ? t("common.deleting") : t("common.deleteAll")}
                   </AlertDialogAction>
                 </AlertDialogFooter>
               </AlertDialogContent>
@@ -110,7 +112,7 @@ function DiscountsPage() {
               to="/discounts/new"
               className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-semibold bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
             >
-              + Add deal
+              {t("discounts.addDeal")}
             </Link>
           )}
         </div>
@@ -122,7 +124,7 @@ function DiscountsPage() {
           <input
             value={q}
             onChange={(e) => setQ(e.target.value)}
-            placeholder="Search by brand or deal…"
+            placeholder={t("discounts.searchPlaceholder")}
             className="w-full pl-10 pr-4 h-11 rounded-full border border-border bg-card text-sm focus:outline-none focus:ring-2 focus:ring-ring"
           />
         </div>
@@ -140,7 +142,7 @@ function DiscountsPage() {
           ))}
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          {["All", "Online", "In-Person", "Both"].map((m) => (
+          {(["All", "Online", "In-Person", "Both"] as const).map((m) => (
             <button
               key={m}
               onClick={() => setModeFilter(m)}
@@ -148,7 +150,7 @@ function DiscountsPage() {
                 modeFilter === m ? "bg-foreground text-background border-foreground" : "bg-card text-foreground border-border hover:bg-muted"
               }`}
             >
-              {m === "All" ? "All modes" : m}
+              {m === "All" ? t("discounts.allModes") : m === "Online" ? t("discounts.filters.online") : m === "In-Person" ? t("discounts.filters.inPerson") : t("discounts.filters.both")}
             </button>
           ))}
           <button
@@ -157,7 +159,7 @@ function DiscountsPage() {
               studentOnly ? "bg-blue-100 text-blue-700 border-blue-300 dark:bg-blue-900/40 dark:text-blue-400 dark:border-blue-700" : "bg-card border-border hover:bg-muted"
             }`}
           >
-            🎓 Student only
+            {t("discounts.studentOnly")}
           </button>
         </div>
       </div>
@@ -202,9 +204,9 @@ function DiscountsPage() {
                 )}
 
                 <div className="mt-2 flex flex-wrap gap-1.5">
-                  {d.studentOnly && <span className="chip bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-400">🎓 Student only</span>}
+                  {d.studentOnly && <span className="chip bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-400">{t("discounts.card.studentOnly")}</span>}
                   <span className="chip">{d.mode === "Online" ? "🌐 Online" : d.mode === "In-Person" ? "📍 In-Person" : "🌐📍 Both"}</span>
-                  {d.saleEnd && <span className="chip">⏳ Ends {d.saleEnd}</span>}
+                  {d.saleEnd && <span className="chip">{t("discounts.card.endsOn")} {d.saleEnd}</span>}
                   <span className="chip">{d.category}</span>
                 </div>
               </div>
@@ -212,7 +214,7 @@ function DiscountsPage() {
           </article>
         ))}
         {filtered.length === 0 && (
-          <p className="col-span-full text-center text-muted-foreground py-12">No deals match your filters.</p>
+          <p className="col-span-full text-center text-muted-foreground py-12">{t("discounts.noResults")}</p>
         )}
       </div>
     </div>

@@ -7,8 +7,10 @@ import {
 import { deals } from "@/data/mock";
 import type { Circle, EventItem } from "@/data/mock";
 import { getCircles, getEvents, getCircleHandle, getEventHandle } from "@/data/backend";
-import { DEAL_CATEGORY_EMOJI } from "@/data/profile-options";
+import { DEAL_CATEGORY_EMOJI, CATEGORY_EMOJI } from "@/data/profile-options";
 import { SaveButton } from "@/components/SaveButton";
+import { useOgImage } from "@/hooks/useOgImage";
+import { eventGradient, dealGradient } from "@/lib/placeholders";
 import { useEffect, useState } from "react";
 
 export const Route = createFileRoute("/")({
@@ -205,63 +207,61 @@ function Dashboard() {
       )}
 
       <Section title="Upcoming events" subtitle="The latest events happening now." icon={<Sparkles className="h-5 w-5" />} link="/events">
-        <div className="flex flex-col gap-4">
+        <div className="flex flex-col gap-3">
           {dataLoading
             ? Array.from({ length: 3 }).map((_, i) => <CardSkeleton key={i} />)
-            : events.map((e) => (
-            <Link
-              key={e.id}
-              to="/events/$eventHandle"
-              params={{ eventHandle: getEventHandle(e) }}
-              className="card-base card-hover p-5 flex flex-col"
-            >
-              <div className="flex items-start justify-between">
-                <div className="text-3xl">{e.emoji}</div>
-                <SaveButton itemId={e.id} itemType="event" />
-              </div>
-              <span className="chip chip-primary mt-3 self-start">{e.category}</span>
-              <h3 className="mt-2 font-semibold leading-snug">{e.title}</h3>
-              <p className="mt-1 text-sm text-muted-foreground">{e.date}</p>
-              <p className="text-sm text-muted-foreground">📍 {e.location}</p>
-              <p className="mt-3 text-xs text-muted-foreground">
-                <Users className="inline h-3.5 w-3.5 mr-1" />{e.going} going
-              </p>
-            </Link>
-          ))}
+            : events.map((e) => <HomeEventCard key={e.id} event={e} />)}
         </div>
       </Section>
 
       <Section title="Featured circles" icon={<Users className="h-5 w-5" />} link="/circles">
-        <div className="flex flex-col gap-4">
+        <div className="flex flex-col gap-3">
           {dataLoading
             ? Array.from({ length: 3 }).map((_, i) => <CardSkeleton key={i} />)
             : circles.map((c) => (
-            <Link
-              key={c.id}
-              to="/circles/$circleHandle"
-              params={{ circleHandle: getCircleHandle(c) }}
-              className="card-base card-hover p-5 block"
-            >
-              <div className="flex items-start justify-between">
-                <div className="text-3xl">{c.emoji}</div>
-                <SaveButton itemId={c.id} itemType="circle" />
+            <article key={c.id} className="card-base card-hover relative overflow-hidden">
+              <Link
+                to="/circles/$circleHandle"
+                params={{ circleHandle: getCircleHandle(c) }}
+                className="absolute inset-0 rounded-[inherit]"
+                aria-label={`View ${c.name}`}
+              />
+              <div className="flex gap-4 p-4 items-center">
+                <div className="w-32 h-32 shrink-0 rounded-xl overflow-hidden bg-muted flex items-center justify-center">
+                  {(c as any).iconUrl
+                    ? <img src={(c as any).iconUrl} alt={c.name} className="w-full h-full object-cover" />
+                    : <span className="text-5xl">{c.emoji}</span>
+                  }
+                </div>
+                <div className="flex flex-col flex-1 min-w-0 py-0.5">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <p className="text-xs text-muted-foreground">{c.category} · {c.members} members</p>
+                      <h3 className="font-semibold leading-snug">{c.name}</h3>
+                    </div>
+                    <SaveButton itemId={c.id} itemType="circle" />
+                  </div>
+                  <p className="mt-1 text-sm text-muted-foreground line-clamp-2">{c.description}</p>
+                  <div className="mt-2 flex flex-wrap gap-1.5">
+                    <span className="chip">{c.activity} activity</span>
+                  </div>
+                </div>
               </div>
-              <h3 className="mt-3 font-semibold">{c.name}</h3>
-              <p className="text-xs text-muted-foreground">{c.category} · {c.members} members</p>
-              <p className="mt-2 text-sm text-muted-foreground line-clamp-2">{c.description}</p>
-              <div className="mt-3 flex flex-wrap gap-1.5">
-                <span className="chip">{c.activity} activity</span>
-              </div>
-            </Link>
+            </article>
           ))}
         </div>
       </Section>
 
       <Section title="Trending deals" icon={<TrendingUp className="h-5 w-5" />} link="/discounts">
-        <div className="flex flex-col gap-4">
+        <div className="flex flex-col gap-3">
           {trendingDeals.map((d) => (
-            <article key={d.id} className="card-base card-hover p-5 flex gap-4">
-              <div className="text-4xl">{DEAL_CATEGORY_EMOJI[d.category] ?? "🏷️"}</div>
+            <article key={d.id} className="card-base card-hover p-4 flex gap-4 items-center">
+              <div className={`w-32 h-32 shrink-0 rounded-xl overflow-hidden flex items-center justify-center text-4xl bg-gradient-to-br ${dealGradient(d.category)}`}>
+                {(d as any).imageUrl
+                  ? <img src={(d as any).imageUrl} alt={d.title} className="w-full h-full object-cover" />
+                  : <span>{DEAL_CATEGORY_EMOJI[d.category] ?? "🏷️"}</span>
+                }
+              </div>
               <div className="flex-1 min-w-0">
                 <p className="text-xs text-muted-foreground">{d.brand}</p>
                 <h3 className="font-semibold truncate">{d.title}</h3>
@@ -276,13 +276,53 @@ function Dashboard() {
   );
 }
 
+function HomeEventCard({ event: e }: { event: EventItem }) {
+  const ogImage = useOgImage(!(e as any).imageUrl ? (e as any).socialLinks?.website : undefined);
+  const displayImage = (e as any).imageUrl || ogImage;
+  return (
+    <article className="card-base card-hover relative overflow-hidden">
+      <Link
+        to="/events/$eventHandle"
+        params={{ eventHandle: getEventHandle(e) }}
+        className="absolute inset-0 rounded-[inherit]"
+        aria-label={`View ${e.title}`}
+      />
+      <div className="flex gap-4 p-4 items-center">
+        <div className={`w-32 h-32 shrink-0 rounded-xl overflow-hidden flex items-center justify-center text-5xl bg-gradient-to-br ${eventGradient(e.category)}`}>
+          {displayImage
+            ? <img src={displayImage} alt={e.title} className="w-full h-full object-cover" />
+            : CATEGORY_EMOJI[e.category] || "📅"
+          }
+        </div>
+        <div className="flex flex-col flex-1 min-w-0 py-0.5">
+          <div className="flex items-start justify-between gap-2">
+            <div className="min-w-0">
+              <p className="text-xs text-muted-foreground">{e.category}</p>
+              <h3 className="font-semibold leading-snug">{e.title}</h3>
+            </div>
+            <SaveButton itemId={e.id} itemType="event" />
+          </div>
+          <p className="mt-1 text-sm text-muted-foreground">{e.date}</p>
+          <p className="text-sm text-muted-foreground">📍 {e.location}</p>
+          <p className="mt-1 text-xs text-muted-foreground">
+            <Users className="inline h-3.5 w-3.5 mr-1" />{e.going} going
+          </p>
+        </div>
+      </div>
+    </article>
+  );
+}
+
 function CardSkeleton() {
   return (
-    <div className="card-base p-5 space-y-3 animate-pulse">
-      <div className="h-8 w-8 rounded-lg bg-muted" />
-      <div className="h-4 w-1/3 rounded bg-muted" />
-      <div className="h-4 w-2/3 rounded bg-muted" />
-      <div className="h-3 w-1/2 rounded bg-muted" />
+    <div className="card-base p-4 flex gap-4 items-center animate-pulse">
+      <div className="w-32 h-32 shrink-0 rounded-xl bg-muted" />
+      <div className="flex-1 space-y-2">
+        <div className="h-3 w-1/4 rounded bg-muted" />
+        <div className="h-4 w-2/3 rounded bg-muted" />
+        <div className="h-3 w-1/3 rounded bg-muted" />
+        <div className="h-3 w-1/2 rounded bg-muted" />
+      </div>
     </div>
   );
 }

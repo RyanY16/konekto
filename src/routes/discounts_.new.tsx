@@ -15,6 +15,7 @@ import { useAuth } from "@/components/AuthProvider";
 import { DEAL_CATEGORIES, DEAL_CATEGORY_EMOJI } from "@/data/profile-options";
 import { PageHeader } from "@/components/PageHeader";
 import type { Deal } from "@/data/mock";
+import { NativeSelect } from "@/components/ui/native-select";
 
 export const Route = createFileRoute("/discounts_/new")({
   component: NewDiscountPage,
@@ -261,9 +262,9 @@ function NewDiscountPage() {
           {/* Category */}
           <div className={field}>
             <label className={lbl}>Category {req}</label>
-            <select className={sel} value={draft.category} onChange={(e) => setDraft({ category: e.target.value as Deal["category"] })} required>
+            <NativeSelect value={draft.category} onChange={(e) => setDraft({ category: e.target.value as Deal["category"] })} required>
               {DEAL_CATEGORIES.map((c) => <option key={c} value={c}>{DEAL_CATEGORY_EMOJI[c]} {c}</option>)}
-            </select>
+            </NativeSelect>
           </div>
 
           {/* Prices */}
@@ -310,11 +311,11 @@ function NewDiscountPage() {
           {/* Mode */}
           <div className={field}>
             <label className={lbl}>Available {req}</label>
-            <select className={sel} value={draft.mode} onChange={(e) => setDraft({ mode: e.target.value as Deal["mode"] })} required>
+            <NativeSelect value={draft.mode} onChange={(e) => setDraft({ mode: e.target.value as Deal["mode"] })} required>
               <option value="In-Person">In-Person</option>
               <option value="Online">Online</option>
               <option value="Both">Both (Online & In-Person)</option>
-            </select>
+            </NativeSelect>
           </div>
 
           {/* Student only */}

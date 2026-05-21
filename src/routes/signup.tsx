@@ -10,6 +10,7 @@ import { supabase } from "@/lib/supabase";
 import { getProfileByUsername, upsertProfile } from "@/data/backend";
 import { CheckCircle2, Loader2 } from "lucide-react";
 import { KonektoLogo } from "@/components/KonektoLogo";
+import { NativeSelect } from "@/components/ui/native-select";
 
 export const Route = createFileRoute("/signup")({
   head: () => ({ meta: [{ title: "Sign up — Konekto" }] }),
@@ -21,7 +22,7 @@ type Level = typeof LEVEL_OPTIONS[number];
 
 function SignUpPage() {
   const navigate = useNavigate();
-  const { signInWithGoogle, user, profileIncomplete, refreshUser } = useAuth();
+  const { signInWithGoogle, user, profileIncomplete, profileReady, refreshUser } = useAuth();
 
   const [step, setStep] = useState<1 | 2>(1);
   const [googleLoading, setGoogleLoading] = useState(false);
@@ -40,15 +41,16 @@ function SignUpPage() {
   const [profileLoading, setProfileLoading] = useState(false);
   const [profileError, setProfileError] = useState("");
 
-  // If already logged in: complete profile if needed, otherwise go home
+  // If already logged in: complete profile if needed, otherwise go home.
+  // Wait for profileReady so we don't redirect based on a username that hasn't loaded yet.
   useEffect(() => {
-    if (!user) return;
+    if (!user || !profileReady) return;
     if (profileIncomplete) {
       setStep(2);
     } else {
       navigate({ to: "/" });
     }
-  }, [user, profileIncomplete]);
+  }, [user, profileReady, profileIncomplete]);
 
   // Username uniqueness check
   useEffect(() => {
@@ -211,14 +213,14 @@ function SignUpPage() {
             <div className="space-y-1.5">
               <Label>Year</Label>
               <div className="flex gap-2">
-                <select
+                <NativeSelect
+                  wrapperClassName="flex-1"
                   value={level}
                   onChange={(e) => { setLevel(e.target.value as Level | ""); setYearNum(""); }}
-                  className="h-10 flex-1 rounded-md border border-input bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                 >
                   <option value="">— Level —</option>
                   {LEVEL_OPTIONS.map((l) => <option key={l} value={l}>{l}</option>)}
-                </select>
+                </NativeSelect>
                 {level && level !== "Research Student" && (
                   <input
                     type="number"

@@ -13,6 +13,7 @@ import { useAuth } from "@/components/AuthProvider";
 import { tagClass } from "@/lib/tag-class";
 import { OwnerBadge } from "@/components/OwnerBadge";
 import { circles as mockCircles } from "@/data/mock";
+import { NativeSelect } from "@/components/ui/native-select";
 
 function relativeTime(iso: string | undefined): string | null {
   if (!iso) return null;
@@ -227,35 +228,36 @@ function CirclesPage() {
         {/* Sort + secondary filters */}
         <div className="flex flex-wrap items-center gap-2">
           <div className="relative flex items-center">
-            <ArrowUpDown className="absolute left-3 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
-            <select
+            <ArrowUpDown className="absolute left-3 z-10 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
+            <NativeSelect
+              wrapperClassName="flex-1"
               value={sortKey}
               onChange={(e) => setSortKey(e.target.value as SortKey)}
-              className="h-9 rounded-full border border-border bg-card pl-8 pr-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring appearance-none"
+              className="h-9 w-auto rounded-full border border-border bg-card pl-8 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
             >
               {SORT_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
-            </select>
+            </NativeSelect>
           </div>
           {universities.length > 2 && (
-            <select
+            <NativeSelect
               value={uniFilter}
               onChange={(e) => setUniFilter(e.target.value)}
-              className="h-9 rounded-full border border-border bg-card px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+              className="h-9 w-auto rounded-full border border-border bg-card text-sm focus:outline-none focus:ring-2 focus:ring-ring"
             >
               {universities.map((u) => <option key={u} value={u}>{u === "All" ? "All universities" : u}</option>)}
-            </select>
+            </NativeSelect>
           )}
           {languages.length > 2 && (
-            <select
+            <NativeSelect
               value={langFilter}
               onChange={(e) => setLangFilter(e.target.value)}
-              className="h-9 rounded-full border border-border bg-card px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+              className="h-9 w-auto rounded-full border border-border bg-card text-sm focus:outline-none focus:ring-2 focus:ring-ring"
             >
               {languages.map((l) => {
                 const flag = l === "All" ? null : LANGUAGES.find((x) => x.name === l)?.flag;
                 return <option key={l} value={l}>{l === "All" ? "All languages" : `${flag ?? ""} ${l}`}</option>;
               })}
-            </select>
+            </NativeSelect>
           )}
           <button
             onClick={() => setRecruitingOnly((v) => !v)}
@@ -320,7 +322,6 @@ function CirclesPage() {
                       />
                     )}
                   </div>
-                  <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-primary text-primary-foreground shrink-0">View →</span>
                 </div>
               </div>
             </div>

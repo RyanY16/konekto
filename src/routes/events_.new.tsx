@@ -16,8 +16,9 @@ import { LANGUAGES } from "@/data/profile-options";
 import { format } from "date-fns";
 import type { DateRange } from "react-day-picker";
 import { PageHeader } from "@/components/PageHeader";
+import { NativeSelect } from "@/components/ui/native-select";
 
-const EVENT_CATEGORIES = ["Social", "Career", "Hackathon", "Networking"] as const;
+const EVENT_CATEGORIES = ["Social", "Career", "Hackathon", "Workshop", "Casual"] as const;
 
 const CATEGORY_EMOJI: Record<string, string> = {
   Social: "🥂",
@@ -202,11 +203,11 @@ function NewEventPage() {
           {/* Category */}
           <div className={field}>
             <label className={lbl}>Category {req}</label>
-            <select name="category" className={sel} required value={category} onChange={(e) => setCategory(e.target.value)}>
+            <NativeSelect name="category" required value={category} onChange={(e) => setCategory(e.target.value)}>
               {EVENT_CATEGORIES.map((c) => (
                 <option key={c} value={c}>{CATEGORY_EMOJI[c]} {c}</option>
               ))}
-            </select>
+            </NativeSelect>
           </div>
 
           {/* Recurrence */}
@@ -222,9 +223,9 @@ function NewEventPage() {
             </label>
             {isWeekly && (
               <div className="pl-6">
-                <select className={sel} value={recurringDay} onChange={(e) => setRecurringDay(Number(e.target.value))}>
+                <NativeSelect value={recurringDay} onChange={(e) => setRecurringDay(Number(e.target.value))}>
                   {DAY_NAMES.map((d, i) => <option key={d} value={i}>{d}</option>)}
-                </select>
+                </NativeSelect>
               </div>
             )}
           </div>
@@ -299,15 +300,15 @@ function NewEventPage() {
             <div className="flex gap-2 mt-2">
               <div className="flex-1 space-y-1">
                 <span className="text-xs text-muted-foreground">Start Time</span>
-                <select className={sel} value={startTime} onChange={(e) => setStartTime(e.target.value)}>
+                <NativeSelect value={startTime} onChange={(e) => setStartTime(e.target.value)}>
                   {TIME_OPTIONS.map((t) => <option key={t} value={t}>{t}</option>)}
-                </select>
+                </NativeSelect>
               </div>
               <div className="flex-1 space-y-1">
                 <span className="text-xs text-muted-foreground">End Time</span>
-                <select className={sel} value={endTime} onChange={(e) => setEndTime(e.target.value)}>
+                <NativeSelect value={endTime} onChange={(e) => setEndTime(e.target.value)}>
                   {TIME_OPTIONS.map((t) => <option key={t} value={t}>{t}</option>)}
-                </select>
+                </NativeSelect>
               </div>
             </div>
           </div>
@@ -353,10 +354,10 @@ function NewEventPage() {
           {/* Language */}
           <div className={field}>
             <label className={lbl}>Primary language {opt}</label>
-            <select className={sel} value={primaryLanguage} onChange={(e) => setPrimaryLanguage(e.target.value)}>
+            <NativeSelect value={primaryLanguage} onChange={(e) => setPrimaryLanguage(e.target.value)}>
               <option value="">— Select language —</option>
               {LANGUAGES.map((l) => <option key={l.name} value={l.name}>{l.flag} {l.name}</option>)}
-            </select>
+            </NativeSelect>
           </div>
 
           {/* Tags */}

@@ -16,10 +16,11 @@ import { addEvent, setEventCircleCollaborations } from "@/data/backend";
 import { useRouter } from "@tanstack/react-router";
 import { useAuth } from "@/components/AuthProvider";
 import { LANGUAGES } from "@/data/profile-options";
+import { NativeSelect } from "@/components/ui/native-select";
 import { format } from "date-fns";
 import type { DateRange } from "react-day-picker";
 
-const EVENT_CATEGORIES = ["Social", "Career", "Hackathon", "Networking"] as const;
+const EVENT_CATEGORIES = ["Social", "Career", "Hackathon", "Workshop", "Casual"] as const;
 
 const CATEGORY_EMOJI: Record<string, string> = {
   Social: "🥂",
@@ -223,17 +224,11 @@ export default function AddEventDialog() {
           {/* Category */}
           <div className={field}>
             <label className={lbl}>Category {req}</label>
-            <select
-              name="category"
-              className={sel}
-              required
-              value={category}
-              onChange={(e) => setCategory(e.target.value)}
-            >
+            <NativeSelect name="category" required value={category} onChange={(e) => setCategory(e.target.value)}>
               {EVENT_CATEGORIES.map((c) => (
                 <option key={c} value={c}>{CATEGORY_EMOJI[c]} {c}</option>
               ))}
-            </select>
+            </NativeSelect>
           </div>
 
           {/* Date & Time */}
@@ -311,15 +306,15 @@ export default function AddEventDialog() {
             <div className="flex gap-2 mt-2">
               <div className="flex-1 space-y-1">
                 <span className="text-xs text-muted-foreground">Start Time</span>
-                <select className={sel} value={startTime} onChange={(e) => setStartTime(e.target.value)}>
+                <NativeSelect value={startTime} onChange={(e) => setStartTime(e.target.value)}>
                   {TIME_OPTIONS.map((t) => <option key={t} value={t}>{t}</option>)}
-                </select>
+                </NativeSelect>
               </div>
               <div className="flex-1 space-y-1">
                 <span className="text-xs text-muted-foreground">End Time</span>
-                <select className={sel} value={endTime} onChange={(e) => setEndTime(e.target.value)}>
+                <NativeSelect value={endTime} onChange={(e) => setEndTime(e.target.value)}>
                   {TIME_OPTIONS.map((t) => <option key={t} value={t}>{t}</option>)}
-                </select>
+                </NativeSelect>
               </div>
             </div>
           </div>
@@ -365,15 +360,11 @@ export default function AddEventDialog() {
             </label>
             {isWeekly && (
               <div className="flex gap-2 pl-6">
-                <select
-                  className={sel}
-                  value={recurringDay}
-                  onChange={(e) => setRecurringDay(Number(e.target.value))}
-                >
+                <NativeSelect value={recurringDay} onChange={(e) => setRecurringDay(Number(e.target.value))}>
                   {["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"].map((d, i) => (
                     <option key={d} value={i}>{d}</option>
                   ))}
-                </select>
+                </NativeSelect>
               </div>
             )}
           </div>
@@ -412,16 +403,12 @@ export default function AddEventDialog() {
           {/* Language */}
           <div className={field}>
             <label className={lbl}>Primary language {opt}</label>
-            <select
-              className={sel}
-              value={primaryLanguage}
-              onChange={(e) => setPrimaryLanguage(e.target.value)}
-            >
+            <NativeSelect value={primaryLanguage} onChange={(e) => setPrimaryLanguage(e.target.value)}>
               <option value="">— Select language —</option>
               {LANGUAGES.map((l) => (
                 <option key={l.name} value={l.name}>{l.flag} {l.name}</option>
               ))}
-            </select>
+            </NativeSelect>
           </div>
 
           {/* Tags */}
