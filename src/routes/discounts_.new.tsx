@@ -50,6 +50,9 @@ const defaultDraft: FormDraft = {
 };
 
 function loadDraft(): FormDraft {
+  // Guard against SSR — sessionStorage is not available server-side.
+  // Starting with defaultDraft ensures SSR HTML matches client first-render.
+  if (typeof window === "undefined") return defaultDraft;
   try {
     const raw = sessionStorage.getItem(STORAGE_KEY);
     if (!raw) return defaultDraft;

@@ -40,10 +40,9 @@ function writeSaves(userId: string, saves: SavedItems) {
 }
 
 export function useSaves(userId?: string | null) {
-  const [saves, setSaves] = useState<SavedItems>(() => {
-    if (typeof window === "undefined") return emptySaves();
-    return loadSaves(userId);
-  });
+  // Always initialize with empty saves so SSR and client first-render match.
+  // The useEffect below immediately loads the real saved data after hydration.
+  const [saves, setSaves] = useState<SavedItems>(emptySaves);
 
   useEffect(() => {
     const handler = () => setSaves(loadSaves(userId));

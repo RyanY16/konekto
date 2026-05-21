@@ -7,7 +7,27 @@ import { GlobalSearch } from "@/components/GlobalSearch";
 import { NotificationsDropdown } from "@/components/NotificationsDropdown";
 import { KonektoLogo } from "@/components/KonektoLogo";
 import { useTranslation } from "react-i18next";
+import i18next from "i18next";
 import { setLanguage, type Language } from "@/i18n";
+
+/**
+ * Applies the saved language from localStorage after hydration.
+ * i18n always initializes with "en" so SSR HTML matches the client's first
+ * render; this effect then switches to the real locale without causing a mismatch.
+ */
+function I18nSync() {
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem("konekto_lang");
+      if (saved && saved !== i18next.language) {
+        i18next.changeLanguage(saved);
+      }
+    } catch {
+      // localStorage may be unavailable in restricted environments
+    }
+  }, []);
+  return null;
+}
 
 type NavItem = { to: string; labelKey: string; icon: ComponentType<{ className?: string }> };
 
@@ -52,6 +72,7 @@ export function AppShell() {
 
   return (
     <AuthProvider>
+      <I18nSync />
       {isBare ? (
         <div className="min-h-screen bg-background">
           <Outlet />
@@ -93,7 +114,7 @@ export function AppShell() {
             {/* Footer */}
             <footer className="hidden md:block border-t border-border bg-background">
               <div className="mx-auto max-w-7xl px-4 py-4 flex items-center justify-between text-xs text-muted-foreground">
-                <span>© {new Date().getFullYear()} Konekto</span>
+                <span suppressHydrationWarning>© {new Date().getFullYear()} Konekto</span>
                 <div className="flex items-center gap-3">
                   <a
                     href="https://www.instagram.com/join.konekto"

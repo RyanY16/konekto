@@ -10,7 +10,9 @@ i18next
       en: { translation: en },
       ja: { translation: ja },
     },
-    lng: (typeof localStorage !== "undefined" ? localStorage.getItem("konekto_lang") : null) ?? "en",
+    // Always start with "en" so SSR HTML matches the client's first render.
+    // The real saved language is applied after hydration in AppShell (I18nSync).
+    lng: "en",
     fallbackLng: "en",
     interpolation: { escapeValue: false },
   });
