@@ -25,8 +25,8 @@ const BARE_ROUTES = ["/login", "/signup"];
 function Logo() {
   return (
     <Link to="/" className="flex items-center gap-2 shrink-0">
-      <KonektoLogo variant="icon" className="h-8 w-8" />
-      <span className="text-lg font-semibold tracking-tight hidden sm:inline">Konekto</span>
+      <KonektoLogo variant="icon" className="h-9 w-9" />
+      <span className="text-lg font-semibold tracking-tight">Konekto</span>
     </Link>
   );
 }
@@ -64,7 +64,7 @@ export function AppShell() {
             <header className="sticky top-0 z-40 border-b border-border bg-background/80 backdrop-blur-md">
               <div className="mx-auto max-w-7xl px-4 h-14 flex items-center gap-2 min-w-0">
                 <Logo />
-                <div className="flex-1 min-w-0 mx-2">
+                <div className="hidden sm:flex md:hidden lg:flex flex-1 min-w-0 mx-2">
                   <GlobalSearch />
                 </div>
                 <div className="flex items-center gap-1 shrink-0">
@@ -198,12 +198,11 @@ function AuthBottomNav({ isActive }: { isActive: (to: string) => boolean }) {
 
 function LanguageToggle() {
   const { i18n } = useTranslation();
-  const [lang, setLang] = useState<Language>((i18n.language as Language) ?? "en");
+  const lang = (i18n.language?.startsWith("ja") ? "ja" : "en") as Language;
 
   function toggle() {
     const next: Language = lang === "en" ? "ja" : "en";
     setLanguage(next);
-    setLang(next);
   }
 
   return (
@@ -212,8 +211,8 @@ function LanguageToggle() {
       aria-label="Switch language"
       className="inline-flex items-center justify-center h-9 px-2 rounded-lg text-xs font-semibold text-muted-foreground hover:text-foreground hover:bg-muted transition-colors gap-1 tracking-wide"
     >
-      <span className="text-sm">{lang === "en" ? "🇯🇵" : "🇬🇧"}</span>
-      <span>{lang === "en" ? "JP" : "EN"}</span>
+      <span className="text-sm">{lang === "ja" ? "🇯🇵" : "🇬🇧"}</span>
+      <span>{lang === "ja" ? "JP" : "EN"}</span>
     </button>
   );
 }

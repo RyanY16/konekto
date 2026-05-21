@@ -96,7 +96,7 @@ function Landing() {
         </section>
 
         <section className="pb-20">
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div className="flex flex-col gap-4">
             {featureKeys.map((key, i) => {
               const Icon = featureIcons[i];
               return (
@@ -205,7 +205,7 @@ function Dashboard() {
       )}
 
       <Section title="Upcoming events" subtitle="The latest events happening now." icon={<Sparkles className="h-5 w-5" />} link="/events">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="flex flex-col gap-4">
           {dataLoading
             ? Array.from({ length: 3 }).map((_, i) => <CardSkeleton key={i} />)
             : events.map((e) => (
@@ -232,7 +232,7 @@ function Dashboard() {
       </Section>
 
       <Section title="Featured circles" icon={<Users className="h-5 w-5" />} link="/circles">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="flex flex-col gap-4">
           {dataLoading
             ? Array.from({ length: 3 }).map((_, i) => <CardSkeleton key={i} />)
             : circles.map((c) => (
@@ -258,7 +258,7 @@ function Dashboard() {
       </Section>
 
       <Section title="Trending deals" icon={<TrendingUp className="h-5 w-5" />} link="/discounts">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="flex flex-col gap-4">
           {trendingDeals.map((d) => (
             <article key={d.id} className="card-base card-hover p-5 flex gap-4">
               <div className="text-4xl">{DEAL_CATEGORY_EMOJI[d.category] ?? "🏷️"}</div>

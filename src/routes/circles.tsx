@@ -61,7 +61,7 @@ function CirclesSkeleton() {
       <div className="flex gap-2">
         {[...Array(6)].map((_, i) => <div key={i} className="h-9 w-20 bg-muted rounded-full" />)}
       </div>
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+      <div className="flex flex-col gap-4">
         {[...Array(6)].map((_, i) => (
           <div key={i} className="card-base p-5 space-y-3">
             <div className="h-10 w-10 bg-muted rounded-lg" />
@@ -270,66 +270,59 @@ function CirclesPage() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+      <div className="flex flex-col gap-3">
         {filtered.map((c) => (
-          <article key={c.id} className="card-base card-hover p-5 flex flex-col relative">
-            {/* Full-card tap target */}
+          <article key={c.id} className="card-base card-hover relative overflow-hidden">
             <Link
               to="/circles/$circleHandle"
               params={{ circleHandle: getCircleHandle(c) }}
               className="absolute inset-0 rounded-[inherit]"
               aria-label={`View ${c.name}`}
             />
-            <div className="flex items-start justify-between">
-              <div className="w-10 h-10 flex items-center justify-center shrink-0">
-                {(c as any).iconUrl ? (
-                  <img src={(c as any).iconUrl} alt={c.name} className="w-10 h-10 rounded-lg object-cover" />
-                ) : (
-                  <span className="text-4xl leading-none">{c.emoji}</span>
-                )}
+            <div className="flex gap-4 p-4 items-center">
+              {/* Icon / emoji */}
+              <div className="w-32 h-32 shrink-0 rounded-xl overflow-hidden bg-muted flex items-center justify-center">
+                {(c as any).iconUrl
+                  ? <img src={(c as any).iconUrl} alt={c.name} className="w-full h-full object-cover" />
+                  : <span className="text-5xl">{c.emoji}</span>
+                }
               </div>
-              <SaveButton itemId={c.id} itemType="circle" />
-            </div>
 
-            <h3 className="mt-3 font-semibold text-lg leading-snug">{c.name}</h3>
+              {/* Text */}
+              <div className="flex flex-col flex-1 min-w-0 py-0.5">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <p className="text-xs text-muted-foreground">{c.category} · {c.members} members</p>
+                    <h3 className="font-semibold leading-snug">{c.name}</h3>
+                  </div>
+                  <SaveButton itemId={c.id} itemType="circle" />
+                </div>
 
-            <div className="flex items-center gap-2 mt-0.5 flex-wrap">
-              <span className="text-xs text-muted-foreground">{c.category} · {c.members} members</span>
-            </div>
-
-            <p className="mt-2 text-sm text-muted-foreground line-clamp-2">{c.description}</p>
-
-            {/* Tags */}
-            {filterValidTags(c.tags).length > 0 && (
-              <div className="mt-3 flex flex-wrap gap-1.5">
-                {filterValidTags(c.tags).map((tag) => (
-                  <span key={tag} className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${tagClass(tag)}`}>
-                    {tag}
-                  </span>
-                ))}
-              </div>
-            )}
-
-            <div className="mt-3 flex flex-wrap gap-1.5">
-              {c.recruiting && <span className="chip bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-400">✅ Recruiting</span>}
-              {c.englishFriendly && <span className="chip">🌏 English-friendly</span>}
-              {(c as any).vibe && <span className="chip bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-300">{(c as any).vibe}</span>}
-            </div>
-
-            <div className="mt-4 pt-4 border-t border-border flex items-center justify-between relative z-10">
-              <div className="flex flex-col gap-1 text-xs text-muted-foreground">
-                {c.ownerId && ownerMap[c.ownerId] && (
-                  <OwnerBadge
-                    username={ownerMap[c.ownerId].username}
-                    displayName={ownerMap[c.ownerId].displayName}
-                    avatarUrl={ownerMap[c.ownerId].avatarUrl}
-                  />
+                {c.description && (
+                  <p className="mt-1 text-sm text-muted-foreground line-clamp-2">{c.description}</p>
                 )}
-                {relativeTime(c.updatedAt) && (
-                  <span>{relativeTime(c.updatedAt)}</span>
-                )}
+
+                <div className="mt-2 flex flex-wrap gap-1.5">
+                  {c.recruiting && <span className="chip bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-400">✅ Recruiting</span>}
+                  {c.englishFriendly && <span className="chip">🌏 English-friendly</span>}
+                  {filterValidTags(c.tags).slice(0, 2).map((tag) => (
+                    <span key={tag} className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${tagClass(tag)}`}>{tag}</span>
+                  ))}
+                </div>
+
+                <div className="mt-auto pt-2 flex items-center justify-between relative z-10">
+                  <div className="text-xs text-muted-foreground">
+                    {c.ownerId && ownerMap[c.ownerId] && (
+                      <OwnerBadge
+                        username={ownerMap[c.ownerId].username}
+                        displayName={ownerMap[c.ownerId].displayName}
+                        avatarUrl={ownerMap[c.ownerId].avatarUrl}
+                      />
+                    )}
+                  </div>
+                  <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-primary text-primary-foreground shrink-0">View →</span>
+                </div>
               </div>
-              <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-primary text-primary-foreground shrink-0">View →</span>
             </div>
           </article>
         ))}

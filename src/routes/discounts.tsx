@@ -9,6 +9,7 @@ import { getDeals, getDealHandle, deleteAllDeals } from "@/data/backend";
 import { deals as mockDeals } from "@/data/mock";
 import { useAuth } from "@/components/AuthProvider";
 import { DEAL_CATEGORY_EMOJI } from "@/data/profile-options";
+import { dealGradient } from "@/lib/placeholders";
 
 export const Route = createFileRoute("/discounts")({
   head: () => ({
@@ -34,7 +35,7 @@ function DiscountsSkeleton() {
     <div className="animate-pulse space-y-6">
       <div className="h-8 w-48 bg-muted rounded" />
       <div className="flex gap-2">{[...Array(6)].map((_, i) => <div key={i} className="h-9 w-24 bg-muted rounded-full" />)}</div>
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+      <div className="flex flex-col gap-4">
         {[...Array(6)].map((_, i) => <div key={i} className="card-base h-56 bg-muted rounded" />)}
       </div>
     </div>
@@ -170,12 +171,12 @@ function DiscountsPage() {
               className="absolute inset-0 rounded-[inherit]"
               aria-label={`View ${d.title}`}
             />
-            <div className="flex gap-4 p-4">
+            <div className="flex gap-4 p-4 items-center">
               {/* Portrait photo or emoji placeholder */}
-              <div className="w-20 shrink-0 aspect-[3/4] rounded-xl overflow-hidden bg-muted flex items-center justify-center">
+              <div className={`w-32 h-32 shrink-0 rounded-xl overflow-hidden flex items-center justify-center text-4xl bg-gradient-to-br ${dealGradient(d.category)}`}>
                 {d.imageUrl
                   ? <img src={d.imageUrl} alt={d.title} className="w-full h-full object-cover" />
-                  : <span className="text-3xl">{DEAL_CATEGORY_EMOJI[d.category] ?? "🏷️"}</span>
+                  : <span>{DEAL_CATEGORY_EMOJI[d.category] ?? "🏷️"}</span>
                 }
               </div>
 
