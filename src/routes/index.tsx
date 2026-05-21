@@ -25,7 +25,7 @@ export const Route = createFileRoute("/")({
 
 function IndexPage() {
   const { user, loading } = useAuth();
-  if (loading) return null;
+  if (loading) return <Landing />;
   if (user) return <Dashboard />;
   return <Landing />;
 }

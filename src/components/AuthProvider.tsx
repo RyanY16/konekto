@@ -40,6 +40,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     let mounted = true;
     let generation = 0;
 
+    // Bootstrap: read session from localStorage immediately — no network call, resolves in <1ms.
+    // This sets loading=false before onAuthStateChange fires (which waits for JWT validation).
+    // If onAuthStateChange has already run (generation > 0), skip to avoid overwriting fresh state.
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (!mounted || generation > 0) return;
+      const u = session?.user ?? null;
+      if (!u) {
+        setUser(null);
+        setLoading(false);
+        setProfileReady(true);
+      } else {
+        setUser({ id: u.id, email: u.email, role: "user", username: null });
+        setLoading(false);
+        // profileReady will be set once onAuthStateChange completes the profile fetch
+      }
+    });
+
     const { data: sub } = supabase.auth.onAuthStateChange(async (_event, session) => {
       const gen = ++generation;
       const u = session?.user ?? null;
@@ -53,8 +70,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return;
       }
 
-      // Resolve loading immediately — don't wait for the profile DB fetch.
-      // This prevents a cold Supabase DB query from blocking the entire page.
       if (mounted && gen === generation) {
         setUser({ id: u.id, email: u.email, role: "user", username: null });
         setLoading(false);
