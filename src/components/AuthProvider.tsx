@@ -91,7 +91,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
 
       if (mounted && gen === generation) {
+        // Reset profile state so stale profileReady/profileFetchOk from a
+        // previous generation don't make profileIncomplete=true while we wait
+        // for the new profile fetch (e.g. TOKEN_REFRESHED firing after INITIAL_SESSION).
         setUser({ id: u.id, email: u.email, role: "user", username: null });
+        setProfileReady(false);
+        setProfileFetchOk(false);
         setLoading(false);
       }
 
