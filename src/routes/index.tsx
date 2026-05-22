@@ -26,7 +26,10 @@ export const Route = createFileRoute("/")({
 function IndexPage() {
   const { user, loading } = useAuth();
   console.log(`[index] render — loading=${loading} user=${user?.id ?? "null"}`);
-  if (loading) return <Landing />;
+  // Don't render anything until auth resolves — this prevents signed-in users
+  // from seeing the landing page flash before the dashboard appears.
+  // A brief blank is less jarring than showing the wrong screen.
+  if (loading) return null;
   if (user) return <Dashboard />;
   return <Landing />;
 }
