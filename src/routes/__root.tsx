@@ -1,6 +1,13 @@
 import { createRootRoute, HeadContent, Link, Scripts } from "@tanstack/react-router";
 import { AppShell } from "@/components/AppShell";
 import "@/i18n";
+import { supabase } from "@/lib/supabase";
+
+// Fire a cheap warmup query as early as possible — before any route loader runs.
+// Opens the Supabase connection pool so subsequent queries don't hit cold start.
+supabase?.from("circles").select("id").limit(1).then(() => {
+  console.log("[db] warmup done");
+}).catch(() => {});
 
 import appCss from "../styles.css?url";
 

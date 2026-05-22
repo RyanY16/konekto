@@ -33,10 +33,9 @@ async function fromSupabase<TTable extends PublicTable, TItem>(
   }
 
   const start = Date.now();
-  const { data, error } = await Promise.race([
-    supabase.from(table).select("*").order("created_at") as any,
-    timeoutAfter(25_000),
-  ]) as { data: unknown[] | null; error: any };
+  // No client-side timeout on reads — Supabase has its own server timeout,
+  // and cold connections can legitimately take 20-30s on first load.
+  const { data, error } = await supabase.from(table).select("*").order("created_at") as any;
 
   const elapsed = Date.now() - start;
   console.log(`[db] ${table}: ${elapsed}ms — rows=${data?.length ?? 0} error=${error?.message ?? null}`);
