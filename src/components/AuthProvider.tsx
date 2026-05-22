@@ -109,14 +109,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
         if (profileError) {
           console.error("[auth] profile fetch DB error:", profileError);
-          // Don't mark fetchOk — guard will not redirect on DB error
+          // fetchOk stays false → profileIncomplete=false → no redirect
+        } else if (profile === null) {
+          // maybeSingle returns null when the row doesn't exist OR when RLS
+          // blocks the SELECT (no error, just empty result). We can't tell
+          // which, so don't redirect — it's safer to leave an existing user
+          // on the page than to boot them to /signup on an RLS/timing hiccup.
+          console.warn("[auth] profile row is null — treating as unknown, no redirect");
+          // fetchOk stays false → profileIncomplete=false → no redirect
         } else {
+          // Row exists — profile state is definitive.
           fetchOk = true;
           if (mounted && gen === generation) {
             setUser({
               id: u.id,
               email: u.email,
-              role: (profile?.role ?? "user") as "user" | "admin",
+              role: ((profile as any)?.role ?? "user") as "user" | "admin",
               username: (profile as any)?.username ?? null,
             });
           }

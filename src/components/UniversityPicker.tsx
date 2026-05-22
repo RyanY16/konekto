@@ -14,7 +14,8 @@ export function UniversityPicker({ value, onChange, className, extraOptions }: {
   const [open, setOpen] = useState(false);
   const wrapRef = useRef<HTMLDivElement>(null);
   const q = query.toLowerCase();
-  const extras = (extraOptions ?? []).filter((e) => !query || e.toLowerCase().includes(q));
+  // Exclude extras that are already in PINNED_OPTIONS to avoid duplicate keys.
+  const extras = (extraOptions ?? []).filter((e) => !PINNED_OPTIONS.includes(e) && (!query || e.toLowerCase().includes(q)));
   const pinned = PINNED_OPTIONS.filter((p) => !query || p.toLowerCase().includes(q));
   const filtered = query.length > 0
     ? JAPAN_UNIVERSITIES.filter((u) => u.toLowerCase().includes(q))
