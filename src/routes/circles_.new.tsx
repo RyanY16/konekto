@@ -14,6 +14,7 @@ import { UniversityPicker } from "@/components/UniversityPicker";
 import EmojiPicker from "@/components/EmojiPicker";
 import { PageHeader } from "@/components/PageHeader";
 import { NativeSelect } from "@/components/ui/native-select";
+import { SmartFill, type SmartFillResult } from "@/components/SmartFill";
 
 export const Route = createFileRoute("/circles_/new")({
   component: NewCirclePage,
@@ -24,6 +25,17 @@ function NewCirclePage() {
   const { user } = useAuth();
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
+
+  // Controlled form state (so SmartFill can populate them)
+  const [name, setName] = useState("");
+  const [description, setDescription] = useState("");
+  const [instagram, setInstagram] = useState("");
+  const [website, setWebsite] = useState("");
+  const [recruitingPeriod, setRecruitingPeriod] = useState("");
+  const [recruitingConditions, setRecruitingConditions] = useState("");
+  const [membershipFee, setMembershipFee] = useState("");
+  const [howToJoin, setHowToJoin] = useState("");
+
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [category, setCategory] = useState<string>(CIRCLE_CATEGORIES[0]);
   const [emoji, setEmoji] = useState<string>(CATEGORY_EMOJI[CIRCLE_CATEGORIES[0]] ?? "👥");
@@ -32,6 +44,7 @@ function NewCirclePage() {
   const [primaryLanguage, setPrimaryLanguage] = useState("");
   const [vibe, setVibe] = useState("Casual");
   const [recruiting, setRecruiting] = useState(false);
+  const [englishFriendly, setEnglishFriendly] = useState(false);
   const [pendingIcon, setPendingIcon] = useState<File | null>(null);
   const [iconPreview, setIconPreview] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -51,14 +64,37 @@ function NewCirclePage() {
     setIconPreview(URL.createObjectURL(file));
   }
 
+  function handleSmartFill(data: SmartFillResult) {
+    if (data.name) setName(data.name);
+    if (data.description) setDescription(data.description);
+    if (data.instagram) setInstagram(data.instagram.replace(/^@/, ""));
+    if (data.website) setWebsite(data.website);
+    if (data.recruitingPeriod) setRecruitingPeriod(data.recruitingPeriod);
+    if (data.membershipFee) setMembershipFee(data.membershipFee);
+    if (data.howToJoin) setHowToJoin(data.howToJoin);
+    if (data.university) setUniversity(data.university);
+    if (data.englishFriendly != null) setEnglishFriendly(data.englishFriendly);
+    if (data.recruiting != null) setRecruiting(data.recruiting);
+    if (data.tags && data.tags.length > 0) {
+      // Merge with existing tags, deduplicate
+      setSelectedTags((prev) => [...new Set([...prev, ...data.tags!])]);
+    }
+    if (data.category && CIRCLE_CATEGORIES.includes(data.category as any)) {
+      setCategory(data.category);
+      setEmoji(CATEGORY_EMOJI[data.category] ?? "👥");
+    }
+    if (data.primaryLanguage) {
+      const match = LANGUAGES.find((l) => l.name.toLowerCase() === data.primaryLanguage!.toLowerCase());
+      if (match) setPrimaryLanguage(match.name);
+    }
+  }
+
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    const form = new FormData(event.currentTarget);
     setSaving(true);
     setError("");
 
     try {
-      const cat = String(form.get("category") ?? CIRCLE_CATEGORIES[0]);
       const circleId = `circle-${crypto.randomUUID()}`;
 
       let iconUrl: string | undefined;
@@ -66,31 +102,30 @@ function NewCirclePage() {
         iconUrl = await uploadCircleIcon(circleId, pendingIcon);
       }
 
-      const name = String(form.get("name") ?? "").trim();
       await addCircle({
         id: circleId,
-        name,
-        category: cat,
-        description: String(form.get("description") ?? "").trim(),
+        name: name.trim(),
+        category,
+        description: description.trim(),
         activity: "Weekly" as "Daily" | "Weekly" | "Monthly" | "Occasionally",
-        englishFriendly: form.get("englishFriendly") === "on",
+        englishFriendly,
         emoji,
         university: university.trim() || undefined,
         country: country || "Japan",
         primaryLanguage: primaryLanguage || undefined,
         vibe: vibe || undefined,
         recruiting,
-        recruitingPeriod: recruiting ? String(form.get("recruitingPeriod") ?? "").trim() || undefined : undefined,
-        recruitingConditions: recruiting ? String(form.get("recruitingConditions") ?? "").trim() || undefined : undefined,
-        membershipFee: String(form.get("membershipFee") ?? "").trim() || undefined,
-        howToJoin: String(form.get("howToJoin") ?? "").trim() || undefined,
-        socialLinks: socialLinksFromForm(form),
+        recruitingPeriod: recruiting ? recruitingPeriod.trim() || undefined : undefined,
+        recruitingConditions: recruiting ? recruitingConditions.trim() || undefined : undefined,
+        membershipFee: membershipFee.trim() || undefined,
+        howToJoin: howToJoin.trim() || undefined,
+        ...(({ socialLinks: { website: website.trim() || undefined, instagram: instagram.trim() || undefined } }) as any),
         tags: selectedTags,
         ownerId: user.id,
         iconUrl,
       });
 
-      const handle = getCircleHandle({ id: circleId, name });
+      const handle = getCircleHandle({ id: circleId, name: name.trim() });
       navigate({ to: "/circles/$circleHandle" as any, params: { circleHandle: handle } as any });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not add circle.");
@@ -112,7 +147,10 @@ function NewCirclePage() {
       </Link>
       <PageHeader eyebrow="Circles" title="Add a circle" />
 
-      <div className="max-w-2xl">
+      <div className="max-w-2xl space-y-5">
+        {/* Smart fill */}
+        <SmartFill onFill={handleSmartFill} />
+
         <form onSubmit={handleSubmit} className="space-y-5">
           {/* Icon upload */}
           <div className={field}>
@@ -164,14 +202,26 @@ function NewCirclePage() {
             <label className={lbl}>Circle name {req}</label>
             <div className="flex gap-2">
               <EmojiPicker value={emoji} onChange={setEmoji} />
-              <Input name="name" placeholder="e.g. Tokyo Tech Society" required className="flex-1" />
+              <Input
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="e.g. Tokyo Tech Society"
+                required
+                className="flex-1"
+              />
             </div>
           </div>
 
           {/* Description */}
           <div className={field}>
             <label className={lbl}>Description {req}</label>
-            <Textarea name="description" placeholder="What does this circle do?" rows={6} required />
+            <Textarea
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              placeholder="What does this circle do?"
+              rows={6}
+              required
+            />
           </div>
 
           {/* University */}
@@ -198,7 +248,12 @@ function NewCirclePage() {
           </div>
 
           <label className="flex items-center gap-2.5 text-sm cursor-pointer select-none">
-            <input name="englishFriendly" type="checkbox" className="h-4 w-4 rounded" />
+            <input
+              type="checkbox"
+              className="h-4 w-4 rounded"
+              checked={englishFriendly}
+              onChange={(e) => setEnglishFriendly(e.target.checked)}
+            />
             <span>🌏 English-friendly</span>
           </label>
 
@@ -237,19 +292,37 @@ function NewCirclePage() {
               <div className="mt-2 space-y-2 pl-6">
                 <div className={field}>
                   <label className={lbl}>Recruiting period {opt}</label>
-                  <Input name="recruitingPeriod" placeholder="e.g. April – June 2025" />
+                  <Input
+                    value={recruitingPeriod}
+                    onChange={(e) => setRecruitingPeriod(e.target.value)}
+                    placeholder="e.g. April – June 2025"
+                  />
                 </div>
                 <div className={field}>
                   <label className={lbl}>Conditions / requirements {opt}</label>
-                  <Textarea name="recruitingConditions" placeholder="Any requirements to join?" rows={2} />
+                  <Textarea
+                    value={recruitingConditions}
+                    onChange={(e) => setRecruitingConditions(e.target.value)}
+                    placeholder="Any requirements to join?"
+                    rows={2}
+                  />
                 </div>
                 <div className={field}>
                   <label className={lbl}>Membership fee {opt}</label>
-                  <Input name="membershipFee" placeholder="e.g. Free, ¥3,000/year, ¥500/month" />
+                  <Input
+                    value={membershipFee}
+                    onChange={(e) => setMembershipFee(e.target.value)}
+                    placeholder="e.g. Free, ¥3,000/year, ¥500/month"
+                  />
                 </div>
                 <div className={field}>
                   <label className={lbl}>How to join {opt}</label>
-                  <Textarea name="howToJoin" placeholder="e.g. Fill out the form on our website, attend an open meeting, DM us on Instagram…" rows={3} />
+                  <Textarea
+                    value={howToJoin}
+                    onChange={(e) => setHowToJoin(e.target.value)}
+                    placeholder="e.g. Fill out the form on our website, attend an open meeting, DM us on Instagram…"
+                    rows={3}
+                  />
                 </div>
               </div>
             )}
@@ -259,7 +332,6 @@ function NewCirclePage() {
           <div className={field}>
             <label className={lbl}>Category {req}</label>
             <NativeSelect
-              name="category"
               required
               value={category}
               onChange={(e) => { setCategory(e.target.value); setEmoji(CATEGORY_EMOJI[e.target.value] ?? "👥"); }}
@@ -280,21 +352,31 @@ function NewCirclePage() {
             <div className="space-y-2">
               <div className="relative">
                 <Globe className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
-                <Input name="website" placeholder="https://yoursite.com" className="pl-9" />
+                <Input
+                  value={website}
+                  onChange={(e) => setWebsite(e.target.value)}
+                  placeholder="https://yoursite.com"
+                  className="pl-9"
+                />
               </div>
               <div className="relative">
                 <Instagram className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
                 <span className="absolute left-9 top-1/2 -translate-y-1/2 text-sm text-muted-foreground select-none pointer-events-none">@</span>
-                <Input name="instagram" placeholder="handle" className="pl-14" />
+                <Input
+                  value={instagram}
+                  onChange={(e) => setInstagram(e.target.value)}
+                  placeholder="handle"
+                  className="pl-14"
+                />
               </div>
               <div className="relative">
                 <Linkedin className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
-                <Input name="linkedin" placeholder="linkedin.com/in/yourprofile" className="pl-9" />
+                <Input placeholder="linkedin.com/in/yourprofile" className="pl-9" />
               </div>
               <div className="relative">
                 <MessageCircle className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
                 <span className="absolute left-9 top-1/2 -translate-y-1/2 text-sm text-muted-foreground select-none pointer-events-none">@</span>
-                <Input name="line" placeholder="LINE ID" className="pl-14" />
+                <Input placeholder="LINE ID" className="pl-14" />
               </div>
             </div>
           </div>
