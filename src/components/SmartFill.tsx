@@ -43,7 +43,7 @@ export function SmartFill({ onFill }: Props) {
       setTimeout(() => {
         console.error(`[smart-fill] timed out after ${Date.now() - startMs}ms`);
         reject(new Error("Timed out — the site took too long to respond."));
-      }, 30_000)
+      }, 35_000)
     );
 
     try {

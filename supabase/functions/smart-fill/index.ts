@@ -30,94 +30,102 @@ const LANGUAGES = [
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
 
+  // ── API key ─────────────────────────────────────────────────────────────────
+  // Currently using OpenAI. To switch to Claude, swap the key + call below.
+  const openaiKey = Deno.env.get("OPENAI_API_KEY");
+  if (!openaiKey) return json({ error: "OPENAI_API_KEY not configured" }, 500);
+
+  // const anthropicKey = Deno.env.get("ANTHROPIC_API_KEY");
+  // if (!anthropicKey) return json({ error: "ANTHROPIC_API_KEY not configured" }, 500);
+
+  let masterTimer: ReturnType<typeof setTimeout> | undefined;
+
   try {
-    // ── API key ───────────────────────────────────────────────────────────────
-    // Currently using OpenAI. To switch to Claude, comment out the OpenAI block
-    // below and uncomment the Claude block.
-    const openaiKey = Deno.env.get("OPENAI_API_KEY");
-    if (!openaiKey) return json({ error: "OPENAI_API_KEY not configured" }, 500);
-
-    // const anthropicKey = Deno.env.get("ANTHROPIC_API_KEY");
-    // if (!anthropicKey) return json({ error: "ANTHROPIC_API_KEY not configured" }, 500);
-
     const { url } = await req.json();
     if (!url || typeof url !== "string") return json({ error: "url is required" }, 400);
 
-    // Normalise URL
     const normalised = url.startsWith("http") ? url : `https://${url}`;
     console.log("[smart-fill] fetching URL:", normalised);
 
-    // Fetch page content via Jina AI reader (returns clean markdown, no CORS issues)
-    const jinaUrl = `https://r.jina.ai/${normalised}`;
+    // Single AbortController for all outgoing fetches.
+    // Fires at 22s so the function can return an error before Supabase kills it.
+    const master = new AbortController();
+    masterTimer = setTimeout(() => {
+      console.error("[smart-fill] master 22s timeout — aborting");
+      master.abort();
+    }, 22_000);
+
+    // ── Step 1: fetch page content via Jina AI ───────────────────────────────
+    // Jina converts any URL into clean markdown, handling JS-rendered pages and CORS.
     let pageContent = "";
     const jinaStart = Date.now();
     try {
-      const jinaRes = await fetch(jinaUrl, {
+      const jinaRes = await fetch(`https://r.jina.ai/${normalised}`, {
         headers: {
           "Accept": "text/plain",
-          "X-Timeout": "15",
+          "X-Timeout": "8",        // tell Jina's server to give up after 8s
           "X-Return-Format": "markdown",
         },
-        signal: AbortSignal.timeout(10_000),
+        signal: master.signal,   // aborted by masterTimer if still running at 22s
       });
       console.log(`[smart-fill] Jina ${jinaRes.status} in ${Date.now() - jinaStart}ms`);
       if (jinaRes.ok) {
         const text = await jinaRes.text();
-        // Truncate to ~8k chars to stay within context budget
-        pageContent = text.slice(0, 8000);
+        pageContent = text.slice(0, 8000); // truncate to keep prompt small
         console.log(`[smart-fill] page content length: ${pageContent.length}`);
       }
     } catch (e) {
-      console.error(`[smart-fill] Jina fetch failed after ${Date.now() - jinaStart}ms:`, e);
+      console.error(`[smart-fill] Jina failed after ${Date.now() - jinaStart}ms:`, e);
     }
 
     if (!pageContent) {
+      clearTimeout(masterTimer);
       return json({ error: "Could not fetch page content. The site may be private or unavailable." }, 422);
     }
 
-    // ── Prompt (shared between providers) ────────────────────────────────────
-    const systemPrompt = `You are extracting information about a student circle/club from a web page to pre-fill a form. Only include fields you are confident about — return null for anything uncertain or not mentioned. Return ONLY valid JSON, no explanation.`;
+    // ── Step 2: extract fields with OpenAI ──────────────────────────────────
+    const systemPrompt =
+      "You are extracting information about a student circle/club from a web page to pre-fill a form. " +
+      "Only include fields you are confident about — return null for anything uncertain or not mentioned. " +
+      "Return ONLY valid JSON, no explanation.";
 
-    const userPrompt = `Web page content:
----
-${pageContent}
----
+    const userPrompt =
+      `Web page content:\n---\n${pageContent}\n---\n\n` +
+      `Extract these fields and return ONLY a JSON object:\n` +
+      `{\n` +
+      `  "name": string | null,\n` +
+      `  "description": string | null,\n` +
+      `  "category": string | null,\n` +
+      `  "university": string | null,\n` +
+      `  "primaryLanguage": string | null,\n` +
+      `  "englishFriendly": boolean | null,\n` +
+      `  "recruiting": boolean | null,\n` +
+      `  "recruitingPeriod": string | null,\n` +
+      `  "membershipFee": string | null,\n` +
+      `  "howToJoin": string | null,\n` +
+      `  "instagram": string | null,\n` +
+      `  "website": string | null,\n` +
+      `  "tags": string[] | null\n` +
+      `}\n\n` +
+      `Rules:\n` +
+      `- name: the circle/club name\n` +
+      `- description: what the circle does (2-4 sentences, natural English)\n` +
+      `- category: must be exactly one of: ${CIRCLE_CATEGORIES.join(", ")}\n` +
+      `- university: full university name (e.g. "Tokyo University")\n` +
+      `- primaryLanguage: must be exactly one of: ${LANGUAGES.join(", ")}\n` +
+      `- englishFriendly: true only if explicitly English-friendly or bilingual\n` +
+      `- recruiting: true only if actively recruiting new members\n` +
+      `- recruitingPeriod: e.g. "April – May each year"\n` +
+      `- membershipFee: e.g. "¥5,000/year" or "Free"\n` +
+      `- howToJoin: 1-2 sentences on how to apply/join\n` +
+      `- instagram: handle only, no @ or URL (e.g. "tokyotechsociety")\n` +
+      `- website: full URL of their own website\n` +
+      `- tags: 2-5 short lowercase keywords (e.g. "programming", "volleyball")`;
 
-Extract these fields and return ONLY a JSON object with these exact keys:
-{
-  "name": string | null,
-  "description": string | null,
-  "category": string | null,
-  "university": string | null,
-  "primaryLanguage": string | null,
-  "englishFriendly": boolean | null,
-  "recruiting": boolean | null,
-  "recruitingPeriod": string | null,
-  "membershipFee": string | null,
-  "howToJoin": string | null,
-  "instagram": string | null,
-  "website": string | null,
-  "tags": string[] | null
-}
-
-Rules:
-- name: the circle/club name
-- description: what the circle does (2-4 sentences, natural English)
-- category: must be exactly one of: ${CIRCLE_CATEGORIES.join(", ")}
-- university: full university name (e.g. "Tokyo University")
-- primaryLanguage: must be exactly one of: ${LANGUAGES.join(", ")}
-- englishFriendly: true only if explicitly English-friendly or bilingual
-- recruiting: true only if actively recruiting new members now
-- recruitingPeriod: e.g. "April – May each year"
-- membershipFee: e.g. "¥5,000/year" or "Free"
-- howToJoin: 1-2 sentences on how to apply/join
-- instagram: handle only, no @ or URL (e.g. "tokyotechsociety")
-- website: full URL of their own website (not instagram or the URL fetched if it's a social page)
-- tags: 2-5 short lowercase keywords (e.g. "programming", "volleyball", "anime")`;
-
-    // ── OpenAI ────────────────────────────────────────────────────────────────
     const aiStart = Date.now();
     console.log("[smart-fill] calling OpenAI...");
+
+    // ── OpenAI call ──────────────────────────────────────────────────────────
     const aiRes = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
       headers: {
@@ -133,20 +141,10 @@ Rules:
           { role: "user", content: userPrompt },
         ],
       }),
-      signal: AbortSignal.timeout(15_000),
+      signal: master.signal, // aborted by masterTimer if still running at 22s
     });
 
-    console.log(`[smart-fill] OpenAI responded ${aiRes.status} in ${Date.now() - aiStart}ms`);
-    if (!aiRes.ok) {
-      const err = await aiRes.json().catch(() => ({}));
-      return json({ error: err?.error?.message ?? `OpenAI error ${aiRes.status}` }, 500);
-    }
-
-    const aiData = await aiRes.json();
-    const rawText = aiData.choices?.[0]?.message?.content ?? "";
-    console.log("[smart-fill] raw AI response:", rawText.slice(0, 200));
-
-    // ── Claude (swap in when ready) ───────────────────────────────────────────
+    // ── Claude (swap in when ready) ──────────────────────────────────────────
     // const aiRes = await fetch("https://api.anthropic.com/v1/messages", {
     //   method: "POST",
     //   headers: {
@@ -159,28 +157,45 @@ Rules:
     //     max_tokens: 1024,
     //     messages: [{ role: "user", content: `${systemPrompt}\n\n${userPrompt}` }],
     //   }),
-    //   signal: AbortSignal.timeout(30_000),
+    //   signal: master.signal,
     // });
-    // if (!aiRes.ok) {
-    //   const err = await aiRes.json().catch(() => ({}));
-    //   return json({ error: err?.error?.message ?? `Claude error ${aiRes.status}` }, 500);
-    // }
-    // const aiData = await aiRes.json();
-    // const rawText = aiData.content?.[0]?.text ?? "";
 
-    // Parse JSON (strip markdown fences just in case)
-    const cleaned = rawText.replace(/^```json\s*/i, "").replace(/^```\s*/i, "").replace(/```\s*$/i, "").trim();
+    clearTimeout(masterTimer);
+    console.log(`[smart-fill] OpenAI responded ${aiRes.status} in ${Date.now() - aiStart}ms`);
+
+    if (!aiRes.ok) {
+      const err = await aiRes.json().catch(() => ({}));
+      return json({ error: err?.error?.message ?? `OpenAI error ${aiRes.status}` }, 500);
+    }
+
+    const aiData = await aiRes.json();
+    const rawText = aiData.choices?.[0]?.message?.content ?? "";
+    console.log("[smart-fill] raw AI response:", rawText.slice(0, 200));
+
+    // Parse JSON — strip markdown fences just in case the model wraps it
+    const cleaned = rawText
+      .replace(/^```json\s*/i, "")
+      .replace(/^```\s*/i, "")
+      .replace(/```\s*$/i, "")
+      .trim();
+
     let extracted: Record<string, unknown>;
     try {
       extracted = JSON.parse(cleaned);
     } catch {
-      console.error("Failed to parse AI response:", rawText);
+      console.error("[smart-fill] failed to parse AI response:", rawText);
       return json({ error: "Could not parse AI response" }, 500);
     }
 
     return json({ data: extracted });
+
   } catch (err: any) {
-    console.error("smart-fill error:", err);
+    clearTimeout(masterTimer);
+    console.error("[smart-fill] unhandled error:", err);
+    // If the master AbortController fired, give a clear message
+    if (err?.name === "AbortError") {
+      return json({ error: "Request took too long — try a simpler URL or try again." }, 504);
+    }
     return json({ error: err?.message ?? "Internal error" }, 500);
   }
 });
