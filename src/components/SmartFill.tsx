@@ -35,17 +35,36 @@ export function SmartFill({ onFill }: Props) {
     setError("");
     setFilledCount(null);
 
-    try {
-      const { data, error: fnError } = await supabase!.functions.invoke("smart-fill", {
-        body: { url: trimmed },
-      });
+    // Client-side timeout — rejects after 10s so the spinner never hangs forever
+    const timeout = new Promise<never>((_, reject) =>
+      setTimeout(() => reject(new Error("Timed out — the site took too long to respond.")), 30_000)
+    );
 
-      if (fnError) throw new Error(fnError.message);
-      if (data?.error) throw new Error(data.error);
+    try {
+      const { data, error: fnError } = await Promise.race([
+        supabase!.functions.invoke("smart-fill", { body: { url: trimmed } }),
+        timeout,
+      ]);
+
+      console.log("[smart-fill] invocation response", { data, fnError });
+
+      // fnError = network/invocation failure (edge function didn't respond)
+      if (fnError) {
+        console.error("[smart-fill] function error", fnError);
+        throw new Error(fnError.message);
+      }
+
+      // data.error = the edge function ran but returned an application error
+      // e.g. Jina couldn't fetch the page, or the AI call failed
+      if (data?.error) {
+        console.error("[smart-fill] app error from edge function", data.error);
+        throw new Error(data.error);
+      }
 
       const result: SmartFillResult = data?.data ?? {};
+      console.log("[smart-fill] extracted fields", result);
 
-      // Count non-null fields that were filled
+      // Count non-null/non-empty fields so we can tell the user how many were filled
       const count = Object.values(result).filter((v) =>
         v !== null && v !== undefined && v !== "" && !(Array.isArray(v) && v.length === 0)
       ).length;
@@ -53,6 +72,8 @@ export function SmartFill({ onFill }: Props) {
       onFill(result);
       setFilledCount(count);
     } catch (err) {
+      // Covers timeout, network errors, and application errors from above
+      console.error("[smart-fill] caught error", err);
       setError(err instanceof Error ? err.message : "Smart fill failed");
     } finally {
       setLoading(false);

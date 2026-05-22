@@ -56,7 +56,7 @@ Deno.serve(async (req) => {
           "X-Timeout": "15",
           "X-Return-Format": "markdown",
         },
-        signal: AbortSignal.timeout(20_000),
+        signal: AbortSignal.timeout(10_000),
       });
       if (jinaRes.ok) {
         const text = await jinaRes.text();
@@ -127,7 +127,7 @@ Rules:
           { role: "user", content: userPrompt },
         ],
       }),
-      signal: AbortSignal.timeout(30_000),
+      signal: AbortSignal.timeout(15_000),
     });
 
     if (!aiRes.ok) {
