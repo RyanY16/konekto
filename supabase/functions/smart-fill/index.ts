@@ -45,10 +45,12 @@ Deno.serve(async (req) => {
 
     // Normalise URL
     const normalised = url.startsWith("http") ? url : `https://${url}`;
+    console.log("[smart-fill] fetching URL:", normalised);
 
     // Fetch page content via Jina AI reader (returns clean markdown, no CORS issues)
     const jinaUrl = `https://r.jina.ai/${normalised}`;
     let pageContent = "";
+    const jinaStart = Date.now();
     try {
       const jinaRes = await fetch(jinaUrl, {
         headers: {
@@ -58,13 +60,15 @@ Deno.serve(async (req) => {
         },
         signal: AbortSignal.timeout(10_000),
       });
+      console.log(`[smart-fill] Jina ${jinaRes.status} in ${Date.now() - jinaStart}ms`);
       if (jinaRes.ok) {
         const text = await jinaRes.text();
         // Truncate to ~8k chars to stay within context budget
         pageContent = text.slice(0, 8000);
+        console.log(`[smart-fill] page content length: ${pageContent.length}`);
       }
     } catch (e) {
-      console.error("Jina fetch failed:", e);
+      console.error(`[smart-fill] Jina fetch failed after ${Date.now() - jinaStart}ms:`, e);
     }
 
     if (!pageContent) {
@@ -112,6 +116,8 @@ Rules:
 - tags: 2-5 short lowercase keywords (e.g. "programming", "volleyball", "anime")`;
 
     // ── OpenAI ────────────────────────────────────────────────────────────────
+    const aiStart = Date.now();
+    console.log("[smart-fill] calling OpenAI...");
     const aiRes = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
       headers: {
@@ -130,6 +136,7 @@ Rules:
       signal: AbortSignal.timeout(15_000),
     });
 
+    console.log(`[smart-fill] OpenAI responded ${aiRes.status} in ${Date.now() - aiStart}ms`);
     if (!aiRes.ok) {
       const err = await aiRes.json().catch(() => ({}));
       return json({ error: err?.error?.message ?? `OpenAI error ${aiRes.status}` }, 500);
@@ -137,6 +144,7 @@ Rules:
 
     const aiData = await aiRes.json();
     const rawText = aiData.choices?.[0]?.message?.content ?? "";
+    console.log("[smart-fill] raw AI response:", rawText.slice(0, 200));
 
     // ── Claude (swap in when ready) ───────────────────────────────────────────
     // const aiRes = await fetch("https://api.anthropic.com/v1/messages", {
