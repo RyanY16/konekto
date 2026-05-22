@@ -76,6 +76,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     });
 
     const { data: sub } = supabase.auth.onAuthStateChange(async (_event, session) => {
+      // TOKEN_REFRESHED is a silent JWT rotation — the profile hasn't changed.
+      // Ignoring it prevents the generation counter from climbing and cancelling
+      // an in-progress INITIAL_SESSION / SIGNED_IN profile fetch, which was the
+      // root cause of the "stuck on login / needs refresh" issue.
+      if (_event === "TOKEN_REFRESHED") {
+        console.log("[auth] TOKEN_REFRESHED — ignored (no profile re-fetch needed)");
+        return;
+      }
+
       const gen = ++generation;
       const u = session?.user ?? null;
       console.log(`[auth] onAuthStateChange — event=${_event} user=${u?.id ?? "null"} gen=${gen}`);
