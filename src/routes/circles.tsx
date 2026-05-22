@@ -81,13 +81,13 @@ const categories = ["All", ...CIRCLE_CATEGORIES] as const;
 
 type SortKey = "relevant" | "newest" | "updated" | "az" | "popular";
 
-const SORT_OPTIONS: { value: SortKey; label: string }[] = [
-  { value: "relevant", label: "Most relevant" },
-  { value: "newest",   label: "Newest" },
-  { value: "updated",  label: "Recently updated" },
-  { value: "az",       label: "A → Z" },
-  { value: "popular",  label: "Most members" },
-];
+const SORT_OPTIONS: { value: SortKey }[] = [
+  { value: "relevant" },
+  { value: "newest" },
+  { value: "updated" },
+  { value: "az" },
+  { value: "popular" },
+] as const;
 
 function tagOverlap(circleTags: string[], userInterests: string[]): number {
   const userSet = new Set(userInterests);
@@ -164,7 +164,7 @@ function CirclesPage() {
             <AlertDialog>
               <AlertDialogTrigger asChild>
                 <Button variant="destructive" size="sm" className="gap-1.5">
-                  <Trash2 className="h-3.5 w-3.5" /> Delete all
+                  <Trash2 className="h-3.5 w-3.5" /> {t("common.deleteAll")}
                 </Button>
               </AlertDialogTrigger>
               <AlertDialogContent>
@@ -193,7 +193,7 @@ function CirclesPage() {
             to={user ? "/circles/new" : "/signup"}
             className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-semibold bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
           >
-            + Add circle
+            {t("circles.addCircle")}
           </Link>
         </div>
       </div>
@@ -205,7 +205,7 @@ function CirclesPage() {
           <input
             value={q}
             onChange={(e) => setQ(e.target.value)}
-            placeholder="Search by name, location or tag…"
+            placeholder={t("circles.searchPlaceholder")}
             className="w-full pl-10 pr-4 h-11 rounded-full border border-border bg-card text-sm focus:outline-none focus:ring-2 focus:ring-ring"
           />
         </div>
@@ -235,7 +235,7 @@ function CirclesPage() {
               onChange={(e) => setSortKey(e.target.value as SortKey)}
               className="h-9 w-auto rounded-full border border-border bg-card pl-8 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
             >
-              {SORT_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+              {SORT_OPTIONS.map((o) => <option key={o.value} value={o.value}>{t(`circles.sort.${o.value}`)}</option>)}
             </NativeSelect>
           </div>
           {universities.length > 2 && (
@@ -244,7 +244,7 @@ function CirclesPage() {
               onChange={(e) => setUniFilter(e.target.value)}
               className="h-9 w-auto rounded-full border border-border bg-card text-sm focus:outline-none focus:ring-2 focus:ring-ring"
             >
-              {universities.map((u) => <option key={u} value={u}>{u === "All" ? "All universities" : u}</option>)}
+              {universities.map((u) => <option key={u} value={u}>{u === "All" ? t("circles.allUniversities") : u}</option>)}
             </NativeSelect>
           )}
           {languages.length > 2 && (
@@ -255,7 +255,7 @@ function CirclesPage() {
             >
               {languages.map((l) => {
                 const flag = l === "All" ? null : LANGUAGES.find((x) => x.name === l)?.flag;
-                return <option key={l} value={l}>{l === "All" ? "All languages" : `${flag ?? ""} ${l}`}</option>;
+                return <option key={l} value={l}>{l === "All" ? t("circles.allLanguages") : `${flag ?? ""} ${l}`}</option>;
               })}
             </NativeSelect>
           )}
@@ -267,7 +267,7 @@ function CirclesPage() {
                 : "bg-card border-border hover:bg-muted"
             }`}
           >
-            ✅ Recruiting only
+            {t("circles.recruitingOnly")}
           </button>
         </div>
       </div>

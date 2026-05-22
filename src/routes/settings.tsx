@@ -3,6 +3,7 @@ import { useState } from "react";
 import { Moon, Sun, Bell, Palette, UserX, ChevronRight, ChevronLeft } from "lucide-react";
 import { useAuth } from "@/components/AuthProvider";
 import { Button } from "@/components/ui/button";
+import { useTranslation } from "react-i18next";
 
 export const Route = createFileRoute("/settings")({
   head: () => ({ meta: [{ title: "Settings — Konekto" }] }),
@@ -40,16 +41,17 @@ const SCHEMES: { id: ColorScheme; label: string; colors: string[] }[] = [
 
 type Tab = "appearance" | "notifications" | "account";
 
-const TABS: { id: Tab; label: string; icon: React.ElementType }[] = [
-  { id: "appearance",    label: "Appearance",    icon: Palette },
-  { id: "notifications", label: "Notifications", icon: Bell },
-  { id: "account",       label: "Account",       icon: UserX },
+const TAB_IDS: { id: Tab; icon: React.ElementType }[] = [
+  { id: "appearance",    icon: Palette },
+  { id: "notifications", icon: Bell },
+  { id: "account",       icon: UserX },
 ];
 
 // ── Main page ───────────────────────────────────────────────────────────────
 
 function SettingsPage() {
-  const [tab, setTab] = useState<Tab | null>(null);
+  const { t } = useTranslation();
+  const [tab, setTab] = useState<Tab | null>("appearance");
 
   const panel = tab === "appearance"    ? <AppearancePanel />
               : tab === "notifications" ? <NotificationsPanel />
@@ -62,9 +64,9 @@ function SettingsPage() {
       <div className="md:hidden">
         {tab === null ? (
           <>
-            <h1 className="text-2xl font-bold tracking-tight mb-6">Settings</h1>
+            <h1 className="text-2xl font-bold tracking-tight mb-6">{t("settings.title")}</h1>
             <div className="rounded-2xl border border-border bg-card divide-y divide-border">
-              {TABS.map(({ id, label, icon: Icon }) => (
+              {TAB_IDS.map(({ id, icon: Icon }) => (
                 <button
                   key={id}
                   onClick={() => setTab(id)}
@@ -73,7 +75,7 @@ function SettingsPage() {
                   <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-muted shrink-0">
                     <Icon className="h-4 w-4 text-muted-foreground" />
                   </span>
-                  <span className="flex-1 text-sm font-medium">{label}</span>
+                  <span className="flex-1 text-sm font-medium">{t(`settings.${id}`)}</span>
                   <ChevronRight className="h-4 w-4 text-muted-foreground" />
                 </button>
               ))}
@@ -86,11 +88,11 @@ function SettingsPage() {
                 onClick={() => setTab(null)}
                 className="inline-flex items-center gap-1 text-sm font-medium text-primary hover:underline"
               >
-                <ChevronLeft className="h-4 w-4" /> Settings
+                <ChevronLeft className="h-4 w-4" /> {t("settings.title")}
               </button>
             </div>
             <h1 className="text-2xl font-bold tracking-tight mb-6">
-              {TABS.find((t) => t.id === tab)?.label}
+              {t(`settings.${tab}`)}
             </h1>
             {panel}
           </>
@@ -99,11 +101,11 @@ function SettingsPage() {
 
       {/* ── Desktop: sidebar + panel ────────────────────────────────── */}
       <div className="hidden md:block">
-        <h1 className="text-2xl font-bold tracking-tight mb-6">Settings</h1>
+        <h1 className="text-2xl font-bold tracking-tight mb-6">{t("settings.title")}</h1>
         <div className="flex gap-6">
           <nav className="w-44 shrink-0">
             <ul className="space-y-0.5">
-              {TABS.map(({ id, label, icon: Icon }) => (
+              {TAB_IDS.map(({ id, icon: Icon }) => (
                 <li key={id}>
                   <button
                     onClick={() => setTab(id)}
@@ -114,7 +116,7 @@ function SettingsPage() {
                     }`}
                   >
                     <Icon className="h-4 w-4 shrink-0" />
-                    {label}
+                    {t(`settings.${id}`)}
                   </button>
                 </li>
               ))}
@@ -123,7 +125,7 @@ function SettingsPage() {
           <div className="flex-1 min-w-0">
             {tab
               ? panel
-              : <p className="text-sm text-muted-foreground pt-2">Select a category.</p>
+              : <p className="text-sm text-muted-foreground pt-2">{t("settings.title")}</p>
             }
           </div>
         </div>
@@ -135,6 +137,7 @@ function SettingsPage() {
 // ── Appearance ──────────────────────────────────────────────────────────────
 
 function AppearancePanel() {
+  const { t } = useTranslation();
   const [color, setColor] = useState<ColorScheme>(() => getInitialColor());
   const [theme, setTheme] = useState<"light" | "dark">(() => getInitialTheme());
 
@@ -152,18 +155,18 @@ function AppearancePanel() {
   }
 
   return (
-    <Panel title="Appearance">
-      <Row label="Theme" description={theme === "dark" ? "Dark mode" : "Light mode"}>
+    <Panel title={t("settings.appearance")}>
+      <Row label={t("settings.theme")} description={theme === "dark" ? t("settings.darkMode") : t("settings.lightMode")}>
         <button
           onClick={toggleTheme}
           className="inline-flex items-center gap-2 rounded-lg border border-border px-3 py-1.5 text-sm font-medium hover:bg-muted transition-colors"
         >
           {theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
-          {theme === "dark" ? "Light mode" : "Dark mode"}
+          {theme === "dark" ? t("settings.switchToLight") : t("settings.switchToDark")}
         </button>
       </Row>
 
-      <Row label="Colour" description="App colour scheme">
+      <Row label={t("settings.colour")} description={t("settings.colourDesc")}>
         <div className="flex gap-2">
           {SCHEMES.map((s) => (
             <button
@@ -191,10 +194,11 @@ function AppearancePanel() {
 // ── Notifications ───────────────────────────────────────────────────────────
 
 function NotificationsPanel() {
+  const { t } = useTranslation();
   return (
-    <Panel title="Notifications">
+    <Panel title={t("settings.notifications")}>
       <div className="py-8 text-center text-muted-foreground text-sm">
-        Notification preferences coming soon.
+        {t("settings.notificationsSoon")}
       </div>
     </Panel>
   );
@@ -218,17 +222,19 @@ function AccountPanel() {
     }
   }
 
+  const { t } = useTranslation();
+
   return (
-    <Panel title="Account">
-      <Row label="Delete account" description="Permanently delete your account and all your data">
+    <Panel title={t("settings.account")}>
+      <Row label={t("settings.deleteAccount")} description={t("settings.deleteAccountDesc")}>
         {confirming ? (
           <div className="flex items-center gap-2">
-            <span className="text-xs text-muted-foreground">Are you sure?</span>
+            <span className="text-xs text-muted-foreground">{t("settings.deleteConfirm")}</span>
             <button
               onClick={() => setConfirming(false)}
               className="text-xs text-muted-foreground hover:text-foreground transition-colors"
             >
-              Cancel
+              {t("common.cancel")}
             </button>
             <Button
               size="sm"
@@ -236,12 +242,12 @@ function AccountPanel() {
               onClick={handleDelete}
               disabled={loading}
             >
-              {loading ? "Deleting…" : "Yes, delete"}
+              {loading ? t("common.deleting") : t("settings.deleteYes")}
             </Button>
           </div>
         ) : (
           <Button size="sm" variant="destructive" onClick={() => setConfirming(true)}>
-            Delete account
+            {t("settings.deleteAccount")}
           </Button>
         )}
       </Row>

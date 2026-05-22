@@ -205,7 +205,7 @@ function DiscountsPage() {
 
                 <div className="mt-2 flex flex-wrap gap-1.5">
                   {d.studentOnly && <span className="chip bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-400">{t("discounts.card.studentOnly")}</span>}
-                  <span className="chip">{d.mode === "Online" ? "🌐 Online" : d.mode === "In-Person" ? "📍 In-Person" : "🌐📍 Both"}</span>
+                  <span className="chip">{d.mode === "Online" ? `🌐 ${t("common.online")}` : d.mode === "In-Person" ? `📍 ${t("common.inPerson")}` : `🌐📍 ${t("common.both")}`}</span>
                   {d.saleEnd && <span className="chip">{t("discounts.card.endsOn")} {d.saleEnd}</span>}
                   <span className="chip">{d.category}</span>
                 </div>

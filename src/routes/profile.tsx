@@ -521,7 +521,7 @@ function ProfilePage() {
 
   return (
     <div>
-      <PageHeader eyebrow="Profile" title="Your hub." />
+      <PageHeader eyebrow={t("profile.eyebrow")} title={t("profile.title")} />
 
       {/* ── Onboarding completion banner ── */}
       {!isComplete && !editing && (

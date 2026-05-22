@@ -135,6 +135,7 @@ function Landing() {
 // ── Dashboard ──────────────────────────────────────────────────────────────────
 
 function Dashboard() {
+  const { t } = useTranslation();
   const [events, setEvents] = useState<EventItem[]>([]);
   const [circles, setCircles] = useState<Circle[]>([]);
   const [dataLoading, setDataLoading] = useState(true);
@@ -170,26 +171,26 @@ function Dashboard() {
       <section className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-primary-soft via-background to-accent-soft p-6 md:p-10 border border-border">
         <div className="max-w-2xl">
           <p className="text-xs font-semibold uppercase tracking-wider text-primary mb-3">
-            <Sparkles className="inline h-3.5 w-3.5 mr-1" /> おかえり
+            <Sparkles className="inline h-3.5 w-3.5 mr-1" /> {t("home.welcomeBack")}
           </p>
           <h1 className="text-3xl md:text-5xl font-bold tracking-tight text-foreground">
-            Your campus,<br className="hidden md:block" /> connected.
+            {t("home.dashboard.tagline")}
           </h1>
           <p className="mt-3 text-muted-foreground md:text-lg">
-            Discover circles, events, deals and opportunities — all in one place.
+            {t("home.dashboard.desc")}
           </p>
           <div className="mt-6 flex flex-wrap gap-3">
             <Link
               to="/circles"
               className="inline-flex items-center gap-1.5 rounded-full bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground hover:bg-primary/90 transition-colors"
             >
-              Explore circles <ArrowRight className="h-4 w-4" />
+              {t("home.dashboard.exploreCircles")} <ArrowRight className="h-4 w-4" />
             </Link>
             <Link
               to="/events"
               className="inline-flex items-center gap-1.5 rounded-full bg-background border border-border px-5 py-2.5 text-sm font-semibold hover:bg-muted transition-colors"
             >
-              Browse events
+              {t("home.dashboard.browseEvents")}
             </Link>
           </div>
         </div>
@@ -197,32 +198,32 @@ function Dashboard() {
 
       {dataError && (
         <div className="flex items-center justify-between rounded-2xl border border-border bg-card px-5 py-4">
-          <p className="text-sm text-muted-foreground">Couldn't load your feed. Check your connection.</p>
+          <p className="text-sm text-muted-foreground">{t("home.dashboard.feedError")}</p>
           <button
             onClick={fetchData}
             className="inline-flex items-center gap-1.5 text-sm font-medium text-primary hover:underline"
           >
-            <RefreshCw className="h-3.5 w-3.5" /> Retry
+            <RefreshCw className="h-3.5 w-3.5" /> {t("home.dashboard.retry")}
           </button>
         </div>
       )}
 
-      <Section title="Upcoming events" subtitle="The latest events happening now." icon={<Sparkles className="h-5 w-5" />} link="/events">
+      <Section title={t("home.dashboard.upcomingEvents")} subtitle={t("home.dashboard.upcomingEventsSubtitle")} icon={<Sparkles className="h-5 w-5" />} link="/events">
         <div className="flex flex-col gap-3">
           {dataLoading
             ? Array.from({ length: 3 }).map((_, i) => <CardSkeleton key={i} />)
             : events.length === 0
-              ? <p className="text-sm text-muted-foreground py-4 text-center">No events yet.</p>
+              ? <p className="text-sm text-muted-foreground py-4 text-center">{t("home.dashboard.noEvents")}</p>
               : events.map((e) => <HomeEventCard key={e.id} event={e} />)}
         </div>
       </Section>
 
-      <Section title="Featured circles" icon={<Users className="h-5 w-5" />} link="/circles">
+      <Section title={t("home.dashboard.featuredCircles")} icon={<Users className="h-5 w-5" />} link="/circles">
         <div className="flex flex-col gap-3">
           {dataLoading
             ? Array.from({ length: 3 }).map((_, i) => <CardSkeleton key={i} />)
             : circles.length === 0
-              ? <p className="text-sm text-muted-foreground py-4 text-center">No circles yet.</p>
+              ? <p className="text-sm text-muted-foreground py-4 text-center">{t("home.dashboard.noCircles")}</p>
               : circles.map((c) => (
             <article key={c.id} className="card-base card-hover relative overflow-hidden">
               <Link
@@ -257,7 +258,7 @@ function Dashboard() {
         </div>
       </Section>
 
-      <Section title="Trending deals" icon={<TrendingUp className="h-5 w-5" />} link="/discounts">
+      <Section title={t("home.dashboard.trendingDeals")} icon={<TrendingUp className="h-5 w-5" />} link="/discounts">
         <div className="flex flex-col gap-3">
           {trendingDeals.map((d) => (
             <article key={d.id} className="card-base card-hover p-4 flex gap-4 items-center">
@@ -271,7 +272,7 @@ function Dashboard() {
                 <p className="text-xs text-muted-foreground">{d.brand}</p>
                 <h3 className="font-semibold truncate">{d.title}</h3>
                 {d.newPrice && <p className="mt-1 text-sm font-semibold text-primary">{d.newPrice}</p>}
-                {d.studentOnly && <span className="chip mt-2">🎓 Student only</span>}
+                {d.studentOnly && <span className="chip mt-2">{t("common.studentOnly")}</span>}
               </div>
             </article>
           ))}
