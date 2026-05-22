@@ -4,7 +4,6 @@ import { useTranslation } from "react-i18next";
 import { Users, MapPin, Calendar, Search, Trash2, ArrowUpDown } from "lucide-react";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
-import { events as mockEvents } from "@/data/mock";
 import { eventGradient } from "@/lib/placeholders";
 import { useOgImage } from "@/hooks/useOgImage";
 import { NativeSelect } from "@/components/ui/native-select";
@@ -59,8 +58,9 @@ export const Route = createFileRoute("/events")({
         profiles.forEach((p) => { ownerMap[p.id] = { username: p.username ?? p.displayName, displayName: p.displayName, avatarUrl: p.avatarUrl }; });
       }
       return { events: list, ownerMap };
-    } catch {
-      return { events: mockEvents, ownerMap: {} };
+    } catch (err) {
+      console.error("[loader] events failed", err);
+      return { events: [], ownerMap: {} };
     }
   },
   pendingComponent: EventsSkeleton,

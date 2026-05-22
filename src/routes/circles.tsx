@@ -12,7 +12,6 @@ import { filterValidTags } from "@/data/tags";
 import { useAuth } from "@/components/AuthProvider";
 import { tagClass } from "@/lib/tag-class";
 import { OwnerBadge } from "@/components/OwnerBadge";
-import { circles as mockCircles } from "@/data/mock";
 import { NativeSelect } from "@/components/ui/native-select";
 
 function relativeTime(iso: string | undefined): string | null {
@@ -47,8 +46,9 @@ export const Route = createFileRoute("/circles")({
         profiles.forEach((p) => { ownerMap[p.id] = { username: p.username ?? p.displayName, displayName: p.displayName, avatarUrl: p.avatarUrl }; });
       }
       return { circles: cs, ownerMap, userInterests };
-    } catch {
-      return { circles: mockCircles, ownerMap: {}, userInterests: [] };
+    } catch (err) {
+      console.error("[loader] circles failed", err);
+      return { circles: [], ownerMap: {}, userInterests: [] };
     }
   },
   pendingComponent: CirclesSkeleton,

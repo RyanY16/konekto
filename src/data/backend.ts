@@ -25,28 +25,25 @@ function assertSupabase() {
 
 async function fromSupabase<TTable extends PublicTable, TItem>(
   table: TTable,
-  fallback: TItem[],
+  _fallback: TItem[],
   mapRow: (row: Row<TTable>) => TItem,
 ): Promise<TItem[]> {
   if (!supabase) {
-    console.warn(`[db] ${table}: supabase not configured, returning fallback`);
-    return fallback;
+    throw new Error(`Supabase not configured — cannot load ${table}`);
   }
 
-  try {
-    const { data, error } = await Promise.race([
-      supabase.from(table).select("*").order("created_at") as any,
-      timeoutAfter(8_000),
-    ]) as { data: unknown[] | null; error: any };
-    if (error || !data) {
-      console.warn(`[db] ${table}: error`, error?.message ?? "no data");
-      return fallback;
-    }
-    return data.map((row) => mapRow(row as Row<TTable>));
-  } catch {
-    console.warn(`[db] ${table}: timed out, using fallback`);
-    return fallback;
-  }
+  const start = Date.now();
+  const { data, error } = await Promise.race([
+    supabase.from(table).select("*").order("created_at") as any,
+    timeoutAfter(25_000),
+  ]) as { data: unknown[] | null; error: any };
+
+  const elapsed = Date.now() - start;
+  console.log(`[db] ${table}: ${elapsed}ms — rows=${data?.length ?? 0} error=${error?.message ?? null}`);
+
+  if (error) throw new Error(`[db] ${table}: ${error.message}`);
+  if (!data) throw new Error(`[db] ${table}: no data returned`);
+  return data.map((row) => mapRow(row as Row<TTable>));
 }
 
 function abortAfter(ms = 5_000): { signal: AbortSignal; cleanup: () => void } {

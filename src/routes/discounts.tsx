@@ -7,7 +7,6 @@ import { SaveButton } from "@/components/SaveButton";
 import { Button } from "@/components/ui/button";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { getDeals, getDealHandle, deleteAllDeals } from "@/data/backend";
-import { deals as mockDeals } from "@/data/mock";
 import { useAuth } from "@/components/AuthProvider";
 import { DEAL_CATEGORY_EMOJI } from "@/data/profile-options";
 import { dealGradient } from "@/lib/placeholders";
@@ -23,8 +22,9 @@ export const Route = createFileRoute("/discounts")({
   loader: async () => {
     try {
       return { deals: await getDeals() };
-    } catch {
-      return { deals: mockDeals };
+    } catch (err) {
+      console.error("[loader] deals failed", err);
+      return { deals: [] };
     }
   },
   pendingComponent: DiscountsSkeleton,

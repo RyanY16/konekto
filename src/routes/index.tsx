@@ -211,7 +211,9 @@ function Dashboard() {
         <div className="flex flex-col gap-3">
           {dataLoading
             ? Array.from({ length: 3 }).map((_, i) => <CardSkeleton key={i} />)
-            : events.map((e) => <HomeEventCard key={e.id} event={e} />)}
+            : events.length === 0
+              ? <p className="text-sm text-muted-foreground py-4 text-center">No events yet.</p>
+              : events.map((e) => <HomeEventCard key={e.id} event={e} />)}
         </div>
       </Section>
 
@@ -219,7 +221,9 @@ function Dashboard() {
         <div className="flex flex-col gap-3">
           {dataLoading
             ? Array.from({ length: 3 }).map((_, i) => <CardSkeleton key={i} />)
-            : circles.map((c) => (
+            : circles.length === 0
+              ? <p className="text-sm text-muted-foreground py-4 text-center">No circles yet.</p>
+              : circles.map((c) => (
             <article key={c.id} className="card-base card-hover relative overflow-hidden">
               <Link
                 to="/circles/$circleHandle"
