@@ -149,7 +149,7 @@ function NewCirclePage() {
 
       <div className="max-w-2xl space-y-5">
         {/* Smart fill */}
-        <SmartFill onFill={handleSmartFill} />
+        <SmartFill type="circle" onFill={handleSmartFill} />
 
         <form onSubmit={handleSubmit} className="space-y-5">
           {/* Icon upload */}

@@ -16,6 +16,7 @@ import { DEAL_CATEGORIES, DEAL_CATEGORY_EMOJI } from "@/data/profile-options";
 import { PageHeader } from "@/components/PageHeader";
 import type { Deal } from "@/data/mock";
 import { NativeSelect } from "@/components/ui/native-select";
+import { SmartFill, type SmartFillResult } from "@/components/SmartFill";
 
 export const Route = createFileRoute("/discounts_/new")({
   component: NewDiscountPage,
@@ -95,6 +96,19 @@ function NewDiscountPage() {
     } finally {
       setFetchingCrop(false);
     }
+  }
+
+  function handleSmartFill(data: SmartFillResult) {
+    const updates: Partial<FormDraft> = {};
+    if (data.brand) updates.brand = data.brand;
+    if (data.title) updates.title = data.title;
+    if (data.description) updates.description = data.description;
+    if (data.originalPrice) updates.originalPrice = data.originalPrice;
+    if (data.newPrice) updates.newPrice = data.newPrice;
+    if (data.url) updates.url = data.url;
+    if (data.studentOnly != null) updates.studentOnly = data.studentOnly;
+    if (data.mode && ["In-Person", "Online", "Both"].includes(data.mode)) updates.mode = data.mode as Deal["mode"];
+    if (Object.keys(updates).length > 0) setDraft(updates);
   }
 
   function setDraft(update: Partial<FormDraft>) {
@@ -184,7 +198,9 @@ function NewDiscountPage() {
       </Link>
       <PageHeader eyebrow="Discounts" title="Add a deal" />
 
-      <div className="max-w-2xl">
+      <div className="max-w-2xl space-y-5">
+        <SmartFill type="deal" onFill={handleSmartFill} />
+
         <form onSubmit={handleSubmit} className="space-y-5">
           {/* Image upload */}
           {cropFile && (

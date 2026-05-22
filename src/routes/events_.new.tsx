@@ -1,6 +1,7 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useState, type FormEvent } from "react";
 import { Globe, Ticket, MapPin, ExternalLink, CalendarIcon, CalendarPlus } from "lucide-react";
+import { SmartFill, type SmartFillResult } from "@/components/SmartFill";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -77,6 +78,12 @@ function NewEventPage() {
   const { user } = useAuth();
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
+  const [title, setTitle] = useState("");
+  const [description, setDescription] = useState("");
+  const [cost, setCost] = useState("");
+  const [howToJoin, setHowToJoin] = useState("");
+  const [lumaUrl, setLumaUrl] = useState("");
+  const [websiteUrl, setWebsiteUrl] = useState("");
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [selectedCircleIds, setSelectedCircleIds] = useState<string[]>([]);
   const [invitedCircleIds, setInvitedCircleIds] = useState<string[]>([]);
@@ -102,14 +109,71 @@ function NewEventPage() {
     );
   }
 
+  function isoToTimeStr(iso: string): string {
+    // Convert ISO datetime → "H:MM AM/PM" matching TIME_OPTIONS format
+    const d = new Date(iso);
+    if (isNaN(d.getTime())) return "";
+    const h = d.getHours();
+    const m = d.getMinutes();
+    const hour12 = h % 12 === 0 ? 12 : h % 12;
+    const ampm = h < 12 ? "AM" : "PM";
+    return `${hour12}:${String(m).padStart(2, "0")} ${ampm}`;
+  }
+
+  function snapToTimeOption(timeStr: string): string {
+    // Find the closest TIME_OPTIONS entry (rounded to nearest 30 min)
+    if (!timeStr) return "";
+    const match = TIME_OPTIONS.find((t) => t === timeStr);
+    if (match) return match;
+    // Parse and snap to nearest 30m slot
+    const d = new Date(`1970-01-01T${timeStr}`);
+    if (isNaN(d.getTime())) return timeStr;
+    const snapped = new Date(d);
+    snapped.setMinutes(d.getMinutes() < 15 ? 0 : d.getMinutes() < 45 ? 30 : 60, 0, 0);
+    return isoToTimeStr(snapped.toISOString());
+  }
+
+  function handleSmartFill(data: SmartFillResult) {
+    if (data.title) setTitle(data.title);
+    if (data.description) setDescription(data.description);
+    if (data.cost) setCost(data.cost);
+    if (data.howToJoin) setHowToJoin(data.howToJoin);
+    if (data.luma) setLumaUrl(data.luma);
+    if (data.website) setWebsiteUrl(data.website);
+    if (data.location) setLocation(data.location);
+    if (data.online != null) setOnline(data.online);
+    if (data.primaryLanguage) {
+      const match = LANGUAGES.find((l) => l.name.toLowerCase() === data.primaryLanguage!.toLowerCase());
+      if (match) setPrimaryLanguage(match.name);
+    }
+    if (data.category && EVENT_CATEGORIES.includes(data.category as any)) setCategory(data.category);
+    if (data.tags && data.tags.length > 0) setSelectedTags((prev) => [...new Set([...prev, ...data.tags!])]);
+    // Date/time from ISO strings (e.g. Luma JSON-LD)
+    if (data.startDate) {
+      const d = new Date(data.startDate);
+      if (!isNaN(d.getTime())) {
+        setDateRange((prev) => ({ from: d, to: prev?.to }));
+        const t = snapToTimeOption(isoToTimeStr(data.startDate!));
+        if (t) setStartTime(t);
+      }
+    }
+    if (data.endDate) {
+      const d = new Date(data.endDate);
+      if (!isNaN(d.getTime())) {
+        setDateRange((prev) => ({ from: prev?.from ?? d, to: d }));
+        const t = snapToTimeOption(isoToTimeStr(data.endDate!));
+        if (t) setEndTime(t);
+      }
+    }
+  }
+
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    const form = new FormData(event.currentTarget);
     setSaving(true);
     setError("");
 
     try {
-      const cat = String(form.get("category") ?? EVENT_CATEGORIES[0]);
+      const cat = category;
 
       let dateStr: string;
       let startDateIso: string | undefined;
@@ -132,31 +196,31 @@ function NewEventPage() {
         startDateIso = dateRange?.from ? buildStartDatetime(dateRange.from, startTime) : undefined;
       }
 
-      const title = String(form.get("title") ?? "").trim();
+      const trimmedTitle = title.trim();
       const eventId = await addEvent({
-        title,
-        description: String(form.get("description") ?? "").trim() || undefined,
+        title: trimmedTitle,
+        description: description.trim() || undefined,
         category: cat as (typeof EVENT_CATEGORIES)[number],
         date: dateStr,
         location,
         emoji: CATEGORY_EMOJI[cat] || "📅",
         tags: selectedTags,
-        cost: String(form.get("cost") ?? "").trim() || undefined,
+        cost: cost.trim() || undefined,
         primaryLanguage: primaryLanguage || undefined,
-        socialLinks: socialLinksFromForm(form),
+        socialLinks: { luma: lumaUrl.trim() || undefined, website: websiteUrl.trim() || undefined },
         ownerId: user.id,
         circleIds: selectedCircleIds,
         online,
         approvalRequired,
         startDate: startDateIso,
         recurrence: isWeekly ? "weekly" : undefined,
-        howToJoin: String(form.get("howToJoin") ?? "").trim() || undefined,
+        howToJoin: howToJoin.trim() || undefined,
       } as any);
 
       if (selectedCircleIds.length > 0 || invitedCircleIds.length > 0) {
         await setEventCircleCollaborations({
           eventId,
-          eventTitle: title,
+          eventTitle: trimmedTitle,
           eventOwnerId: user.id,
           requesterId: user.id,
           approvedCircleIds: selectedCircleIds,
@@ -164,7 +228,7 @@ function NewEventPage() {
         });
       }
 
-      const handle = getEventHandle({ id: eventId, title });
+      const handle = getEventHandle({ id: eventId, title: trimmedTitle });
       navigate({ to: "/events/$eventHandle", params: { eventHandle: handle } });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not add event.");
@@ -186,18 +250,20 @@ function NewEventPage() {
       </Link>
       <PageHeader eyebrow="Events" title="Add an event" />
 
-      <div className="max-w-2xl">
+      <div className="max-w-2xl space-y-5">
+        <SmartFill type="event" onFill={handleSmartFill} />
+
         <form onSubmit={handleSubmit} className="space-y-5">
           {/* Title */}
           <div className={field}>
             <label className={lbl}>Title {req}</label>
-            <Input name="title" placeholder="e.g. Spring Networking Mixer" required />
+            <Input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g. Spring Networking Mixer" required />
           </div>
 
           {/* Description */}
           <div className={field}>
             <label className={lbl}>Description {opt}</label>
-            <Textarea name="description" placeholder="What's this event about?" rows={4} />
+            <Textarea value={description} onChange={(e) => setDescription(e.target.value)} placeholder="What's this event about?" rows={4} />
           </div>
 
           {/* Category */}
@@ -348,7 +414,7 @@ function NewEventPage() {
           {/* Cost */}
           <div className={field}>
             <label className={lbl}>Cost {opt}</label>
-            <Input name="cost" placeholder="e.g. Free, ¥1,000, ¥500 at door" />
+            <Input value={cost} onChange={(e) => setCost(e.target.value)} placeholder="e.g. Free, ¥1,000, ¥500 at door" />
           </div>
 
           {/* Language */}
@@ -380,7 +446,7 @@ function NewEventPage() {
           {/* How to join */}
           <div className={field}>
             <label className={lbl}>How to join {opt}</label>
-            <Textarea name="howToJoin" placeholder="Describe how to register or attend — e.g. RSVP via the link below, walk-ins welcome, tickets at the door…" rows={3} />
+            <Textarea value={howToJoin} onChange={(e) => setHowToJoin(e.target.value)} placeholder="Describe how to register or attend — e.g. RSVP via the link below, walk-ins welcome, tickets at the door…" rows={3} />
           </div>
 
           {/* Event links */}
@@ -389,15 +455,15 @@ function NewEventPage() {
             <div className="space-y-2">
               <div className="relative">
                 <Globe className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
-                <Input name="website" placeholder="https://yoursite.com" className="pl-9" />
+                <Input value={websiteUrl} onChange={(e) => setWebsiteUrl(e.target.value)} placeholder="https://yoursite.com" className="pl-9" />
               </div>
               <div className="relative">
                 <CalendarPlus className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
-                <Input name="luma" placeholder="https://lu.ma/your-event" className="pl-9" />
+                <Input value={lumaUrl} onChange={(e) => setLumaUrl(e.target.value)} placeholder="https://lu.ma/your-event" className="pl-9" />
               </div>
               <div className="relative">
                 <Ticket className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
-                <Input name="tickets" placeholder="Registration or ticket link" className="pl-9" />
+                <Input placeholder="Registration or ticket link" className="pl-9" />
               </div>
             </div>
           </div>

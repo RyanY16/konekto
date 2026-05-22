@@ -41,11 +41,17 @@ Deno.serve(async (req) => {
   let masterTimer: ReturnType<typeof setTimeout> | undefined;
 
   try {
-    const { url } = await req.json();
+    const body = await req.json();
+    const { url, type = "circle" } = body;
     if (!url || typeof url !== "string") return json({ error: "url is required" }, 400);
 
     const normalised = url.startsWith("http") ? url : `https://${url}`;
     console.log("[smart-fill] fetching URL:", normalised);
+
+    // Known sites that always block scraping
+    if (/instagram\.com|facebook\.com|twitter\.com|x\.com/i.test(normalised)) {
+      return json({ error: "Instagram, Facebook, and X/Twitter block automated access. Try pasting the details manually." }, 422);
+    }
 
     // Single AbortController for all outgoing fetches.
     // Fires at 22s so the function can return an error before Supabase kills it.
@@ -55,27 +61,59 @@ Deno.serve(async (req) => {
       master.abort();
     }, 22_000);
 
-    // ── Step 1: fetch page content via Jina AI ───────────────────────────────
-    // Jina converts any URL into clean markdown, handling JS-rendered pages and CORS.
+    // ── Step 1: fetch page content directly ─────────────────────────────────
+    // Direct fetch from the edge function (no CORS issues server-side).
+    // Works well for plain HTML sites and Luma. Won't work for JS-only SPAs or Instagram.
     let pageContent = "";
-    const jinaStart = Date.now();
+    const fetchStart = Date.now();
     try {
-      const jinaRes = await fetch(`https://r.jina.ai/${normalised}`, {
+      const pageRes = await fetch(normalised, {
         headers: {
-          "Accept": "text/plain",
-          "X-Timeout": "8",        // tell Jina's server to give up after 8s
-          "X-Return-Format": "markdown",
+          // Pretend to be a browser so sites don't block the request
+          "User-Agent": "Mozilla/5.0 (compatible; Konekto/1.0)",
+          "Accept": "text/html,application/xhtml+xml,*/*",
         },
-        signal: master.signal,   // aborted by masterTimer if still running at 22s
+        signal: master.signal,
       });
-      console.log(`[smart-fill] Jina ${jinaRes.status} in ${Date.now() - jinaStart}ms`);
-      if (jinaRes.ok) {
-        const text = await jinaRes.text();
-        pageContent = text.slice(0, 8000); // truncate to keep prompt small
-        console.log(`[smart-fill] page content length: ${pageContent.length}`);
+      console.log(`[smart-fill] page fetch ${pageRes.status} in ${Date.now() - fetchStart}ms`);
+      if (pageRes.status === 401 || pageRes.status === 403) {
+        clearTimeout(masterTimer);
+        return json({ error: "This site blocks automated access — try pasting the details manually." }, 422);
+      }
+      if (pageRes.status === 404) {
+        clearTimeout(masterTimer);
+        return json({ error: "Page not found — double-check the URL." }, 422);
+      }
+      if (!pageRes.ok) {
+        clearTimeout(masterTimer);
+        return json({ error: `Site returned an error (${pageRes.status}) — it may be down or blocking access.` }, 422);
+      }
+      if (pageRes.ok) {
+        const html = await pageRes.text();
+
+        // Extract JSON-LD structured data first (before stripping scripts).
+        // Luma and many event sites embed startDate/endDate here.
+        const jsonLdMatches = [...html.matchAll(/<script[^>]*type="application\/ld\+json"[^>]*>([\s\S]*?)<\/script>/gi)];
+        const jsonLdBlock = jsonLdMatches.map((m) => m[1].trim()).join("\n");
+
+        // Strip all scripts/styles, then tags → plain text
+        const text = html
+          .replace(/<script[\s\S]*?<\/script>/gi, "")
+          .replace(/<style[\s\S]*?<\/style>/gi, "")
+          .replace(/<[^>]+>/g, " ")
+          .replace(/\s+/g, " ")
+          .trim();
+
+        // Prepend JSON-LD so the AI sees structured dates even if not in visible text
+        const combined = jsonLdBlock
+          ? `STRUCTURED DATA (JSON-LD):\n${jsonLdBlock.slice(0, 2000)}\n\nPAGE TEXT:\n${text}`
+          : text;
+
+        pageContent = combined.slice(0, 8000);
+        console.log(`[smart-fill] page content length: ${pageContent.length}, jsonLd: ${jsonLdBlock.length}`);
       }
     } catch (e) {
-      console.error(`[smart-fill] Jina failed after ${Date.now() - jinaStart}ms:`, e);
+      console.error(`[smart-fill] page fetch failed after ${Date.now() - fetchStart}ms:`, e);
     }
 
     if (!pageContent) {
@@ -83,44 +121,105 @@ Deno.serve(async (req) => {
       return json({ error: "Could not fetch page content. The site may be private or unavailable." }, 422);
     }
 
-    // ── Step 2: extract fields with OpenAI ──────────────────────────────────
+    // ── Step 2: build prompt based on form type ──────────────────────────────
     const systemPrompt =
-      "You are extracting information about a student circle/club from a web page to pre-fill a form. " +
+      "You are extracting structured information from a web page to pre-fill a form. " +
       "Only include fields you are confident about — return null for anything uncertain or not mentioned. " +
       "Return ONLY valid JSON, no explanation.";
 
-    const userPrompt =
-      `Web page content:\n---\n${pageContent}\n---\n\n` +
-      `Extract these fields and return ONLY a JSON object:\n` +
-      `{\n` +
-      `  "name": string | null,\n` +
-      `  "description": string | null,\n` +
-      `  "category": string | null,\n` +
-      `  "university": string | null,\n` +
-      `  "primaryLanguage": string | null,\n` +
-      `  "englishFriendly": boolean | null,\n` +
-      `  "recruiting": boolean | null,\n` +
-      `  "recruitingPeriod": string | null,\n` +
-      `  "membershipFee": string | null,\n` +
-      `  "howToJoin": string | null,\n` +
-      `  "instagram": string | null,\n` +
-      `  "website": string | null,\n` +
-      `  "tags": string[] | null\n` +
-      `}\n\n` +
-      `Rules:\n` +
-      `- name: the circle/club name\n` +
-      `- description: what the circle does (2-4 sentences, natural English)\n` +
-      `- category: must be exactly one of: ${CIRCLE_CATEGORIES.join(", ")}\n` +
-      `- university: full university name (e.g. "Tokyo University")\n` +
-      `- primaryLanguage: must be exactly one of: ${LANGUAGES.join(", ")}\n` +
-      `- englishFriendly: true only if explicitly English-friendly or bilingual\n` +
-      `- recruiting: true only if actively recruiting new members\n` +
-      `- recruitingPeriod: e.g. "April – May each year"\n` +
-      `- membershipFee: e.g. "¥5,000/year" or "Free"\n` +
-      `- howToJoin: 1-2 sentences on how to apply/join\n` +
-      `- instagram: handle only, no @ or URL (e.g. "tokyotechsociety")\n` +
-      `- website: full URL of their own website\n` +
-      `- tags: 2-5 short lowercase keywords (e.g. "programming", "volleyball")`;
+    let userPrompt: string;
+
+    if (type === "event") {
+      userPrompt =
+        `Web page content:\n---\n${pageContent}\n---\n\n` +
+        `Extract event details and return ONLY a JSON object:\n` +
+        `{\n` +
+        `  "title": string | null,\n` +
+        `  "description": string | null,\n` +
+        `  "category": string | null,\n` +
+        `  "location": string | null,\n` +
+        `  "cost": string | null,\n` +
+        `  "primaryLanguage": string | null,\n` +
+        `  "online": boolean | null,\n` +
+        `  "howToJoin": string | null,\n` +
+        `  "luma": string | null,\n` +
+        `  "website": string | null,\n` +
+        `  "tags": string[] | null,\n` +
+        `  "startDate": string | null,\n` +
+        `  "endDate": string | null\n` +
+        `}\n\n` +
+        `Rules:\n` +
+        `- title: event name\n` +
+        `- description: what the event is about (2-4 sentences)\n` +
+        `- category: must be exactly one of: Social, Career, Hackathon, Workshop, Casual\n` +
+        `- location: venue name and/or address, or platform if online\n` +
+        `- cost: e.g. "Free", "¥1,000", "¥500 at door"\n` +
+        `- primaryLanguage: must be exactly one of: ${LANGUAGES.join(", ")}\n` +
+        `- online: true if the event is online/virtual\n` +
+        `- howToJoin: how to register or attend (1-2 sentences)\n` +
+        `- luma: full lu.ma URL if present\n` +
+        `- website: other event website URL\n` +
+        `- tags: 2-5 short lowercase keywords\n` +
+        `- startDate: ISO 8601 datetime string for event start (e.g. "2026-05-25T18:00:00+09:00"), extract from JSON-LD startDate or visible date text\n` +
+        `- endDate: ISO 8601 datetime string for event end`;
+    } else if (type === "deal") {
+      userPrompt =
+        `Web page content:\n---\n${pageContent}\n---\n\n` +
+        `Extract student deal/discount details and return ONLY a JSON object:\n` +
+        `{\n` +
+        `  "brand": string | null,\n` +
+        `  "title": string | null,\n` +
+        `  "description": string | null,\n` +
+        `  "originalPrice": string | null,\n` +
+        `  "newPrice": string | null,\n` +
+        `  "studentOnly": boolean | null,\n` +
+        `  "mode": string | null,\n` +
+        `  "url": string | null\n` +
+        `}\n\n` +
+        `Rules:\n` +
+        `- brand: brand or store name\n` +
+        `- title: the deal title (e.g. "20% off with student ID")\n` +
+        `- description: how to redeem, conditions, details (2-4 sentences)\n` +
+        `- originalPrice: e.g. "¥1,200"\n` +
+        `- newPrice: discounted price e.g. "¥960"\n` +
+        `- studentOnly: true if this is exclusively for students\n` +
+        `- mode: must be exactly one of: In-Person, Online, Both\n` +
+        `- url: the deal or brand page URL`;
+    } else {
+      // Default: circle
+      userPrompt =
+        `Web page content:\n---\n${pageContent}\n---\n\n` +
+        `Extract student circle/club details and return ONLY a JSON object:\n` +
+        `{\n` +
+        `  "name": string | null,\n` +
+        `  "description": string | null,\n` +
+        `  "category": string | null,\n` +
+        `  "university": string | null,\n` +
+        `  "primaryLanguage": string | null,\n` +
+        `  "englishFriendly": boolean | null,\n` +
+        `  "recruiting": boolean | null,\n` +
+        `  "recruitingPeriod": string | null,\n` +
+        `  "membershipFee": string | null,\n` +
+        `  "howToJoin": string | null,\n` +
+        `  "instagram": string | null,\n` +
+        `  "website": string | null,\n` +
+        `  "tags": string[] | null\n` +
+        `}\n\n` +
+        `Rules:\n` +
+        `- name: the circle/club name\n` +
+        `- description: what the circle does (2-4 sentences, natural English)\n` +
+        `- category: must be exactly one of: ${CIRCLE_CATEGORIES.join(", ")}\n` +
+        `- university: full university name (e.g. "Tokyo University")\n` +
+        `- primaryLanguage: must be exactly one of: ${LANGUAGES.join(", ")}\n` +
+        `- englishFriendly: true only if explicitly English-friendly or bilingual\n` +
+        `- recruiting: true only if actively recruiting new members\n` +
+        `- recruitingPeriod: e.g. "April – May each year"\n` +
+        `- membershipFee: e.g. "¥5,000/year" or "Free"\n` +
+        `- howToJoin: 1-2 sentences on how to apply/join\n` +
+        `- instagram: handle only, no @ or URL (e.g. "tokyotechsociety")\n` +
+        `- website: full URL of their own website\n` +
+        `- tags: 2-5 short lowercase keywords`;
+    }
 
     const aiStart = Date.now();
     console.log("[smart-fill] calling OpenAI...");
