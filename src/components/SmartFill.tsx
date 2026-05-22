@@ -35,18 +35,22 @@ export function SmartFill({ onFill }: Props) {
     setError("");
     setFilledCount(null);
 
-    // Client-side timeout — rejects after 10s so the spinner never hangs forever
+    const startMs = Date.now();
+    console.log("[smart-fill] starting request at", new Date().toISOString());
+
+    // Client-side timeout — rejects if the edge function takes too long
     const timeout = new Promise<never>((_, reject) =>
-      setTimeout(() => reject(new Error("Timed out — the site took too long to respond.")), 30_000)
+      setTimeout(() => {
+        console.error(`[smart-fill] timed out after ${Date.now() - startMs}ms`);
+        reject(new Error("Timed out — the site took too long to respond."));
+      }, 30_000)
     );
 
     try {
-      const { data, error: fnError } = await Promise.race([
-        supabase!.functions.invoke("smart-fill", { body: { url: trimmed } }),
-        timeout,
-      ]);
-
-      console.log("[smart-fill] invocation response", { data, fnError });
+      console.log("[smart-fill] invoking edge function...");
+      const invokePromise = supabase!.functions.invoke("smart-fill", { body: { url: trimmed } });
+      const { data, error: fnError } = await Promise.race([invokePromise, timeout]);
+      console.log(`[smart-fill] got response after ${Date.now() - startMs}ms`, { data, fnError });
 
       // fnError = network/invocation failure (edge function didn't respond)
       if (fnError) {
@@ -73,7 +77,7 @@ export function SmartFill({ onFill }: Props) {
       setFilledCount(count);
     } catch (err) {
       // Covers timeout, network errors, and application errors from above
-      console.error("[smart-fill] caught error", err);
+      console.error(`[smart-fill] caught error after ${Date.now() - startMs}ms`, err);
       setError(err instanceof Error ? err.message : "Smart fill failed");
     } finally {
       setLoading(false);
