@@ -322,7 +322,7 @@ export async function addCircle(
 
   const { error } = await Promise.race([
     client.from("circles").insert(values) as any,
-    timeoutAfter(),
+    timeoutAfter(20_000),
   ]) as { error: any };
   if (error) throw new Error(error.message);
 }
@@ -363,7 +363,7 @@ export async function updateCircle(
 
   const { error } = await Promise.race([
     client.from("circles").update(values).eq("id", id) as any,
-    timeoutAfter(),
+    timeoutAfter(20_000),
   ]) as { error: any };
   if (error) throw new Error(error.message);
 }
@@ -410,7 +410,7 @@ export async function addEvent(
   if (input.imageUrl) (values as any).image_url = input.imageUrl;
   const { error } = await Promise.race([
     client.from("events").insert(values) as any,
-    timeoutAfter(),
+    timeoutAfter(20_000),
   ]) as { error: any };
   if (error) throw new Error(error.message);
 
@@ -445,7 +445,7 @@ export async function updateEvent(
 
   const { error } = await Promise.race([
     client.from("events").update(values).eq("id", id) as any,
-    timeoutAfter(),
+    timeoutAfter(20_000),
   ]) as { error: any };
   if (error) throw new Error(error.message);
 }

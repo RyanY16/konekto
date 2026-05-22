@@ -38,11 +38,23 @@ Deno.serve(async (req) => {
   // const anthropicKey = Deno.env.get("ANTHROPIC_API_KEY");
   // if (!anthropicKey) return json({ error: "ANTHROPIC_API_KEY not configured" }, 500);
 
+  const body = await req.json();
+  const { url, type = "circle" } = body;
+
+  // Hard deadline — race the entire handler against a 25s timeout.
+  // AbortController doesn't reliably kill Deno fetch calls, so this guarantees
+  // the client always gets a response instead of hanging until the client times out.
+  const deadline = new Promise<Response>((resolve) =>
+    setTimeout(() => resolve(json({ error: "Request took too long — try again or try a different URL." }, 504)), 25_000)
+  );
+
+  return Promise.race([handleRequest(req, openaiKey, body, url, type), deadline]);
+});
+
+async function handleRequest(req: Request, openaiKey: string, body: unknown, url: string, type: string): Promise<Response> {
   let masterTimer: ReturnType<typeof setTimeout> | undefined;
 
   try {
-    const body = await req.json();
-    const { url, type = "circle" } = body;
     if (!url || typeof url !== "string") return json({ error: "url is required" }, 400);
 
     const normalised = url.startsWith("http") ? url : `https://${url}`;
@@ -291,10 +303,9 @@ Deno.serve(async (req) => {
   } catch (err: any) {
     clearTimeout(masterTimer);
     console.error("[smart-fill] unhandled error:", err);
-    // If the master AbortController fired, give a clear message
     if (err?.name === "AbortError") {
       return json({ error: "Request took too long — try a simpler URL or try again." }, 504);
     }
     return json({ error: err?.message ?? "Internal error" }, 500);
   }
-});
+}
