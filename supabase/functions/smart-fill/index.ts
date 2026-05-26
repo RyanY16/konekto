@@ -52,84 +52,55 @@ Deno.serve(async (req) => {
 });
 
 async function handleRequest(req: Request, openaiKey: string, body: unknown, url: string, type: string): Promise<Response> {
-  let masterTimer: ReturnType<typeof setTimeout> | undefined;
-
   try {
     if (!url || typeof url !== "string") return json({ error: "url is required" }, 400);
 
     const normalised = url.startsWith("http") ? url : `https://${url}`;
     console.log("[smart-fill] fetching URL:", normalised);
 
-    // Known sites that always block scraping
-    if (/instagram\.com|facebook\.com|twitter\.com|x\.com/i.test(normalised)) {
-      return json({ error: "Instagram, Facebook, and X/Twitter block automated access. Try pasting the details manually." }, 422);
+    // Instagram/X require login even via Jina — block upfront
+    if (/instagram\.com|twitter\.com|x\.com/i.test(normalised)) {
+      return json({ error: "Instagram and X/Twitter require login — try pasting the details manually." }, 422);
     }
 
-    // Single AbortController for all outgoing fetches.
-    // Fires at 22s so the function can return an error before Supabase kills it.
-    const master = new AbortController();
-    masterTimer = setTimeout(() => {
-      console.error("[smart-fill] master 22s timeout — aborting");
-      master.abort();
-    }, 22_000);
-
-    // ── Step 1: fetch page content directly ─────────────────────────────────
-    // Direct fetch from the edge function (no CORS issues server-side).
-    // Works well for plain HTML sites and Luma. Won't work for JS-only SPAs or Instagram.
+    // ── Step 1: fetch page content via Jina Reader ──────────────────────────
+    // Jina (r.jina.ai) converts any URL to clean text/markdown in 1-3s using their
+    // own scraping infrastructure. Much faster than direct fetch, handles JS-rendered
+    // pages, and works with most sites that block raw bot requests.
+    // Optional: set JINA_API_KEY in edge function secrets for higher rate limits.
+    const jinaKey = Deno.env.get("JINA_API_KEY");
+    const jinaUrl = `https://r.jina.ai/${normalised}`;
     let pageContent = "";
     const fetchStart = Date.now();
     try {
-      const pageRes = await fetch(normalised, {
-        headers: {
-          // Pretend to be a browser so sites don't block the request
-          "User-Agent": "Mozilla/5.0 (compatible; Konekto/1.0)",
-          "Accept": "text/html,application/xhtml+xml,*/*",
-        },
-        signal: master.signal,
+      const jinaHeaders: Record<string, string> = {
+        "Accept": "text/plain",
+        "X-Return-Format": "text",
+      };
+      if (jinaKey) jinaHeaders["Authorization"] = `Bearer ${jinaKey}`;
+
+      const jinaRes = await fetch(jinaUrl, {
+        headers: jinaHeaders,
+        signal: AbortSignal.timeout(20_000), // 20s — Jina is fast but allow some buffer
       });
-      console.log(`[smart-fill] page fetch ${pageRes.status} in ${Date.now() - fetchStart}ms`);
-      if (pageRes.status === 401 || pageRes.status === 403) {
-        clearTimeout(masterTimer);
-        return json({ error: "This site blocks automated access — try pasting the details manually." }, 422);
-      }
-      if (pageRes.status === 404) {
-        clearTimeout(masterTimer);
+      console.log(`[smart-fill] Jina fetch ${jinaRes.status} in ${Date.now() - fetchStart}ms`);
+
+      if (jinaRes.status === 404) {
         return json({ error: "Page not found — double-check the URL." }, 422);
       }
-      if (!pageRes.ok) {
-        clearTimeout(masterTimer);
-        return json({ error: `Site returned an error (${pageRes.status}) — it may be down or blocking access.` }, 422);
-      }
-      if (pageRes.ok) {
-        const html = await pageRes.text();
-
-        // Extract JSON-LD structured data first (before stripping scripts).
-        // Luma and many event sites embed startDate/endDate here.
-        const jsonLdMatches = [...html.matchAll(/<script[^>]*type="application\/ld\+json"[^>]*>([\s\S]*?)<\/script>/gi)];
-        const jsonLdBlock = jsonLdMatches.map((m) => m[1].trim()).join("\n");
-
-        // Strip all scripts/styles, then tags → plain text
-        const text = html
-          .replace(/<script[\s\S]*?<\/script>/gi, "")
-          .replace(/<style[\s\S]*?<\/style>/gi, "")
-          .replace(/<[^>]+>/g, " ")
-          .replace(/\s+/g, " ")
-          .trim();
-
-        // Prepend JSON-LD so the AI sees structured dates even if not in visible text
-        const combined = jsonLdBlock
-          ? `STRUCTURED DATA (JSON-LD):\n${jsonLdBlock.slice(0, 2000)}\n\nPAGE TEXT:\n${text}`
-          : text;
-
-        pageContent = combined.slice(0, 8000);
-        console.log(`[smart-fill] page content length: ${pageContent.length}, jsonLd: ${jsonLdBlock.length}`);
+      if (!jinaRes.ok) {
+        // Fall through to the empty-content error below
+        console.warn(`[smart-fill] Jina returned ${jinaRes.status}`);
+      } else {
+        const text = await jinaRes.text();
+        pageContent = text.slice(0, 8000);
+        console.log(`[smart-fill] page content length: ${pageContent.length}`);
       }
     } catch (e) {
-      console.error(`[smart-fill] page fetch failed after ${Date.now() - fetchStart}ms:`, e);
+      console.error(`[smart-fill] Jina fetch failed after ${Date.now() - fetchStart}ms:`, e);
     }
 
     if (!pageContent) {
-      clearTimeout(masterTimer);
       return json({ error: "Could not fetch page content. The site may be private or unavailable." }, 422);
     }
 
@@ -253,7 +224,7 @@ async function handleRequest(req: Request, openaiKey: string, body: unknown, url
           { role: "user", content: userPrompt },
         ],
       }),
-      signal: master.signal, // aborted by masterTimer if still running at 22s
+      signal: AbortSignal.timeout(20_000), // 20s limit on OpenAI call
     });
 
     // ── Claude (swap in when ready) ──────────────────────────────────────────
@@ -269,10 +240,9 @@ async function handleRequest(req: Request, openaiKey: string, body: unknown, url
     //     max_tokens: 1024,
     //     messages: [{ role: "user", content: `${systemPrompt}\n\n${userPrompt}` }],
     //   }),
-    //   signal: master.signal,
+    //   signal: AbortSignal.timeout(20_000),
     // });
 
-    clearTimeout(masterTimer);
     console.log(`[smart-fill] OpenAI responded ${aiRes.status} in ${Date.now() - aiStart}ms`);
 
     if (!aiRes.ok) {
@@ -302,7 +272,6 @@ async function handleRequest(req: Request, openaiKey: string, body: unknown, url
     return json({ data: extracted });
 
   } catch (err: any) {
-    clearTimeout(masterTimer);
     console.error("[smart-fill] unhandled error:", err);
     if (err?.name === "AbortError") {
       return json({ error: "Request took too long — try a simpler URL or try again." }, 504);

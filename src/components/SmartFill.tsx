@@ -1,4 +1,4 @@
-import { useState, type KeyboardEvent } from "react";
+import { useState, useEffect, useRef, type KeyboardEvent } from "react";
 import { Sparkles, Loader2 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 
@@ -53,8 +53,21 @@ const HINTS: Record<SmartFillType, string> = {
 export function SmartFill({ type, onFill }: Props) {
   const [url, setUrl] = useState("");
   const [loading, setLoading] = useState(false);
+  const [slow, setSlow] = useState(false);
   const [error, setError] = useState("");
   const [filledCount, setFilledCount] = useState<number | null>(null);
+  const slowTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Show a "warming up" hint after 8s of loading so it doesn't feel stuck
+  useEffect(() => {
+    if (loading) {
+      slowTimerRef.current = setTimeout(() => setSlow(true), 12_000);
+    } else {
+      if (slowTimerRef.current) clearTimeout(slowTimerRef.current);
+      setSlow(false);
+    }
+    return () => { if (slowTimerRef.current) clearTimeout(slowTimerRef.current); };
+  }, [loading]);
 
   function isValidUrl(s: string): boolean {
     try {
@@ -79,12 +92,13 @@ export function SmartFill({ type, onFill }: Props) {
     const startMs = Date.now();
     console.log("[smart-fill] starting request at", new Date().toISOString(), "type:", type);
 
-    // Client-side timeout — rejects if the edge function takes too long
+    // Client-side timeout — Jina + OpenAI should complete in <10s normally.
+    // 30s gives plenty of buffer for slow sites or cold edge function starts.
     const timeout = new Promise<never>((_, reject) =>
       setTimeout(() => {
         console.error(`[smart-fill] timed out after ${Date.now() - startMs}ms`);
-        reject(new Error("Timed out — the site took too long to respond."));
-      }, 35_000)
+        reject(new Error("Timed out — try again, it may be faster on a second attempt."));
+      }, 30_000)
     );
 
     try {
@@ -157,7 +171,7 @@ export function SmartFill({ type, onFill }: Props) {
           className="inline-flex items-center gap-1.5 px-3 h-9 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-colors disabled:opacity-50 shrink-0"
         >
           {loading ? (
-            <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Filling…</>
+            <><Loader2 className="h-3.5 w-3.5 animate-spin" /> {slow ? "Warming up…" : "Filling…"}</>
           ) : (
             "Fill"
           )}
