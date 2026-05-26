@@ -917,7 +917,7 @@ export async function upsertProfile(
       .upsert(fields, { onConflict: "id" })
       .select("*")
       .maybeSingle(),
-    timeoutAfter(),
+    timeoutAfter(20_000),
   ]);
 
   if (error) throw new Error(error.message);
@@ -1249,12 +1249,12 @@ export async function getCircleByHandle(handle: string) {
     try {
       const { data: byId } = await Promise.race([
         supabase.from("circles").select("*").eq("id", handle).maybeSingle() as any,
-        timeoutAfter(5_000),
+        timeoutAfter(20_000),
       ]) as { data: unknown | null };
       if (byId) return mapCircle(byId as unknown as Row<"circles">);
       const { data: all, error } = await Promise.race([
         supabase.from("circles").select("*").order("created_at") as any,
-        timeoutAfter(5_000),
+        timeoutAfter(20_000),
       ]) as { data: unknown[] | null; error: any };
       if (!error && all) {
         const items = all.map((r) => mapCircle(r as unknown as Row<"circles">));
@@ -1273,12 +1273,12 @@ export async function getEventByHandle(handle: string) {
     try {
       const { data: byId } = await Promise.race([
         supabase.from("events").select("*").eq("id", handle).maybeSingle() as any,
-        timeoutAfter(5_000),
+        timeoutAfter(20_000),
       ]) as { data: unknown | null };
       if (byId) return mapEvent(byId as unknown as Row<"events">);
       const { data: all, error } = await Promise.race([
         supabase.from("events").select("*").order("created_at") as any,
-        timeoutAfter(5_000),
+        timeoutAfter(20_000),
       ]) as { data: unknown[] | null; error: any };
       if (!error && all) {
         const items = all.map((r) => mapEvent(r as unknown as Row<"events">));
