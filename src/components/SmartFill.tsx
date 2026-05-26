@@ -1,6 +1,5 @@
 import { useState, useEffect, useRef, type KeyboardEvent } from "react";
 import { Sparkles, Loader2 } from "lucide-react";
-import { supabase } from "@/lib/supabase";
 
 // ── Result shape ─────────────────────────────────────────────────────────────
 // All fields optional/nullable — only populated fields are filled in the form.
@@ -41,7 +40,8 @@ export type SmartFillType = "circle" | "event" | "deal";
 
 interface Props {
   type: SmartFillType;
-  onFill: (data: SmartFillResult) => void;
+  /** Called with extracted data and the source URL that was filled from */
+  onFill: (data: SmartFillResult, sourceUrl: string) => void;
 }
 
 const HINTS: Record<SmartFillType, string> = {
@@ -92,38 +92,32 @@ export function SmartFill({ type, onFill }: Props) {
     const startMs = Date.now();
     console.log("[smart-fill] starting request at", new Date().toISOString(), "type:", type);
 
-    // Client-side timeout — Jina + OpenAI should complete in <10s normally.
-    // 30s gives plenty of buffer for slow sites or cold edge function starts.
-    const timeout = new Promise<never>((_, reject) =>
-      setTimeout(() => {
-        console.error(`[smart-fill] timed out after ${Date.now() - startMs}ms`);
-        reject(new Error("Timed out — try again, it may be faster on a second attempt."));
-      }, 30_000)
-    );
-
     try {
       console.log("[smart-fill] invoking edge function...");
-      const invokePromise = supabase!.functions.invoke("smart-fill", {
-        body: { url: trimmed, type },
-      });
-      const { data, error: fnError } = await Promise.race([invokePromise, timeout]);
-      console.log(`[smart-fill] got response after ${Date.now() - startMs}ms`, { data, fnError });
+      // Use raw fetch instead of supabase.functions.invoke() — the SDK wrapper
+      // can hang waiting for the response stream to close even after data arrives.
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string;
+      const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string;
+      const fetchPromise = fetch(`${supabaseUrl}/functions/v1/smart-fill`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${supabaseKey}`,
+          "apikey": supabaseKey,
+        },
+        body: JSON.stringify({ url: trimmed, type }),
+        signal: AbortSignal.timeout(30_000),
+      }).then((r) => r.json());
 
-      // fnError = network/invocation failure, or non-2xx from edge function.
-      // When it's a non-2xx, the actual error message is in data.error.
-      if (fnError) {
-        console.error("[smart-fill] function error", fnError);
-        const msg = data?.error ?? fnError.message;
-        throw new Error(msg);
+      const payload = await Promise.race([fetchPromise, timeout]);
+      console.log(`[smart-fill] got response after ${Date.now() - startMs}ms`, payload);
+
+      if (payload?.error) {
+        console.error("[smart-fill] error from edge function", payload.error);
+        throw new Error(payload.error);
       }
 
-      // data.error = the edge function ran but returned an application error
-      if (data?.error) {
-        console.error("[smart-fill] app error from edge function", data.error);
-        throw new Error(data.error);
-      }
-
-      const result: SmartFillResult = data?.data ?? {};
+      const result: SmartFillResult = payload?.data ?? {};
       console.log("[smart-fill] extracted fields", result);
 
       // Count non-null/non-empty fields filled
@@ -131,11 +125,14 @@ export function SmartFill({ type, onFill }: Props) {
         v !== null && v !== undefined && v !== "" && !(Array.isArray(v) && v.length === 0)
       ).length;
 
-      onFill(result);
+      onFill(result, trimmed);
       setFilledCount(count);
-    } catch (err) {
+    } catch (err: any) {
       console.error(`[smart-fill] caught error after ${Date.now() - startMs}ms`, err);
-      setError(err instanceof Error ? err.message : "Smart fill failed");
+      const msg = err?.name === "AbortError" || err?.name === "TimeoutError"
+        ? "Timed out — try again, it's usually faster on a second attempt."
+        : (err instanceof Error ? err.message : "Smart fill failed");
+      setError(msg);
     } finally {
       setLoading(false);
     }

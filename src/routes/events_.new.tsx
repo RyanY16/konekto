@@ -133,12 +133,11 @@ function NewEventPage() {
     return isoToTimeStr(snapped.toISOString());
   }
 
-  function handleSmartFill(data: SmartFillResult) {
+  function handleSmartFill(data: SmartFillResult, sourceUrl: string) {
     if (data.title) setTitle(data.title);
     if (data.description) setDescription(data.description);
     if (data.cost) setCost(data.cost);
     if (data.howToJoin) setHowToJoin(data.howToJoin);
-    if (data.luma) setLumaUrl(data.luma);
     if (data.website) setWebsiteUrl(data.website);
     if (data.location) setLocation(data.location);
     if (data.online != null) setOnline(data.online);
@@ -148,21 +147,38 @@ function NewEventPage() {
     }
     if (data.category && EVENT_CATEGORIES.includes(data.category as any)) setCategory(data.category);
     if (data.tags && data.tags.length > 0) setSelectedTags((prev) => [...new Set([...prev, ...data.tags!])]);
+
+    // Luma link: prefer extracted value, fall back to source URL if it's a lu.ma link
+    const lumaLink = data.luma || (/lu\.ma\//i.test(sourceUrl) ? sourceUrl : null);
+    if (lumaLink) setLumaUrl(lumaLink);
+
     // Date/time from ISO strings (e.g. Luma JSON-LD)
+    let startD: Date | null = null;
+    let endD: Date | null = null;
     if (data.startDate) {
       const d = new Date(data.startDate);
       if (!isNaN(d.getTime())) {
-        setDateRange((prev) => ({ from: d, to: prev?.to }));
-        const t = snapToTimeOption(isoToTimeStr(data.startDate!));
+        startD = d;
+        const t = snapToTimeOption(isoToTimeStr(data.startDate));
         if (t) setStartTime(t);
       }
     }
     if (data.endDate) {
       const d = new Date(data.endDate);
       if (!isNaN(d.getTime())) {
-        setDateRange((prev) => ({ from: prev?.from ?? d, to: d }));
-        const t = snapToTimeOption(isoToTimeStr(data.endDate!));
+        endD = d;
+        const t = snapToTimeOption(isoToTimeStr(data.endDate));
         if (t) setEndTime(t);
+      }
+    }
+    if (startD) {
+      // If end is on a different calendar day, enable multi-day range
+      const crossDay = endD && endD.toDateString() !== startD.toDateString();
+      if (crossDay) {
+        setMultiDay(true);
+        setDateRange({ from: startD, to: endD! });
+      } else {
+        setDateRange({ from: startD, to: startD });
       }
     }
   }

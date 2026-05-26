@@ -143,7 +143,16 @@ async function handleRequest(req: Request, openaiKey: string, body: unknown, url
         `- howToJoin: how to register or attend (1-2 sentences)\n` +
         `- luma: full lu.ma URL if present\n` +
         `- website: other event website URL\n` +
-        `- tags: 2-5 short lowercase keywords\n` +
+        `- tags: pick 0-4 that apply from this exact list only (use exact strings): ` +
+        `"Computer Science", "Data Science and AI", "Cybersecurity", "Robotics and Hardware", "Hackathons", ` +
+        `"Consulting", "Finance and Economics", "Startups", "Marketing", "Content Creation", "Career and Networking", ` +
+        `"Learn English", "Learn Japanese", "Cultural Exchange", "Language Exchange", ` +
+        `"Fitness and Training", "Team Sports", "Martial Arts", "Water Sports", "Winter Sports", "Outdoors and Adventure", ` +
+        `"Anime and Manga", "Cosplay", "Movies", "Literature and Writing", "Theatre and Performance", "Dance", "Music", "Photography and Videography", "Japanese Culture", "Visual Arts and Design", ` +
+        `"Video Games", "eSports", "Rhythm Games", "Vtubers", "Board Games", "Trading Card Games", ` +
+        `"Volunteering", "Activism", "Community Events", "Sustainability", "LGBTQ+", "Religion", ` +
+        `"Science", "Engineering", "Social Sciences", "Medicine", "Law and Politics", "Education", ` +
+        `"Cooking", "Fashion", "Travel", "Beauty", "Cars", "Food and Drink", "Karaoke", "Café"\n` +
         `- startDate: ISO 8601 datetime string for event start (e.g. "2026-05-25T18:00:00+09:00"), extract from JSON-LD startDate or visible date text\n` +
         `- endDate: ISO 8601 datetime string for event end`;
     } else if (type === "deal") {

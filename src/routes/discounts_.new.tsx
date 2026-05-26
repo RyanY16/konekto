@@ -98,7 +98,7 @@ function NewDiscountPage() {
     }
   }
 
-  function handleSmartFill(data: SmartFillResult) {
+  function handleSmartFill(data: SmartFillResult, _sourceUrl: string) {
     const updates: Partial<FormDraft> = {};
     if (data.brand) updates.brand = data.brand;
     if (data.title) updates.title = data.title;

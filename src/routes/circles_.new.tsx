@@ -64,7 +64,7 @@ function NewCirclePage() {
     setIconPreview(URL.createObjectURL(file));
   }
 
-  function handleSmartFill(data: SmartFillResult) {
+  function handleSmartFill(data: SmartFillResult, _sourceUrl: string) {
     if (data.name) setName(data.name);
     if (data.description) setDescription(data.description);
     if (data.instagram) setInstagram(data.instagram.replace(/^@/, ""));
