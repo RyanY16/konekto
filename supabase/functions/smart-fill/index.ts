@@ -136,6 +136,7 @@ async function handleRequest(req: Request, openaiKey: string, body: unknown, url
     // ── Step 2: build prompt based on form type ──────────────────────────────
     const systemPrompt =
       "You are extracting structured information from a web page to pre-fill a form. " +
+      "Always write all field values in English, even if the source page is in Japanese or another language — translate as needed. " +
       "Only include fields you are confident about — return null for anything uncertain or not mentioned. " +
       "Return ONLY valid JSON, no explanation.";
 
