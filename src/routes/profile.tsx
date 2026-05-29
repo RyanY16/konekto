@@ -18,7 +18,7 @@ import type { Circle } from "@/data/mock";
 import { UniversityPicker } from "@/components/UniversityPicker";
 import { NationalityPicker } from "@/components/NationalityPicker";
 import { CAREER_FIELDS, INTEREST_GROUPS, GOAL_GROUPS, GOALS, NATIONALITIES, LANGUAGES, FLUENCY_LEVELS } from "@/data/profile-options";
-import { filterValidTags } from "@/data/tags";
+import { filterValidTags, tagGroupLabel, tagLabel } from "@/data/tags";
 import type { SpokenLanguage } from "@/data/backend";
 import { useSaves } from "@/lib/saves";
 import { NativeSelect } from "@/components/ui/native-select";
@@ -190,6 +190,7 @@ const GROUP_COLOURS: Record<string, { idle: string; active: string }> = {
 const DEFAULT_COLOURS = { idle: "border-border text-muted-foreground hover:bg-muted", active: "bg-primary border-primary text-primary-foreground" };
 
 function InterestPicker({ value, onChange }: { value: string[]; onChange: (v: string[]) => void }) {
+  const { i18n } = useTranslation();
   const set = new Set(value);
   const toggle = (item: string) => {
     const next = new Set(set);
@@ -202,7 +203,7 @@ function InterestPicker({ value, onChange }: { value: string[]; onChange: (v: st
         const colours = GROUP_COLOURS[group.label] ?? DEFAULT_COLOURS;
         return (
         <div key={group.label}>
-          <p className="text-xs font-semibold text-muted-foreground mb-1.5">{group.label}</p>
+          <p className="text-xs font-semibold text-muted-foreground mb-1.5">{tagGroupLabel(group.label, i18n.language)}</p>
           <div className="flex flex-wrap gap-1.5">
             {group.items.map((item) => {
               const active = set.has(item);
@@ -213,7 +214,7 @@ function InterestPicker({ value, onChange }: { value: string[]; onChange: (v: st
                   onClick={() => toggle(item)}
                   className={`px-2.5 py-0.5 rounded-full text-xs border transition-colors ${active ? colours.active : colours.idle}`}
                 >
-                  {item}
+                  {tagLabel(item, i18n.language)}
                 </button>
               );
             })}
@@ -302,7 +303,7 @@ type Draft = Partial<UserProfile> & { degree: DegreeType; yearNum: string; natio
 // ── Main page ─────────────────────────────────────────────────────────────────
 
 function ProfilePage() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { user, signOut } = useAuth();
   const { saves } = useSaves(user?.id);
   const [profile, setProfile] = useState<UserProfile | null>(null);
@@ -863,7 +864,7 @@ function ProfilePage() {
           ) : filterValidTags(profile?.interests ?? []).length > 0 ? (
             <div className="flex flex-wrap gap-1.5">
               {filterValidTags(profile?.interests ?? []).map((i) => (
-                <span key={i} className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${tagClass(i)}`}>{i}</span>
+                <span key={i} className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${tagClass(i)}`}>{tagLabel(i, i18n.language)}</span>
               ))}
             </div>
           ) : (

@@ -98,14 +98,14 @@ function NewDiscountPage() {
     }
   }
 
-  function handleSmartFill(data: SmartFillResult, _sourceUrl: string) {
+  function handleSmartFill(data: SmartFillResult, sourceUrl: string) {
     const updates: Partial<FormDraft> = {};
     if (data.brand) updates.brand = data.brand;
     if (data.title) updates.title = data.title;
     if (data.description) updates.description = data.description;
     if (data.originalPrice) updates.originalPrice = data.originalPrice;
     if (data.newPrice) updates.newPrice = data.newPrice;
-    if (data.url) updates.url = data.url;
+    updates.url = data.url || sourceUrl;
     if (data.studentOnly != null) updates.studentOnly = data.studentOnly;
     if (data.mode && ["In-Person", "Online", "Both"].includes(data.mode)) updates.mode = data.mode as Deal["mode"];
     if (Object.keys(updates).length > 0) setDraft(updates);

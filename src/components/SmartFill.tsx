@@ -37,6 +37,7 @@ export interface SmartFillResult {
 }
 
 export type SmartFillType = "circle" | "event" | "deal";
+type SmartFillLanguage = "en" | "ja" | "both";
 
 interface Props {
   type: SmartFillType;
@@ -50,8 +51,15 @@ const HINTS: Record<SmartFillType, string> = {
   deal:   "Paste the deal or brand page and we'll extract the details.",
 };
 
+const LANGUAGE_OPTIONS: { value: SmartFillLanguage; label: string }[] = [
+  { value: "en", label: "EN" },
+  { value: "ja", label: "JP" },
+  { value: "both", label: "Both" },
+];
+
 export function SmartFill({ type, onFill }: Props) {
   const [url, setUrl] = useState("");
+  const [language, setLanguage] = useState<SmartFillLanguage>("en");
   const [loading, setLoading] = useState(false);
   const [slow, setSlow] = useState(false);
   const [error, setError] = useState("");
@@ -69,19 +77,20 @@ export function SmartFill({ type, onFill }: Props) {
     return () => { if (slowTimerRef.current) clearTimeout(slowTimerRef.current); };
   }, [loading]);
 
-  function isValidUrl(s: string): boolean {
+  function normalizeUrl(s: string): string | null {
     try {
-      const u = new URL(s.startsWith("http") ? s : `https://${s}`);
-      return u.protocol === "https:" || u.protocol === "http:";
+      const u = new URL(/^https?:\/\//i.test(s) ? s : `https://${s}`);
+      return u.protocol === "https:" || u.protocol === "http:" ? u.toString() : null;
     } catch {
-      return false;
+      return null;
     }
   }
 
   async function handleFill() {
     const trimmed = url.trim();
     if (!trimmed) return;
-    if (!isValidUrl(trimmed)) {
+    const normalizedUrl = normalizeUrl(trimmed);
+    if (!normalizedUrl) {
       setError("Please enter a valid URL (e.g. https://yourclub.com)");
       return;
     }
@@ -98,23 +107,30 @@ export function SmartFill({ type, onFill }: Props) {
       // can hang waiting for the response stream to close even after data arrives.
       const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string;
       const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string;
-      const fetchPromise = fetch(`${supabaseUrl}/functions/v1/smart-fill`, {
+      if (!supabaseUrl || !supabaseKey) {
+        throw new Error("Smart fill is not configured yet.");
+      }
+
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 30_000);
+      const response = await fetch(`${supabaseUrl}/functions/v1/smart-fill`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           "Authorization": `Bearer ${supabaseKey}`,
           "apikey": supabaseKey,
         },
-        body: JSON.stringify({ url: trimmed, type }),
-        signal: AbortSignal.timeout(30_000),
-      }).then((r) => r.json());
+        body: JSON.stringify({ url: normalizedUrl, type, outputLanguage: language }),
+        signal: controller.signal,
+      }).finally(() => clearTimeout(timeoutId));
 
-      const payload = await Promise.race([fetchPromise, timeout]);
+      const payload = await response.json().catch(() => ({}));
       console.log(`[smart-fill] got response after ${Date.now() - startMs}ms`, payload);
 
-      if (payload?.error) {
-        console.error("[smart-fill] error from edge function", payload.error);
-        throw new Error(payload.error);
+      if (!response.ok || payload?.error) {
+        const message = payload?.error ?? `Smart fill failed (${response.status})`;
+        console.error("[smart-fill] error from edge function", message);
+        throw new Error(message);
       }
 
       const result: SmartFillResult = payload?.data ?? {};
@@ -125,7 +141,7 @@ export function SmartFill({ type, onFill }: Props) {
         v !== null && v !== undefined && v !== "" && !(Array.isArray(v) && v.length === 0)
       ).length;
 
-      onFill(result, trimmed);
+      onFill(result, normalizedUrl);
       setFilledCount(count);
     } catch (err: any) {
       console.error(`[smart-fill] caught error after ${Date.now() - startMs}ms`, err);
@@ -151,7 +167,7 @@ export function SmartFill({ type, onFill }: Props) {
       <p className="text-xs text-muted-foreground">
         Paste a link and we'll fill in the form automatically. {HINTS[type]}
       </p>
-      <div className="flex gap-2">
+      <div className="flex flex-col gap-2 sm:flex-row">
         <input
           type="url"
           value={url}
@@ -159,8 +175,25 @@ export function SmartFill({ type, onFill }: Props) {
           onKeyDown={handleKey}
           placeholder="https://..."
           disabled={loading}
-          className="flex-1 h-9 rounded-lg border border-input bg-background px-3 text-sm focus:outline-none focus:ring-1 focus:ring-ring disabled:opacity-50"
+          className="min-w-0 flex-1 h-9 rounded-lg border border-input bg-background px-3 text-sm focus:outline-none focus:ring-1 focus:ring-ring disabled:opacity-50"
         />
+        <div className="flex h-9 shrink-0 overflow-hidden rounded-lg border border-input bg-background">
+          {LANGUAGE_OPTIONS.map((option) => (
+            <button
+              key={option.value}
+              type="button"
+              onClick={() => setLanguage(option.value)}
+              disabled={loading}
+              className={`px-2.5 text-xs font-semibold transition-colors ${
+                language === option.value
+                  ? "bg-primary text-primary-foreground"
+                  : "text-muted-foreground hover:bg-muted hover:text-foreground"
+              } disabled:opacity-50`}
+            >
+              {option.label}
+            </button>
+          ))}
+        </div>
         <button
           type="button"
           onClick={handleFill}

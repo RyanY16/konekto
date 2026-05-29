@@ -8,7 +8,7 @@ import { LANGUAGES, CIRCLE_CATEGORIES } from "@/data/profile-options";
 import { PageHeader } from "@/components/PageHeader";
 import { SaveButton } from "@/components/SaveButton";
 import { getCircles, getCircleHandle, getProfilesByIds, deleteAllCircles, getCurrentUserInterests } from "@/data/backend";
-import { filterValidTags } from "@/data/tags";
+import { filterValidTags, tagLabel } from "@/data/tags";
 import { useAuth } from "@/components/AuthProvider";
 import { tagClass } from "@/lib/tag-class";
 import { OwnerBadge } from "@/components/OwnerBadge";
@@ -95,7 +95,7 @@ function tagOverlap(circleTags: string[], userInterests: string[]): number {
 }
 
 function CirclesPage() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { user, isAdmin } = useAuth();
   const { circles: allCircles, ownerMap, userInterests } = Route.useLoaderData();
   const router = useRouter();
@@ -308,7 +308,7 @@ function CirclesPage() {
                   {c.recruiting && <span className="chip bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-400">✅ Recruiting</span>}
                   {c.englishFriendly && <span className="chip">🌏 English-friendly</span>}
                   {filterValidTags(c.tags).slice(0, 2).map((tag) => (
-                    <span key={tag} className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${tagClass(tag)}`}>{tag}</span>
+                    <span key={tag} className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${tagClass(tag)}`}>{tagLabel(tag, i18n.language)}</span>
                   ))}
                 </div>
 

@@ -1,10 +1,11 @@
 import { createFileRoute, Link, notFound, useRouter } from "@tanstack/react-router";
+import { useTranslation } from "react-i18next";
 import { getProfileByUsername, getCircles, getJoinedCircleIds, getCircleHandle } from "@/data/backend";
 import { MapPin } from "lucide-react";
 import { tagClass } from "@/lib/tag-class";
 import { SocialLinks } from "@/components/SocialLinks";
 import { NATIONALITIES } from "@/data/profile-options";
-import { filterValidTags } from "@/data/tags";
+import { filterValidTags, tagLabel } from "@/data/tags";
 
 export const Route = createFileRoute("/users_/$username")({
   loader: async ({ params }) => {
@@ -31,6 +32,7 @@ export const Route = createFileRoute("/users_/$username")({
 
 function UserProfilePage() {
   const { profile, circles } = Route.useLoaderData();
+  const { i18n } = useTranslation();
   const router = useRouter();
 
   const initials = (profile.displayName || profile.username || "?")[0].toUpperCase();
@@ -94,7 +96,7 @@ function UserProfilePage() {
         {filterValidTags(profile.interests ?? []).length > 0 && (
           <div className="mt-5 flex flex-wrap gap-1.5">
             {filterValidTags(profile.interests ?? []).map((tag) => (
-              <span key={tag} className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${tagClass(tag)}`}>{tag}</span>
+              <span key={tag} className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${tagClass(tag)}`}>{tagLabel(tag, i18n.language)}</span>
             ))}
           </div>
         )}

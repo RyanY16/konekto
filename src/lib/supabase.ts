@@ -18,7 +18,7 @@ function makeLock() {
   }
 
   return (name: string, acquireTimeout: number, fn: () => Promise<string>): Promise<string> => {
-    const timeoutMs = acquireTimeout >= 0 ? acquireTimeout : 10_000;
+    const timeoutMs = acquireTimeout >= 0 ? Math.min(acquireTimeout, 3_000) : 3_000;
 
     return new Promise<string>((resolve, reject) => {
       let timedOut = false;

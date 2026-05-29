@@ -8,7 +8,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import TagPicker from "@/components/TagPicker";
-import { CIRCLE_TAG_GROUPS } from "@/data/tags";
+import { CIRCLE_TAG_GROUPS, filterValidTags, inferRelevantTags } from "@/data/tags";
 import EventCircleCollabPicker from "@/components/EventCircleCollabPicker";
 import { socialLinksFromForm } from "@/lib/social-links";
 import { addEvent, setEventCircleCollaborations, getEventHandle } from "@/data/backend";
@@ -138,7 +138,11 @@ function NewEventPage() {
     if (data.description) setDescription(data.description);
     if (data.cost) setCost(data.cost);
     if (data.howToJoin) setHowToJoin(data.howToJoin);
-    if (data.website) setWebsiteUrl(data.website);
+    const lumaLink = data.luma || (/lu\.ma\//i.test(sourceUrl) ? sourceUrl : null);
+    if (lumaLink) {
+      setLumaUrl(lumaLink);
+    }
+    setWebsiteUrl(data.website || (!lumaLink ? sourceUrl : ""));
     if (data.location) setLocation(data.location);
     if (data.online != null) setOnline(data.online);
     if (data.primaryLanguage) {
@@ -146,11 +150,12 @@ function NewEventPage() {
       if (match) setPrimaryLanguage(match.name);
     }
     if (data.category && EVENT_CATEGORIES.includes(data.category as any)) setCategory(data.category);
-    if (data.tags && data.tags.length > 0) setSelectedTags((prev) => [...new Set([...prev, ...data.tags!])]);
-
-    // Luma link: prefer extracted value, fall back to source URL if it's a lu.ma link
-    const lumaLink = data.luma || (/lu\.ma\//i.test(sourceUrl) ? sourceUrl : null);
-    if (lumaLink) setLumaUrl(lumaLink);
+    const validTags = inferRelevantTags({
+      tags: data.tags,
+      text: [data.title, data.description, data.category, data.location],
+      limit: 4,
+    });
+    if (validTags.length > 0) setSelectedTags((prev) => filterValidTags([...new Set([...prev, ...validTags])]));
 
     // Date/time from ISO strings (e.g. Luma JSON-LD)
     let startD: Date | null = null;

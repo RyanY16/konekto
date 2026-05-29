@@ -1,11 +1,12 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState, useEffect } from "react";
+import { useTranslation } from "react-i18next";
 import { Bookmark, Calendar, MapPin, Users } from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
 import { SaveButton } from "@/components/SaveButton";
 import { getCircles, getEvents, getDeals, getCircleHandle, getEventHandle, getDealHandle } from "@/data/backend";
 import { useSaves } from "@/lib/saves";
-import { filterValidTags } from "@/data/tags";
+import { filterValidTags, tagLabel } from "@/data/tags";
 import { tagClass } from "@/lib/tag-class";
 import { useAuth } from "@/components/AuthProvider";
 import { DEAL_CATEGORY_EMOJI } from "@/data/profile-options";
@@ -24,6 +25,7 @@ const CATEGORY_EMOJI: Record<string, string> = {
 };
 
 function SavedPage() {
+  const { i18n } = useTranslation();
   const { user, loading: authLoading } = useAuth();
   const { saves } = useSaves(user?.id);
   const [circles, setCircles] = useState<Circle[]>([]);
@@ -33,12 +35,21 @@ function SavedPage() {
   const [tab, setTab] = useState<"all" | "circles" | "events" | "discounts">("all");
 
   useEffect(() => {
-    Promise.all([getCircles(), getEvents(), getDeals()]).then(([cs, es, ds]) => {
-      setCircles(cs);
-      setEvents(es);
-      setDeals(ds);
-      setLoading(false);
-    });
+    let cancelled = false;
+    Promise.all([getCircles(), getEvents(), getDeals()])
+      .then(([cs, es, ds]) => {
+        if (cancelled) return;
+        setCircles(cs);
+        setEvents(es);
+        setDeals(ds);
+      })
+      .catch((err) => {
+        if (!cancelled) console.error("[saved] failed to load saved item data", err);
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => { cancelled = true; };
   }, []);
 
   const savedCircles = circles.filter((c) => saves.circleIds.includes(c.id));
@@ -132,7 +143,7 @@ function SavedPage() {
                       {filterValidTags(c.tags).length > 0 && (
                         <div className="mt-1.5 flex flex-wrap gap-1">
                           {filterValidTags(c.tags).slice(0, 3).map((tag) => (
-                            <span key={tag} className={`inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-medium ${tagClass(tag)}`}>{tag}</span>
+                            <span key={tag} className={`inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-medium ${tagClass(tag)}`}>{tagLabel(tag, i18n.language)}</span>
                           ))}
                         </div>
                       )}

@@ -18,10 +18,16 @@ export function GlobalSearch() {
     if (q.trim().length < 2) { setResults([]); return; }
     setLoading(true);
     const t = setTimeout(async () => {
-      const res = await searchAll(q);
-      setResults(res);
-      setActive(0);
-      setLoading(false);
+      try {
+        const res = await searchAll(q);
+        setResults(res);
+        setActive(0);
+      } catch (err) {
+        console.error("[search] failed", err);
+        setResults([]);
+      } finally {
+        setLoading(false);
+      }
     }, 200);
     return () => clearTimeout(t);
   }, [q]);

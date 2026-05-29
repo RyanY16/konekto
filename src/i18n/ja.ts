@@ -105,7 +105,7 @@ const ja = {
     title: "仲間を見つけよう。",
     subtitle: "日本全国の学生サークル・部活をまとめてチェック。",
     addCircle: "+ サークルを追加",
-    searchPlaceholder: "名前・カテゴリ・タグで検索…",
+    searchPlaceholder: "名前・カテゴリ・タグで絞り込み…",
     filters: {
       activity: "活動頻度",
       englishFriendly: "🇬🇧 英語OK",

@@ -2,6 +2,8 @@
 
 import React from "react";
 import { INTEREST_GROUPS } from "@/data/profile-options";
+import { tagGroupLabel, tagLabel } from "@/data/tags";
+import { useTranslation } from "react-i18next";
 type TagGroup = { label: string; items: readonly string[] };
 
 type ColourPair = { idle: string; active: string };
@@ -32,6 +34,7 @@ export function TagPicker({
   onChange: (tags: string[]) => void;
   groups?: readonly TagGroup[];
 }) {
+  const { i18n } = useTranslation();
   const resolvedGroups = groups ?? INTEREST_GROUPS;
   const selected = new Set(value ?? []);
 
@@ -48,7 +51,7 @@ export function TagPicker({
         const colours = GROUP_COLOURS[group.label] ?? DEFAULT_COLOURS;
         return (
           <div key={group.label}>
-            <p className="text-xs font-semibold text-muted-foreground mb-1.5">{group.label}</p>
+            <p className="text-xs font-semibold text-muted-foreground mb-1.5">{tagGroupLabel(group.label, i18n.language)}</p>
             <div className="flex flex-wrap gap-1.5">
               {group.items.map((tag) => {
                 const isSelected = selected.has(tag);
@@ -61,7 +64,7 @@ export function TagPicker({
                       isSelected ? colours.active : colours.idle + " hover:opacity-80"
                     }`}
                   >
-                    {tag}
+                    {tagLabel(tag, i18n.language)}
                   </button>
                 );
               })}

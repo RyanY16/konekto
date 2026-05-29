@@ -2,6 +2,7 @@
 
 import React, { createContext, useContext, useEffect, useState } from "react";
 import { supabase, isSupabaseConfigured } from "@/lib/supabase";
+import { withTimeout } from "@/lib/async";
 
 type User = {
   id: string;
@@ -49,7 +50,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // Bootstrap: read session from localStorage immediately — no network call, resolves in <1ms.
     // This sets loading=false before onAuthStateChange fires (which waits for JWT validation).
     // If onAuthStateChange has already run (generation > 0), skip to avoid overwriting fresh state.
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    withTimeout(supabase.auth.getSession(), 4_000, "Supabase auth session timed out").then(({ data: { session } }) => {
       console.log(`[auth] getSession resolved — generation=${generation} user=${session?.user?.id ?? "null"}`);
       if (!mounted || generation > 0) {
         console.log("[auth] getSession: skipped (mounted=" + mounted + ", generation=" + generation + ")");
@@ -113,11 +114,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       console.log(`[auth] profile fetch start — userId=${u.id} gen=${gen}`);
       let fetchOk = false;
       try {
-        const { data: profile, error: profileError } = await supabase!
-          .from("users")
-          .select("role, username")
-          .eq("id", u.id)
-          .maybeSingle();
+        const { data: profile, error: profileError } = await withTimeout(
+          supabase!
+            .from("users")
+            .select("role, username")
+            .eq("id", u.id)
+            .maybeSingle(),
+          5_000,
+          "Supabase profile fetch timed out",
+        ) as any;
 
         console.log(`[auth] profile fetch result — gen=${gen} generation=${generation} username=${(profile as any)?.username ?? null} error=${profileError?.message ?? null}`);
 

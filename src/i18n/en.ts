@@ -110,7 +110,7 @@ const en = {
     title: "Discover your community.",
     subtitle: "Student clubs and societies across Japan — find your people.",
     addCircle: "+ Add circle",
-    searchPlaceholder: "Search by name, category or tag…",
+    searchPlaceholder: "Filter by name, category or tag…",
     filters: {
       activity: "Activity",
       englishFriendly: "🇬🇧 English friendly",

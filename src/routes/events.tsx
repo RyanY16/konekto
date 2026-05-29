@@ -18,7 +18,7 @@ const CATEGORY_EMOJI: Record<string, string> = {
 import { PageHeader } from "@/components/PageHeader";
 import { SaveButton } from "@/components/SaveButton";
 import { getEvents, getEventHandle, getProfilesByIds, deleteAllEvents } from "@/data/backend";
-import { filterValidTags } from "@/data/tags";
+import { filterValidTags, tagLabel } from "@/data/tags";
 import { useAuth } from "@/components/AuthProvider";
 import { tagClass } from "@/lib/tag-class";
 import { OwnerBadge } from "@/components/OwnerBadge";
@@ -126,7 +126,7 @@ function parseSortDate(e: { startDate?: string; date: string; updatedAt?: string
 import type { EventItem } from "@/data/mock";
 
 function EventCard({ event: e, ownerMap }: { event: EventItem; ownerMap: Record<string, { username: string; displayName: string; avatarUrl: string | null }> }) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const ogImage = useOgImage(!e.imageUrl ? e.socialLinks?.website : undefined);
   const displayImage = e.imageUrl || ogImage;
   const isPast = parseSortDate(e) < new Date();
@@ -187,7 +187,7 @@ function EventCard({ event: e, ownerMap }: { event: EventItem; ownerMap: Record<
           {e.tags && filterValidTags(e.tags).length > 0 && (
             <div className="mt-2 flex flex-wrap gap-1.5">
               {filterValidTags(e.tags).slice(0, 2).map((tag) => (
-                <span key={tag} className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${tagClass(tag)}`}>{tag}</span>
+                <span key={tag} className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${tagClass(tag)}`}>{tagLabel(tag, i18n.language)}</span>
               ))}
             </div>
           )}

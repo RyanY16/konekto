@@ -27,6 +27,18 @@ const LANGUAGES = [
   "Indonesian", "Malay", "Italian", "Russian",
 ];
 
+const TAGS = [
+  "Computer Science", "Data Science and AI", "Cybersecurity", "Robotics and Hardware", "Hackathons",
+  "Consulting", "Finance and Economics", "Startups", "Marketing", "Content Creation", "Career and Networking",
+  "Learn English", "Learn Japanese", "Cultural Exchange", "Language Exchange",
+  "Fitness and Training", "Team Sports", "Martial Arts", "Water Sports", "Winter Sports", "Outdoors and Adventure",
+  "Anime and Manga", "Cosplay", "Movies", "Literature and Writing", "Theatre and Performance", "Dance", "Music", "Photography and Videography", "Japanese Culture", "Visual Arts and Design",
+  "Video Games", "eSports", "Rhythm Games", "Vtubers", "Board Games", "Trading Card Games",
+  "Volunteering", "Activism", "Community Events", "Sustainability", "LGBTQ+", "Religion",
+  "Science", "Engineering", "Social Sciences", "Medicine", "Law and Politics", "Education",
+  "Cooking", "Fashion", "Travel", "Beauty", "Cars", "Food and Drink", "Karaoke", "Café",
+];
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
 
@@ -39,7 +51,7 @@ Deno.serve(async (req) => {
   // if (!anthropicKey) return json({ error: "ANTHROPIC_API_KEY not configured" }, 500);
 
   const body = await req.json();
-  const { url, type = "circle" } = body;
+  const { url, type = "circle", outputLanguage = "en" } = body;
 
   // Hard deadline — race the entire handler against a 25s timeout.
   // AbortController doesn't reliably kill Deno fetch calls, so this guarantees
@@ -48,10 +60,71 @@ Deno.serve(async (req) => {
     setTimeout(() => resolve(json({ error: "Request took too long — try again or try a different URL." }, 504)), 25_000)
   );
 
-  return Promise.race([handleRequest(req, openaiKey, body, url, type), deadline]);
+  return Promise.race([handleRequest(req, openaiKey, body, url, type, outputLanguage), deadline]);
 });
 
-async function handleRequest(req: Request, openaiKey: string, body: unknown, url: string, type: string): Promise<Response> {
+function languageInstruction(outputLanguage: unknown): string {
+  if (outputLanguage === "ja") {
+    return (
+      "OUTPUT LANGUAGE MODE: Japanese. Write every user-facing free-text field in natural Japanese only. Do not include English translations in those fields. " +
+      "Keep app enum fields exactly as requested in English: category, primaryLanguage, tags, mode. " +
+      "Keep URLs, ISO dates, numeric prices, and Instagram handles unchanged. "
+    );
+  }
+  if (outputLanguage === "both") {
+    return (
+      "OUTPUT LANGUAGE MODE: Bilingual English + Japanese. Write every user-facing free-text field bilingually, English first and Japanese second. Do not return only one language for those fields. " +
+      "For short fields, use 'English / 日本語'. For longer fields, use one concise English paragraph, then one concise Japanese paragraph separated by a newline. " +
+      "Keep app enum fields exactly as requested in English: category, primaryLanguage, tags, mode. " +
+      "Keep URLs, ISO dates, numeric prices, and Instagram handles unchanged. "
+    );
+  }
+  return (
+    "OUTPUT LANGUAGE MODE: English. Write user-facing free-text fields in natural English, translating from Japanese or other languages as needed. " +
+    "Keep app enum fields exactly as requested in English: category, primaryLanguage, tags, mode. " +
+    "Keep URLs, ISO dates, numeric prices, and Instagram handles unchanged. "
+  );
+}
+
+function languageFieldRules(outputLanguage: unknown): string {
+  const textFields =
+    "name/title/brand, description, location, cost, recruitingPeriod, membershipFee, howToJoin, university";
+  if (outputLanguage === "ja") {
+    return (
+      `REQUESTED OUTPUT LANGUAGE MODE: Japanese only.\n` +
+      `Language output rules:\n` +
+      `- For every non-null user-facing text field, write Japanese text only: ${textFields}.\n` +
+      `- Translate or localize names/titles/locations when possible. Example: "Tokyo Tech Society" -> "東京工業大学テックソサエティ"; "Free" -> "無料".\n` +
+      `- Do not append English in parentheses or after a slash.\n` +
+      `- Before returning, verify each non-null user-facing text field contains Japanese text and is not English-only.\n` +
+      `- Keep fixed app values in English exactly as listed: category, primaryLanguage, tags, mode.\n` +
+      `- Keep URLs, handles, ISO dates, and numeric prices unchanged.\n\n`
+    );
+  }
+  if (outputLanguage === "both") {
+    return (
+      `REQUESTED OUTPUT LANGUAGE MODE: Bilingual English + Japanese.\n` +
+      `Language output rules:\n` +
+      `- For every non-null user-facing text field, include BOTH English and Japanese: ${textFields}.\n` +
+      `- For short fields, format as "English / 日本語".\n` +
+      `- Examples: "Tokyo Tech Society / 東京工業大学テックソサエティ", "Free / 無料", "Online / オンライン".\n` +
+      `- For description and howToJoin, write English first, then Japanese on the next line.\n` +
+      `- Do not return only English or only Japanese for user-facing text fields.\n` +
+      `- Before returning, verify each non-null user-facing text field contains both English text and Japanese text.\n` +
+      `- Keep fixed app values in English exactly as listed: category, primaryLanguage, tags, mode.\n` +
+      `- Keep URLs, handles, ISO dates, and numeric prices unchanged.\n\n`
+    );
+  }
+  return (
+    `REQUESTED OUTPUT LANGUAGE MODE: English only.\n` +
+    `Language output rules:\n` +
+    `- For every non-null user-facing text field, write English only: ${textFields}.\n` +
+    `- Keep fixed app values in English exactly as listed: category, primaryLanguage, tags, mode.\n` +
+    `- Keep URLs, handles, ISO dates, and numeric prices unchanged.\n\n`
+  );
+}
+
+async function handleRequest(req: Request, openaiKey: string, body: unknown, url: string, type: string, outputLanguage: unknown): Promise<Response> {
   try {
     if (!url || typeof url !== "string") return json({ error: "url is required" }, 400);
 
@@ -107,15 +180,17 @@ async function handleRequest(req: Request, openaiKey: string, body: unknown, url
     // ── Step 2: build prompt based on form type ──────────────────────────────
     const systemPrompt =
       "You are extracting structured information from a web page to pre-fill a form. " +
-      "Always write all field values in English, even if the source page is in Japanese or another language — translate as needed. " +
+      languageInstruction(outputLanguage) +
       "Only include fields you are confident about — return null for anything uncertain or not mentioned. " +
       "Return ONLY valid JSON, no explanation.";
 
     let userPrompt: string;
+    const langRules = languageFieldRules(outputLanguage);
 
     if (type === "event") {
       userPrompt =
         `Web page content:\n---\n${pageContent}\n---\n\n` +
+        langRules +
         `Extract event details and return ONLY a JSON object:\n` +
         `{\n` +
         `  "title": string | null,\n` +
@@ -133,31 +208,23 @@ async function handleRequest(req: Request, openaiKey: string, body: unknown, url
         `  "endDate": string | null\n` +
         `}\n\n` +
         `Rules:\n` +
-        `- title: event name\n` +
-        `- description: what the event is about (2-4 sentences)\n` +
+        `- title: event name (MUST follow language output rules)\n` +
+        `- description: what the event is about, 2-4 sentences (follow language output rules)\n` +
         `- category: must be exactly one of: Social, Career, Hackathon, Workshop, Casual\n` +
-        `- location: venue name and/or address, or platform if online\n` +
-        `- cost: e.g. "Free", "¥1,000", "¥500 at door"\n` +
+        `- location: venue name and/or address, or platform if online (MUST follow language output rules for words like Online, TBA, campus names)\n` +
+        `- cost: e.g. "Free", "¥1,000", "¥500 at door" (MUST follow language output rules for words like Free or at door)\n` +
         `- primaryLanguage: must be exactly one of: ${LANGUAGES.join(", ")}\n` +
         `- online: true if the event is online/virtual\n` +
-        `- howToJoin: how to register or attend (1-2 sentences)\n` +
+        `- howToJoin: how to register or attend, 1-2 sentences (MUST follow language output rules)\n` +
         `- luma: full lu.ma URL if present\n` +
         `- website: other event website URL\n` +
-        `- tags: pick 0-4 that apply from this exact list only (use exact strings): ` +
-        `"Computer Science", "Data Science and AI", "Cybersecurity", "Robotics and Hardware", "Hackathons", ` +
-        `"Consulting", "Finance and Economics", "Startups", "Marketing", "Content Creation", "Career and Networking", ` +
-        `"Learn English", "Learn Japanese", "Cultural Exchange", "Language Exchange", ` +
-        `"Fitness and Training", "Team Sports", "Martial Arts", "Water Sports", "Winter Sports", "Outdoors and Adventure", ` +
-        `"Anime and Manga", "Cosplay", "Movies", "Literature and Writing", "Theatre and Performance", "Dance", "Music", "Photography and Videography", "Japanese Culture", "Visual Arts and Design", ` +
-        `"Video Games", "eSports", "Rhythm Games", "Vtubers", "Board Games", "Trading Card Games", ` +
-        `"Volunteering", "Activism", "Community Events", "Sustainability", "LGBTQ+", "Religion", ` +
-        `"Science", "Engineering", "Social Sciences", "Medicine", "Law and Politics", "Education", ` +
-        `"Cooking", "Fashion", "Travel", "Beauty", "Cars", "Food and Drink", "Karaoke", "Café"\n` +
+        `- tags: pick 0-4 that apply from this exact list only (use exact strings): ${TAGS.map((tag) => `"${tag}"`).join(", ")}\n` +
         `- startDate: ISO 8601 datetime string for event start (e.g. "2026-05-25T18:00:00+09:00"), extract from JSON-LD startDate or visible date text\n` +
         `- endDate: ISO 8601 datetime string for event end`;
     } else if (type === "deal") {
       userPrompt =
         `Web page content:\n---\n${pageContent}\n---\n\n` +
+        langRules +
         `Extract student deal/discount details and return ONLY a JSON object:\n` +
         `{\n` +
         `  "brand": string | null,\n` +
@@ -170,9 +237,9 @@ async function handleRequest(req: Request, openaiKey: string, body: unknown, url
         `  "url": string | null\n` +
         `}\n\n` +
         `Rules:\n` +
-        `- brand: brand or store name\n` +
-        `- title: the deal title (e.g. "20% off with student ID")\n` +
-        `- description: how to redeem, conditions, details (2-4 sentences)\n` +
+        `- brand: brand or store name (MUST follow language output rules; for Both include an English/Japanese pair when possible)\n` +
+        `- title: the deal title, e.g. "20% off with student ID" (MUST follow language output rules)\n` +
+        `- description: how to redeem, conditions, details, 2-4 sentences (MUST follow language output rules)\n` +
         `- originalPrice: e.g. "¥1,200"\n` +
         `- newPrice: discounted price e.g. "¥960"\n` +
         `- studentOnly: true if this is exclusively for students\n` +
@@ -182,6 +249,7 @@ async function handleRequest(req: Request, openaiKey: string, body: unknown, url
       // Default: circle
       userPrompt =
         `Web page content:\n---\n${pageContent}\n---\n\n` +
+        langRules +
         `Extract student circle/club details and return ONLY a JSON object:\n` +
         `{\n` +
         `  "name": string | null,\n` +
@@ -199,19 +267,19 @@ async function handleRequest(req: Request, openaiKey: string, body: unknown, url
         `  "tags": string[] | null\n` +
         `}\n\n` +
         `Rules:\n` +
-        `- name: the circle/club name\n` +
-        `- description: what the circle does (2-4 sentences, natural English)\n` +
+        `- name: the circle/club name (MUST follow language output rules; for Both include an English/Japanese pair when possible)\n` +
+        `- description: what the circle does, 2-4 sentences (MUST follow language output rules)\n` +
         `- category: must be exactly one of: ${CIRCLE_CATEGORIES.join(", ")}\n` +
-        `- university: full university name (e.g. "Tokyo University")\n` +
+        `- university: full university name (MUST follow language output rules when possible)\n` +
         `- primaryLanguage: must be exactly one of: ${LANGUAGES.join(", ")}\n` +
         `- englishFriendly: true only if explicitly English-friendly or bilingual\n` +
         `- recruiting: true only if actively recruiting new members\n` +
-        `- recruitingPeriod: e.g. "April – May each year"\n` +
-        `- membershipFee: e.g. "¥5,000/year" or "Free"\n` +
-        `- howToJoin: 1-2 sentences on how to apply/join\n` +
+        `- recruitingPeriod: e.g. "April – May each year" (MUST follow language output rules)\n` +
+        `- membershipFee: e.g. "¥5,000/year" or "Free" (MUST follow language output rules for words like Free/year)\n` +
+        `- howToJoin: 1-2 sentences on how to apply/join (MUST follow language output rules)\n` +
         `- instagram: handle only, no @ or URL (e.g. "tokyotechsociety")\n` +
         `- website: full URL of their own website\n` +
-        `- tags: 2-5 short lowercase keywords`;
+        `- tags: pick 2-5 that apply from this exact list only (use exact strings): ${TAGS.map((tag) => `"${tag}"`).join(", ")}`;
     }
 
     const aiStart = Date.now();

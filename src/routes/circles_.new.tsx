@@ -9,7 +9,7 @@ import { socialLinksFromForm } from "@/lib/social-links";
 import { addCircle, uploadCircleIcon, getCircleHandle } from "@/data/backend";
 import { useAuth } from "@/components/AuthProvider";
 import { CIRCLE_CATEGORIES, CATEGORY_EMOJI, LANGUAGES, COUNTRIES } from "@/data/profile-options";
-import { CIRCLE_TAG_GROUPS } from "@/data/tags";
+import { CIRCLE_TAG_GROUPS, filterValidTags, inferRelevantTags } from "@/data/tags";
 import { UniversityPicker } from "@/components/UniversityPicker";
 import EmojiPicker from "@/components/EmojiPicker";
 import { PageHeader } from "@/components/PageHeader";
@@ -64,20 +64,24 @@ function NewCirclePage() {
     setIconPreview(URL.createObjectURL(file));
   }
 
-  function handleSmartFill(data: SmartFillResult, _sourceUrl: string) {
+  function handleSmartFill(data: SmartFillResult, sourceUrl: string) {
     if (data.name) setName(data.name);
     if (data.description) setDescription(data.description);
     if (data.instagram) setInstagram(data.instagram.replace(/^@/, ""));
-    if (data.website) setWebsite(data.website);
+    setWebsite(data.website || sourceUrl);
     if (data.recruitingPeriod) setRecruitingPeriod(data.recruitingPeriod);
     if (data.membershipFee) setMembershipFee(data.membershipFee);
     if (data.howToJoin) setHowToJoin(data.howToJoin);
     if (data.university) setUniversity(data.university);
     if (data.englishFriendly != null) setEnglishFriendly(data.englishFriendly);
     if (data.recruiting != null) setRecruiting(data.recruiting);
-    if (data.tags && data.tags.length > 0) {
-      // Merge with existing tags, deduplicate
-      setSelectedTags((prev) => [...new Set([...prev, ...data.tags!])]);
+    const smartTags = inferRelevantTags({
+      tags: data.tags,
+      text: [data.name, data.description, data.category, data.university],
+      limit: 5,
+    });
+    if (smartTags.length > 0) {
+      setSelectedTags((prev) => filterValidTags([...new Set([...prev, ...smartTags])]));
     }
     if (data.category && CIRCLE_CATEGORIES.includes(data.category as any)) {
       setCategory(data.category);

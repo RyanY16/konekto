@@ -1,5 +1,6 @@
 import { Link, createFileRoute, useRouter, useNavigate } from "@tanstack/react-router";
 import { useState, useEffect, useRef } from "react";
+import { useTranslation } from "react-i18next";
 
 function relativeTime(iso: string | undefined): string | null {
   if (!iso) return null;
@@ -62,7 +63,7 @@ import {
   type JoinRequestStatus,
 } from "@/data/backend";
 import { CIRCLE_CATEGORIES, ACTIVITY_LEVELS, CATEGORY_EMOJI, LANGUAGES } from "@/data/profile-options";
-import { CIRCLE_TAG_GROUPS, filterValidTags } from "@/data/tags";
+import { CIRCLE_TAG_GROUPS, filterValidTags, tagLabel } from "@/data/tags";
 import { UniversityPicker } from "@/components/UniversityPicker";
 import type { Circle, EventItem } from "@/data/mock";
 import { NativeSelect } from "@/components/ui/native-select";
@@ -145,6 +146,7 @@ function toDraft(c: Circle): Draft {
 
 function CircleDetailPage() {
   const circle = Route.useLoaderData();
+  const { i18n } = useTranslation();
   const { user, isAdmin } = useAuth();
   const router = useRouter();
   const navigate = useNavigate();
@@ -917,7 +919,7 @@ function CircleDetailPage() {
 
             <div className="flex flex-wrap gap-1.5 items-center">
               {filterValidTags(circle.tags).map((tag) => (
-                <span key={tag} className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${tagClass(tag)}`}>{tag}</span>
+                <span key={tag} className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${tagClass(tag)}`}>{tagLabel(tag, i18n.language)}</span>
               ))}
             </div>
 

@@ -3,6 +3,7 @@ import type { Circle, Deal, EventItem, Guide, Job } from "@/data/mock";
 import { normalizeSocialLinks } from "@/lib/social-links";
 import { toSlug } from "@/lib/slug";
 import { supabase } from "@/lib/supabase";
+import { timeoutAfter } from "@/lib/async";
 import type { Database } from "@/lib/supabase.types";
 
 type PublicTable = keyof Database["public"]["Tables"];
@@ -25,36 +26,42 @@ function assertSupabase() {
 
 async function fromSupabase<TTable extends PublicTable, TItem>(
   table: TTable,
-  _fallback: TItem[],
+  fallback: TItem[],
   mapRow: (row: Row<TTable>) => TItem,
 ): Promise<TItem[]> {
   if (!supabase) {
-    throw new Error(`Supabase not configured — cannot load ${table}`);
+    console.warn(`[db] ${table}: Supabase not configured — using local fallback`);
+    return fallback;
   }
 
   const start = Date.now();
-  // No client-side timeout on reads — Supabase has its own server timeout,
-  // and cold connections can legitimately take 20-30s on first load.
-  const { data, error } = await supabase.from(table).select("*").order("created_at") as any;
+  try {
+    const { data, error } = await Promise.race([
+      supabase.from(table).select("*").order("created_at") as any,
+      timeoutAfter(15_000),
+    ]) as { data: Row<TTable>[] | null; error: any };
 
-  const elapsed = Date.now() - start;
-  console.log(`[db] ${table}: ${elapsed}ms — rows=${data?.length ?? 0} error=${error?.message ?? null}`);
+    const elapsed = Date.now() - start;
+    console.log(`[db] ${table}: ${elapsed}ms — rows=${data?.length ?? 0} error=${error?.message ?? null}`);
 
-  if (error) throw new Error(`[db] ${table}: ${error.message}`);
-  if (!data) throw new Error(`[db] ${table}: no data returned`);
-  return data.map((row) => mapRow(row as Row<TTable>));
+    if (error) throw new Error(`[db] ${table}: ${error.message}`);
+    if (!data) throw new Error(`[db] ${table}: no data returned`);
+    return data.map((row) => mapRow(row as Row<TTable>));
+  } catch (err) {
+    const elapsed = Date.now() - start;
+    console.error(`[db] ${table}: ${elapsed}ms — read failed`, err);
+    if (import.meta.env.DEV) {
+      console.warn(`[db] ${table}: using local fallback after failed read`);
+      return fallback;
+    }
+    throw err;
+  }
 }
 
 function abortAfter(ms = 5_000): { signal: AbortSignal; cleanup: () => void } {
   const controller = new AbortController();
   const tid = setTimeout(() => controller.abort(), ms);
   return { signal: controller.signal, cleanup: () => clearTimeout(tid) };
-}
-
-function timeoutAfter(ms = 5_000): Promise<never> {
-  return new Promise((_, reject) =>
-    setTimeout(() => reject(new Error("Request timed out — please try again.")), ms),
-  );
 }
 
 function throwAbort(error: any): never {
@@ -1261,7 +1268,8 @@ export async function getCircleByHandle(handle: string) {
         return findByHandle(items, handle, getCircleHandle, (item) => item.id) ?? null;
       }
     } catch (err) {
-      throw err;
+      console.error("[db] circle detail read failed", err);
+      if (!import.meta.env.DEV) throw err;
     }
   }
   const items = await getCircles();
@@ -1285,7 +1293,8 @@ export async function getEventByHandle(handle: string) {
         return findByHandle(items, handle, getEventHandle, (item) => item.id) ?? null;
       }
     } catch (err) {
-      throw err;
+      console.error("[db] event detail read failed", err);
+      if (!import.meta.env.DEV) throw err;
     }
   }
   const items = await getEvents().catch(() => []);
@@ -1315,18 +1324,21 @@ export async function searchAll(q: string): Promise<SearchResult[]> {
   if (!supabase || q.trim().length < 2) return [];
   const ql = `%${q.trim()}%`;
 
-  const [{ data: circleRows }, { data: userRows }] = await Promise.all([
-    supabase
-      .from("circles")
-      .select("id, name, category, emoji, icon_url, tags")
-      .or(`name.ilike.${ql},description.ilike.${ql}`)
-      .limit(6),
-    supabase
-      .from("users")
-      .select("id, display_name, username, university, avatar_url")
-      .or(`username.ilike.${ql},display_name.ilike.${ql}`)
-      .limit(6),
-  ]);
+  const [{ data: circleRows }, { data: userRows }] = await Promise.race([
+    Promise.all([
+      supabase
+        .from("circles")
+        .select("id, name, category, emoji, icon_url, tags")
+        .or(`name.ilike.${ql},description.ilike.${ql}`)
+        .limit(6),
+      supabase
+        .from("users")
+        .select("id, display_name, username, university, avatar_url")
+        .or(`username.ilike.${ql},display_name.ilike.${ql}`)
+        .limit(6),
+    ]),
+    timeoutAfter(8_000),
+  ]) as any;
 
   const circles: SearchResult[] = (circleRows ?? []).map((r: any) => ({
     type: "circle",

@@ -1,5 +1,6 @@
 import { Link, createFileRoute, useRouter, useNavigate } from "@tanstack/react-router";
 import { useState, useEffect } from "react";
+import { useTranslation } from "react-i18next";
 import { Globe, MapPin, ExternalLink, CalendarIcon, CalendarPlus, Ticket } from "lucide-react";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -12,7 +13,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import TagPicker from "@/components/TagPicker";
-import { CIRCLE_TAG_GROUPS, filterValidTags } from "@/data/tags";
+import { CIRCLE_TAG_GROUPS, filterValidTags, tagLabel } from "@/data/tags";
 import EventCircleCollabPicker from "@/components/EventCircleCollabPicker";
 import { DeleteRecordButton } from "@/components/DeleteRecordButton";
 import { OwnerBadge } from "@/components/OwnerBadge";
@@ -223,6 +224,7 @@ function toDraft(e: EventItem): Draft {
 
 function EventDetailPage() {
   const event = Route.useLoaderData();
+  const { i18n } = useTranslation();
   const { user, isAdmin } = useAuth();
   const router = useRouter();
   const navigate = useNavigate();
@@ -776,7 +778,7 @@ function EventDetailPage() {
               <div className="flex flex-wrap gap-1.5">
                 {filterValidTags(event.tags).map((tag) => (
                   <span key={tag} className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${tagClass(tag)}`}>
-                    {tag}
+                    {tagLabel(tag, i18n.language)}
                   </span>
                 ))}
               </div>

@@ -26,12 +26,25 @@ export const Route = createFileRoute("/")({
 function IndexPage() {
   const { user, loading } = useAuth();
   console.log(`[index] render — loading=${loading} user=${user?.id ?? "null"}`);
-  // Don't render anything until auth resolves — this prevents signed-in users
-  // from seeing the landing page flash before the dashboard appears.
-  // A brief blank is less jarring than showing the wrong screen.
-  if (loading) return null;
+  if (loading) return <HomeLoading />;
   if (user) return <Dashboard />;
   return <Landing />;
+}
+
+function HomeLoading() {
+  return (
+    <div className="mx-auto max-w-6xl px-4">
+      <section className="py-20 md:py-28 text-center animate-pulse">
+        <div className="mx-auto mb-4 h-4 w-40 rounded-full bg-muted" />
+        <div className="mx-auto h-12 max-w-xl rounded-xl bg-muted md:h-16" />
+        <div className="mx-auto mt-4 h-5 max-w-md rounded-full bg-muted" />
+        <div className="mt-8 flex items-center justify-center gap-3">
+          <div className="h-11 w-32 rounded-full bg-muted" />
+          <div className="h-11 w-24 rounded-full bg-muted" />
+        </div>
+      </section>
+    </div>
+  );
 }
 
 // ── Landing ────────────────────────────────────────────────────────────────────
