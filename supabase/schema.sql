@@ -499,3 +499,49 @@ on conflict (id) do update set
   excerpt = excluded.excerpt,
   emoji = excluded.emoji,
   read_time = excluded.read_time;
+
+-- ── Post verification / moderation ──────────────────────────────────────────
+
+-- Status column on circles and events.
+-- Default 'approved' so existing data stays visible; new non-admin posts are
+-- set to 'pending' explicitly by the backend.
+alter table public.circles add column if not exists open_access boolean not null default false;
+alter table public.circles add column if not exists status text not null default 'approved'
+  check (status in ('pending', 'approved', 'declined'));
+alter table public.events add column if not exists status text not null default 'approved'
+  check (status in ('pending', 'approved', 'declined'));
+
+-- Update circles SELECT: public sees only approved; owners and admins see all
+drop policy if exists "Public read circles" on public.circles;
+drop policy if exists "Read approved or own circles" on public.circles;
+create policy "Read approved or own circles" on public.circles for select
+  using (status = 'approved' or owner_id = auth.uid() or public.is_admin());
+
+-- Update events SELECT: same pattern
+drop policy if exists "Public read events" on public.events;
+drop policy if exists "Read approved or own events" on public.events;
+create policy "Read approved or own events" on public.events for select
+  using (status = 'approved' or owner_id = auth.uid() or public.is_admin());
+
+-- Audit trail for every moderation action
+create table if not exists public.moderation_history (
+  id uuid primary key default gen_random_uuid(),
+  content_type text not null check (content_type in ('circle', 'event')),
+  content_id text not null,
+  submitter_id uuid references auth.users(id) on delete set null,
+  action text not null check (action in ('submitted', 'approved', 'declined')),
+  actor_id uuid references auth.users(id) on delete set null,
+  reason text,
+  created_at timestamptz not null default now()
+);
+
+alter table public.moderation_history enable row level security;
+drop policy if exists "Users see own mod history" on public.moderation_history;
+create policy "Users see own mod history" on public.moderation_history for select
+  using (submitter_id = auth.uid() or public.is_admin());
+drop policy if exists "Authenticated can insert mod history" on public.moderation_history;
+create policy "Authenticated can insert mod history" on public.moderation_history for insert
+  with check (auth.uid() is not null);
+drop policy if exists "Admin delete mod history" on public.moderation_history;
+create policy "Admin delete mod history" on public.moderation_history for delete
+  using (public.is_admin());

@@ -14,7 +14,7 @@ const en = {
 
   // ── Auth ────────────────────────────────────────────────────────────────────
   auth: {
-    login: "Log in",
+    login: "Sign in",
     signup: "Sign up",
     signout: "Sign out",
     loginPrompt: "Sign in with Google",

@@ -13,6 +13,7 @@ import { useAuth } from "@/components/AuthProvider";
 import { tagClass } from "@/lib/tag-class";
 import { OwnerBadge } from "@/components/OwnerBadge";
 import { NativeSelect } from "@/components/ui/native-select";
+import { BatchAddDialog } from "@/components/BatchAddDialog";
 
 function relativeTime(iso: string | undefined): string | null {
   if (!iso) return null;
@@ -96,7 +97,7 @@ function tagOverlap(circleTags: string[], userInterests: string[]): number {
 
 function CirclesPage() {
   const { t, i18n } = useTranslation();
-  const { user, isAdmin } = useAuth();
+  const { user, isAdmin, loading: authLoading } = useAuth();
   const { circles: allCircles, ownerMap, userInterests } = Route.useLoaderData();
   const router = useRouter();
   const [deletingAll, setDeletingAll] = useState(false);
@@ -160,7 +161,7 @@ function CirclesPage() {
           subtitle={t("circles.subtitle")}
         />
         <div className="mt-1 shrink-0 flex items-center gap-2">
-          {isAdmin && (
+          {!authLoading && isAdmin && (
             <AlertDialog>
               <AlertDialogTrigger asChild>
                 <Button variant="destructive" size="sm" className="gap-1.5">
@@ -189,6 +190,7 @@ function CirclesPage() {
               </AlertDialogContent>
             </AlertDialog>
           )}
+          {!authLoading && isAdmin && <BatchAddDialog type="circle" />}
           <Link
             to={user ? "/circles/new" : "/signup"}
             className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-semibold bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"

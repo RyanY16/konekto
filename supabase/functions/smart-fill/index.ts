@@ -73,8 +73,8 @@ function languageInstruction(outputLanguage: unknown): string {
   }
   if (outputLanguage === "both") {
     return (
-      "OUTPUT LANGUAGE MODE: Bilingual English + Japanese. Write every user-facing free-text field bilingually, English first and Japanese second. Do not return only one language for those fields. " +
-      "For short fields, use 'English / 日本語'. For longer fields, use one concise English paragraph, then one concise Japanese paragraph separated by a newline. " +
+      "OUTPUT LANGUAGE MODE: Bilingual English + Japanese. CRITICAL: every user-facing free-text field MUST contain BOTH English and Japanese text. Returning only English is wrong. " +
+      "For short fields, use 'English / 日本語'. For longer fields, write one English paragraph then one Japanese paragraph on the next line. " +
       "Keep app enum fields exactly as requested in English: category, primaryLanguage, tags, mode. " +
       "Keep URLs, ISO dates, numeric prices, and Instagram handles unchanged. "
     );
@@ -294,7 +294,7 @@ async function handleRequest(req: Request, openaiKey: string, body: unknown, url
       },
       body: JSON.stringify({
         model: "gpt-4o-mini",
-        max_tokens: 1024,
+        max_tokens: outputLanguage === "both" ? 2048 : 1024,
         response_format: { type: "json_object" },
         messages: [
           { role: "system", content: systemPrompt },

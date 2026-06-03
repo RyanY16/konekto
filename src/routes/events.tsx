@@ -20,6 +20,7 @@ import { SaveButton } from "@/components/SaveButton";
 import { getEvents, getEventHandle, getProfilesByIds, deleteAllEvents } from "@/data/backend";
 import { filterValidTags, tagLabel } from "@/data/tags";
 import { useAuth } from "@/components/AuthProvider";
+import { BatchAddDialog } from "@/components/BatchAddDialog";
 import { tagClass } from "@/lib/tag-class";
 import { OwnerBadge } from "@/components/OwnerBadge";
 
@@ -228,7 +229,7 @@ function EventsSkeleton() {
 
 function EventsPage() {
   const { t } = useTranslation();
-  const { user, isAdmin } = useAuth();
+  const { user, isAdmin, loading: authLoading } = useAuth();
   const { events: allEvents, ownerMap } = Route.useLoaderData();
   const router = useRouter();
   const [deletingAll, setDeletingAll] = useState(false);
@@ -290,7 +291,7 @@ function EventsPage() {
           subtitle={t("events.subtitle")}
         />
         <div className="mt-1 shrink-0 flex items-center gap-2">
-          {isAdmin && (
+          {!authLoading && isAdmin && (
             <AlertDialog>
               <AlertDialogTrigger asChild>
                 <Button variant="destructive" size="sm" className="gap-1.5">
@@ -319,6 +320,7 @@ function EventsPage() {
               </AlertDialogContent>
             </AlertDialog>
           )}
+          {!authLoading && isAdmin && <BatchAddDialog type="event" />}
           <Link
             to={user ? "/events/new" : "/signup"}
             className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-semibold bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"

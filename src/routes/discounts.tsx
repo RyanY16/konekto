@@ -10,6 +10,7 @@ import { getDeals, getDealHandle, deleteAllDeals } from "@/data/backend";
 import { useAuth } from "@/components/AuthProvider";
 import { DEAL_CATEGORY_EMOJI } from "@/data/profile-options";
 import { dealGradient } from "@/lib/placeholders";
+import { BatchAddDialog } from "@/components/BatchAddDialog";
 
 export const Route = createFileRoute("/discounts")({
   head: () => ({
@@ -47,7 +48,7 @@ const CATEGORIES = ["All", "Food & Drink", "Fashion", "Tech", "Entertainment", "
 
 function DiscountsPage() {
   const { t } = useTranslation();
-  const { user, isAdmin } = useAuth();
+  const { user, isAdmin, loading: authLoading } = useAuth();
   const { deals } = Route.useLoaderData();
   const router = useRouter();
   const [cat, setCat] = useState<string>("All");
@@ -78,7 +79,7 @@ function DiscountsPage() {
           subtitle={t("discounts.subtitle")}
         />
         <div className="mt-1 shrink-0 flex items-center gap-2">
-          {isAdmin && (
+          {!authLoading && isAdmin && (
             <AlertDialog>
               <AlertDialogTrigger asChild>
                 <Button variant="destructive" size="sm" className="gap-1.5">
@@ -107,6 +108,7 @@ function DiscountsPage() {
               </AlertDialogContent>
             </AlertDialog>
           )}
+          {!authLoading && isAdmin && <BatchAddDialog type="deal" />}
           {user && (
             <Link
               to="/discounts/new"

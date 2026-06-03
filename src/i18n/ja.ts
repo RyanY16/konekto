@@ -12,7 +12,7 @@ const ja = {
   },
 
   auth: {
-    login: "ログイン",
+    login: "サインイン",
     signup: "新規登録",
     signout: "ログアウト",
     loginPrompt: "Googleでサインイン",

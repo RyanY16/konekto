@@ -164,6 +164,8 @@ function mapCircle(row: Row<"circles">): Circle {
     },
     createdAt: row.created_at,
     updatedAt: row.updated_at ?? row.created_at,
+    status: (row as any).status ?? "approved",
+    openAccess: (row as any).open_access ?? false,
   };
 }
 
@@ -191,6 +193,7 @@ function mapEvent(row: Row<"events">): EventItem {
     recurrence: (row as any).recurrence ?? undefined,
     cancelledDates: (row as any).cancelled_dates ?? [],
     imageUrl: (row as any).image_url ?? undefined,
+    status: (row as any).status ?? "approved",
   };
 }
 
@@ -292,7 +295,7 @@ export async function getGuides(): Promise<Guide[]> {
 }
 
 export async function addCircle(
-  input: Omit<Circle, "id" | "members" | "ownerId"> & { members?: number; ownerId?: string | null; id?: string; iconUrl?: string },
+  input: Omit<Circle, "id" | "members" | "ownerId"> & { members?: number; ownerId?: string | null; id?: string; iconUrl?: string; isAdmin?: boolean; openAccess?: boolean },
 ) {
   const client = assertSupabase();
   const values = {
@@ -324,13 +327,19 @@ export async function addCircle(
         discord: input.socialLinksVisibility?.discord ?? "members",
       },
     },
+    status: input.isAdmin ? "approved" : "pending",
+    open_access: input.openAccess ?? false,
   };
 
   const { error } = await Promise.race([
-    client.from("circles").insert(values) as any,
+    client.from("circles").insert(values as any) as any,
     timeoutAfter(20_000),
   ]) as { error: any };
   if (error) throw new Error(error.message);
+
+  if (input.ownerId) {
+    await insertModerationHistory("circle", values.id, input.ownerId, "submitted", null, null);
+  }
 }
 
 export async function updateCircle(
@@ -358,6 +367,7 @@ export async function updateCircle(
     recruiting_conditions: input.recruitingConditions ?? "",
     membership_fee: input.membershipFee ?? "",
     how_to_join: input.howToJoin ?? "",
+    open_access: (input as any).openAccess ?? false,
     social_links: {
       ...(input.socialLinks ?? {}),
       _visibility: {
@@ -387,7 +397,7 @@ export async function deleteAllCircles() {
 }
 
 export async function addEvent(
-  input: Omit<EventItem, "id" | "going"> & { going?: number; ownerId?: string; id?: string },
+  input: Omit<EventItem, "id" | "going"> & { going?: number; ownerId?: string; id?: string; isAdmin?: boolean },
 ): Promise<string> {
   const client = assertSupabase();
   const id = input.id ?? newId("event");
@@ -414,11 +424,17 @@ export async function addEvent(
   if ((input as any).recurrence) (values as any).recurrence = (input as any).recurrence;
   (values as any).cancelled_dates = (input as any).cancelledDates ?? [];
   if (input.imageUrl) (values as any).image_url = input.imageUrl;
+  (values as any).status = input.isAdmin ? "approved" : "pending";
+
   const { error } = await Promise.race([
-    client.from("events").insert(values) as any,
+    client.from("events").insert(values as any) as any,
     timeoutAfter(20_000),
   ]) as { error: any };
   if (error) throw new Error(error.message);
+
+  if (input.ownerId) {
+    await insertModerationHistory("event", id, input.ownerId, "submitted", null, null);
+  }
 
   return id;
 }
@@ -1547,4 +1563,210 @@ export async function searchUsers(q: string): Promise<{ id: string; username: st
       displayName: r.display_name || r.username,
       avatarUrl: r.avatar_url ?? null,
     }));
+}
+
+// ── Moderation ───────────────────────────────────────────────────────────────
+
+async function insertModerationHistory(
+  contentType: "circle" | "event",
+  contentId: string,
+  submitterId: string,
+  action: "submitted" | "approved" | "declined",
+  actorId: string | null,
+  reason: string | null,
+): Promise<void> {
+  if (!supabase) return;
+  await (supabase.from("moderation_history") as any).insert({
+    content_type: contentType,
+    content_id: contentId,
+    submitter_id: submitterId,
+    action,
+    actor_id: actorId,
+    reason,
+  });
+}
+
+export type ModerationQueueItem = {
+  historyId: string;
+  contentType: "circle" | "event";
+  contentId: string;
+  title: string;
+  description: string;
+  submitterId: string;
+  submitterName: string;
+  submittedAt: string;
+  href: string;
+};
+
+export type ModerationHistoryItem = {
+  id: string;
+  contentType: "circle" | "event";
+  contentId: string;
+  title: string;
+  action: "submitted" | "approved" | "declined";
+  actorId: string | null;
+  actorName: string | null;
+  submitterId: string | null;
+  submitterName: string | null;
+  reason: string | null;
+  createdAt: string;
+};
+
+export async function getModerationQueue(): Promise<ModerationQueueItem[]> {
+  if (!supabase) return [];
+  const [{ data: pendingCircles }, { data: pendingEvents }] = await Promise.all([
+    (supabase.from("circles") as any).select("id, name, description, owner_id, created_at").eq("status", "pending"),
+    (supabase.from("events") as any).select("id, title, description, owner_id, created_at").eq("status", "pending"),
+  ]);
+
+  const ownerIds = new Set<string>();
+  (pendingCircles ?? []).forEach((r: any) => r.owner_id && ownerIds.add(r.owner_id));
+  (pendingEvents ?? []).forEach((r: any) => r.owner_id && ownerIds.add(r.owner_id));
+
+  const userMap: Record<string, string> = {};
+  if (ownerIds.size > 0) {
+    const { data: users } = await (supabase.from("users") as any)
+      .select("id, display_name, username")
+      .in("id", [...ownerIds]);
+    (users ?? []).forEach((u: any) => {
+      userMap[u.id] = u.display_name || u.username || "Unknown";
+    });
+  }
+
+  const { data: historyRows } = await (supabase.from("moderation_history") as any)
+    .select("id, content_type, content_id, submitter_id, created_at")
+    .eq("action", "submitted")
+    .order("created_at", { ascending: true });
+
+  const historyByContent: Record<string, { id: string; createdAt: string }> = {};
+  (historyRows ?? []).forEach((r: any) => {
+    const key = `${r.content_type}:${r.content_id}`;
+    if (!historyByContent[key]) historyByContent[key] = { id: r.id, createdAt: r.created_at };
+  });
+
+  const items: ModerationQueueItem[] = [];
+
+  (pendingCircles ?? []).forEach((c: any) => {
+    const hist = historyByContent[`circle:${c.id}`];
+    items.push({
+      historyId: hist?.id ?? "",
+      contentType: "circle",
+      contentId: c.id,
+      title: c.name,
+      description: c.description ?? "",
+      submitterId: c.owner_id ?? "",
+      submitterName: c.owner_id ? (userMap[c.owner_id] ?? "Unknown") : "Unknown",
+      submittedAt: hist?.createdAt ?? c.created_at,
+      href: `/circles/${toSlug(c.name)}-${c.id.replace(/^circle-/, "").slice(0, 8)}`,
+    });
+  });
+
+  (pendingEvents ?? []).forEach((e: any) => {
+    const hist = historyByContent[`event:${e.id}`];
+    items.push({
+      historyId: hist?.id ?? "",
+      contentType: "event",
+      contentId: e.id,
+      title: e.title,
+      description: e.description ?? "",
+      submitterId: e.owner_id ?? "",
+      submitterName: e.owner_id ? (userMap[e.owner_id] ?? "Unknown") : "Unknown",
+      submittedAt: hist?.createdAt ?? e.created_at,
+      href: `/events/${toSlug(e.title)}-${e.id.replace(/^event-/, "").slice(0, 8)}`,
+    });
+  });
+
+  return items.sort((a, b) => new Date(a.submittedAt).getTime() - new Date(b.submittedAt).getTime());
+}
+
+export async function getModerationHistory(): Promise<ModerationHistoryItem[]> {
+  if (!supabase) return [];
+  const { data: rows } = await (supabase.from("moderation_history") as any)
+    .select("*")
+    .order("created_at", { ascending: false })
+    .limit(200);
+  if (!rows || rows.length === 0) return [];
+
+  const userIds = new Set<string>();
+  rows.forEach((r: any) => {
+    if (r.submitter_id) userIds.add(r.submitter_id);
+    if (r.actor_id) userIds.add(r.actor_id);
+  });
+
+  const userMap: Record<string, string> = {};
+  if (userIds.size > 0) {
+    const { data: users } = await (supabase.from("users") as any)
+      .select("id, display_name, username")
+      .in("id", [...userIds]);
+    (users ?? []).forEach((u: any) => {
+      userMap[u.id] = u.display_name || u.username || "Unknown";
+    });
+  }
+
+  const contentIds = { circle: new Set<string>(), event: new Set<string>() };
+  rows.forEach((r: any) => contentIds[r.content_type as "circle" | "event"]?.add(r.content_id));
+
+  const titleMap: Record<string, string> = {};
+  if (contentIds.circle.size > 0) {
+    const { data } = await (supabase.from("circles") as any)
+      .select("id, name")
+      .in("id", [...contentIds.circle]);
+    (data ?? []).forEach((c: any) => { titleMap[`circle:${c.id}`] = c.name; });
+  }
+  if (contentIds.event.size > 0) {
+    const { data } = await (supabase.from("events") as any)
+      .select("id, title")
+      .in("id", [...contentIds.event]);
+    (data ?? []).forEach((e: any) => { titleMap[`event:${e.id}`] = e.title; });
+  }
+
+  return rows.map((r: any) => ({
+    id: r.id,
+    contentType: r.content_type,
+    contentId: r.content_id,
+    title: titleMap[`${r.content_type}:${r.content_id}`] ?? r.content_id,
+    action: r.action,
+    actorId: r.actor_id ?? null,
+    actorName: r.actor_id ? (userMap[r.actor_id] ?? null) : null,
+    submitterId: r.submitter_id ?? null,
+    submitterName: r.submitter_id ? (userMap[r.submitter_id] ?? null) : null,
+    reason: r.reason ?? null,
+    createdAt: r.created_at,
+  }));
+}
+
+export async function moderatePost(
+  contentType: "circle" | "event",
+  contentId: string,
+  action: "approved" | "declined",
+  adminId: string,
+  reason?: string,
+): Promise<void> {
+  const client = assertSupabase();
+
+  const table = contentType === "circle" ? "circles" : "events";
+  const titleField = contentType === "circle" ? "name" : "title";
+  const { data: content, error: fetchErr } = await (client.from(table) as any)
+    .select(`id, owner_id, ${titleField}`)
+    .eq("id", contentId)
+    .maybeSingle();
+  if (fetchErr) throw new Error(fetchErr.message);
+
+  const { error: updateErr } = await (client.from(table) as any)
+    .update({ status: action })
+    .eq("id", contentId);
+  if (updateErr) throw new Error(updateErr.message);
+
+  const submitterId = content?.owner_id ?? null;
+  await insertModerationHistory(contentType, contentId, submitterId, action, adminId, reason ?? null);
+
+  if (submitterId) {
+    const title = content?.[titleField] ?? "";
+    await insertNotification(submitterId, action === "approved" ? "post_approved" : "post_declined", {
+      contentType,
+      contentId,
+      title: title ?? "",
+      reason: reason ?? null,
+    });
+  }
 }

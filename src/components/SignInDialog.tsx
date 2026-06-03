@@ -33,7 +33,7 @@ export function SignInDialog() {
 
   const handleSignUpClick = () => {
     setOpen(false);
-    navigate({ to: "/signup" });
+    navigate({ to: "/login" });
   };
 
   return (

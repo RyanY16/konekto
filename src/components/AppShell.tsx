@@ -60,8 +60,8 @@ function ProfileGuard() {
     console.log(`[guard] check — loading=${loading} profileReady=${profileReady} user=${user?.id ?? "null"} profileIncomplete=${profileIncomplete} pathname=${pathname}`);
     if (loading || !profileReady || !user || profileIncomplete === false) return;
     if (pathname === "/signup" || pathname === "/login") return;
-    console.log("[guard] → redirecting to /signup");
-    navigate({ to: "/signup" });
+    console.log("[guard] → redirecting to /login");
+    navigate({ to: "/login" });
   }, [loading, profileReady, user, profileIncomplete, pathname]);
 
   return null;
@@ -276,11 +276,8 @@ function AuthControls() {
     if (!user) {
       return (
         <div className="flex items-center gap-1.5">
-          <Link to="/login" className="hidden sm:block px-3 py-1.5 rounded-lg text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-muted transition-colors">
+          <Link to="/login" className="px-2.5 py-1.5 rounded-lg text-sm font-semibold bg-primary text-primary-foreground hover:bg-primary/90 transition-colors whitespace-nowrap">
             {t("auth.login")}
-          </Link>
-          <Link to="/signup" className="px-2.5 py-1.5 rounded-lg text-sm font-semibold bg-primary text-primary-foreground hover:bg-primary/90 transition-colors whitespace-nowrap">
-            {t("auth.signup")}
           </Link>
         </div>
       );

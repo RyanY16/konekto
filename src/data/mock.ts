@@ -36,6 +36,8 @@ export type Circle = {
   createdAt?: string;
   updatedAt?: string;
   socialLinksVisibility?: SocialLinksVisibility;
+  status?: "pending" | "approved" | "declined";
+  openAccess?: boolean;
 };
 
 export type EventItem = {
@@ -61,6 +63,7 @@ export type EventItem = {
   recurrence?: "weekly";
   cancelledDates?: string[]; // YYYY-MM-DD
   imageUrl?: string;
+  status?: "pending" | "approved" | "declined";
 };
 
 export type Deal = {

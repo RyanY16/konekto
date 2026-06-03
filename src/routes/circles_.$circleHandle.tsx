@@ -99,6 +99,7 @@ type Draft = {
   university: string;
   primaryLanguage: string;
   englishFriendly: boolean;
+  openAccess: boolean;
   recruiting: boolean;
   recruitingPeriod: string;
   recruitingConditions: string;
@@ -126,6 +127,7 @@ function toDraft(c: Circle): Draft {
     university: c.university ?? "",
     primaryLanguage: c.primaryLanguage ?? "",
     englishFriendly: c.englishFriendly ?? false,
+    openAccess: c.openAccess ?? false,
     recruiting: c.recruiting ?? false,
     recruitingPeriod: c.recruitingPeriod ?? "",
     recruitingConditions: c.recruitingConditions ?? "",
@@ -147,9 +149,13 @@ function toDraft(c: Circle): Draft {
 function CircleDetailPage() {
   const circle = Route.useLoaderData();
   const { i18n } = useTranslation();
-  const { user, isAdmin } = useAuth();
+  const { user, isAdmin, loading: authLoading } = useAuth();
   const router = useRouter();
   const navigate = useNavigate();
+
+  useEffect(() => {
+    if (!authLoading && !user) navigate({ to: "/login" });
+  }, [authLoading, user]);
   const [editing, setEditing] = useState(false);
   const [owner, setOwner] = useState<{ id: string; username: string; displayName: string; avatarUrl: string | null } | null>(null);
   const [draft, setDraft] = useState<Draft>(circle ? toDraft(circle) : {} as Draft);
@@ -413,6 +419,8 @@ function CircleDetailPage() {
     }
   }
 
+  if (authLoading || !user) return null;
+
   if (!circle) {
     return (
       <div className="text-center py-16">
@@ -469,6 +477,7 @@ function CircleDetailPage() {
         primaryLanguage: draft.primaryLanguage,
         vibe: draft.vibe || undefined,
         englishFriendly: draft.englishFriendly,
+        openAccess: draft.openAccess,
         recruiting: draft.recruiting,
         recruitingPeriod: draft.recruitingPeriod,
         recruitingConditions: draft.recruitingConditions,
@@ -655,6 +664,23 @@ function CircleDetailPage() {
                   </button>
                 ))}
               </div>
+            </div>
+
+            <div className="space-y-2">
+              <label className="flex items-center gap-2 text-sm cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={draft.openAccess}
+                  onChange={(e) => setDraft((d) => ({ ...d, openAccess: e.target.checked }))}
+                  className="h-4 w-4"
+                />
+                Open to all — no need to apply
+              </label>
+              {draft.openAccess && (
+                <p className="text-xs text-muted-foreground pl-6">
+                  The join/apply button will be hidden. Anyone can participate by just showing up.
+                </p>
+              )}
             </div>
 
             <div className="space-y-2">
@@ -962,8 +988,8 @@ function CircleDetailPage() {
           <div className="absolute bottom-4 right-4 flex gap-1.5 items-center">
             <ShareButton title={circle.name} />
             <SaveButton itemId={circle.id} itemType="circle" />
-            {/* Join / leave / request button — not shown to owner/admin */}
-            {user && !isOwner && !isAdmin && (
+            {/* Join / leave / request button — not shown to owner/admin or for open-access circles */}
+            {user && !isOwner && !isAdmin && !circle.openAccess && (
               isMember ? (
                 <button
                   onClick={handleLeave}
@@ -985,6 +1011,11 @@ function CircleDetailPage() {
                   {joinLoading ? "…" : "Request to join"}
                 </Button>
               )
+            )}
+            {circle.openAccess && !isOwner && !isAdmin && (
+              <span className="text-xs text-muted-foreground border border-border rounded-md px-2.5 py-1">
+                Open to all — just show up
+              </span>
             )}
             {canEdit && (
               <button

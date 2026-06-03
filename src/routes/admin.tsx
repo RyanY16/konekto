@@ -1,11 +1,12 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useState, useEffect, useCallback } from "react";
-import { Shield, RefreshCw, Trash2, ExternalLink, ChevronDown, ChevronUp, AlertTriangle, CheckCircle, Loader2 } from "lucide-react";
+import { Shield, RefreshCw, Trash2, ExternalLink, ChevronDown, ChevronUp, AlertTriangle, CheckCircle, Loader2, Clock, History, Check, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/components/AuthProvider";
-import { getCircles, getEvents, getDeals, deleteCircle, deleteEvent, deleteDeal, getCircleHandle, getEventHandle, getDealHandle } from "@/data/backend";
+import { getCircles, getEvents, getDeals, deleteCircle, deleteEvent, deleteDeal, getCircleHandle, getEventHandle, getDealHandle, getModerationQueue, getModerationHistory, moderatePost } from "@/data/backend";
 import { moderateTexts, CATEGORY_META, CATEGORIES_SORTED } from "@/lib/moderation";
 import type { ModerationResult } from "@/lib/moderation";
+import type { ModerationQueueItem, ModerationHistoryItem } from "@/data/backend";
 import type { Circle, EventItem, Deal } from "@/data/mock";
 
 export const Route = createFileRoute("/admin")({
@@ -219,10 +220,26 @@ function PostCard({
   );
 }
 
+type AdminTab = "queue" | "analysis" | "history";
+
 export default function AdminPage() {
   const { user, isAdmin, loading } = useAuth();
   const navigate = useNavigate();
+  const [tab, setTab] = useState<AdminTab>("queue");
 
+  // Queue state
+  const [queue, setQueue] = useState<ModerationQueueItem[]>([]);
+  const [queueLoading, setQueueLoading] = useState(false);
+  const [queueError, setQueueError] = useState<string | null>(null);
+  const [declineReason, setDeclineReason] = useState<Record<string, string>>({});
+  const [actioning, setActioning] = useState<string | null>(null);
+
+  // History state
+  const [historyItems, setHistoryItems] = useState<ModerationHistoryItem[]>([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [historyError, setHistoryError] = useState<string | null>(null);
+
+  // AI analysis state
   const [posts, setPosts] = useState<Post[]>([]);
   const [analysed, setAnalysed] = useState<AnalysedPost[]>([]);
   const [fetchLoading, setFetchLoading] = useState(true);
@@ -288,6 +305,42 @@ export default function AdminPage() {
 
     return () => { cancelled = true; };
   }, [isAdmin]);
+
+  // Fetch queue when tab is "queue" or on mount
+  useEffect(() => {
+    if (!isAdmin || tab !== "queue") return;
+    setQueueLoading(true);
+    setQueueError(null);
+    getModerationQueue()
+      .then(setQueue)
+      .catch((err) => setQueueError(err instanceof Error ? err.message : "Failed to load queue"))
+      .finally(() => setQueueLoading(false));
+  }, [isAdmin, tab]);
+
+  // Fetch history when tab is "history"
+  useEffect(() => {
+    if (!isAdmin || tab !== "history") return;
+    setHistoryLoading(true);
+    setHistoryError(null);
+    getModerationHistory()
+      .then(setHistoryItems)
+      .catch((err) => setHistoryError(err instanceof Error ? err.message : "Failed to load history"))
+      .finally(() => setHistoryLoading(false));
+  }, [isAdmin, tab]);
+
+  async function handleModerate(item: ModerationQueueItem, action: "approved" | "declined") {
+    if (!user) return;
+    const reason = action === "declined" ? (declineReason[item.contentId] ?? "") : undefined;
+    setActioning(item.contentId);
+    try {
+      await moderatePost(item.contentType, item.contentId, action, user.id, reason || undefined);
+      setQueue((q) => q.filter((i) => i.contentId !== item.contentId));
+    } catch (e) {
+      alert(e instanceof Error ? e.message : "Action failed");
+    } finally {
+      setActioning(null);
+    }
+  }
 
   const runAnalysis = useCallback(async () => {
     setAnalyseState("running");
@@ -355,10 +408,167 @@ export default function AdminPage() {
           <Shield className="h-5 w-5 text-primary" />
         </div>
         <div>
-          <h1 className="text-xl font-bold">Content Moderation</h1>
-          <p className="text-xs text-muted-foreground">AI-powered risk analysis for all user-submitted content</p>
+          <h1 className="text-xl font-bold">Moderation</h1>
+          <p className="text-xs text-muted-foreground">Review pending posts and monitor content</p>
         </div>
       </div>
+
+      {/* Tabs */}
+      <div className="flex gap-1 border-b border-border">
+        {([
+          { id: "queue", label: "Queue", icon: <Clock className="h-3.5 w-3.5" /> },
+          { id: "analysis", label: "AI Analysis", icon: <Shield className="h-3.5 w-3.5" /> },
+          { id: "history", label: "History", icon: <History className="h-3.5 w-3.5" /> },
+        ] as { id: AdminTab; label: string; icon: React.ReactNode }[]).map((t) => (
+          <button
+            key={t.id}
+            onClick={() => setTab(t.id)}
+            className={`flex items-center gap-1.5 px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors ${
+              tab === t.id
+                ? "border-primary text-primary"
+                : "border-transparent text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            {t.icon}
+            {t.label}
+            {t.id === "queue" && queue.length > 0 && (
+              <span className="ml-1 h-4.5 min-w-4 rounded-full bg-primary text-primary-foreground text-[10px] font-bold px-1 flex items-center justify-center leading-none">
+                {queue.length}
+              </span>
+            )}
+          </button>
+        ))}
+      </div>
+
+      {/* ── Queue tab ─────────────────────────────────────────────────── */}
+      {tab === "queue" && (
+        <div className="space-y-4">
+          {queueLoading && (
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <Loader2 className="h-4 w-4 animate-spin" /> Loading pending posts…
+            </div>
+          )}
+          {queueError && (
+            <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive">{queueError}</div>
+          )}
+          {!queueLoading && !queueError && queue.length === 0 && (
+            <div className="rounded-xl border border-dashed border-border p-10 text-center text-sm text-muted-foreground">
+              No posts pending review — you're all caught up!
+            </div>
+          )}
+          {queue.map((item) => (
+            <div key={item.contentId} className="rounded-xl border border-border bg-card overflow-hidden">
+              <div className="flex items-start gap-3 p-4">
+                <div className="flex-1 min-w-0 space-y-1">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className={`text-[11px] font-semibold rounded-full px-2 py-0.5 uppercase tracking-wide ${TYPE_BADGE[item.contentType]}`}>
+                      {item.contentType}
+                    </span>
+                    <span className="text-xs text-muted-foreground">
+                      by <span className="font-medium text-foreground">{item.submitterName}</span>
+                      {" · "}
+                      {new Date(item.submittedAt).toLocaleString()}
+                    </span>
+                  </div>
+                  <p className="font-semibold text-sm">{item.title}</p>
+                  {item.description && (
+                    <p className="text-xs text-muted-foreground line-clamp-2">{item.description}</p>
+                  )}
+                </div>
+                <a
+                  href={item.href}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="shrink-0 text-muted-foreground hover:text-foreground"
+                  title="Preview"
+                >
+                  <ExternalLink className="h-4 w-4" />
+                </a>
+              </div>
+              <div className="border-t border-border px-4 py-3 bg-muted/20 flex items-center gap-2 flex-wrap">
+                <input
+                  type="text"
+                  placeholder="Decline reason (optional)"
+                  value={declineReason[item.contentId] ?? ""}
+                  onChange={(e) => setDeclineReason((r) => ({ ...r, [item.contentId]: e.target.value }))}
+                  className="flex-1 min-w-40 h-8 rounded-md border border-input bg-background px-3 text-xs focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                />
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="gap-1.5 text-destructive hover:text-destructive hover:bg-destructive/10 border-destructive/30 h-8"
+                  onClick={() => handleModerate(item, "declined")}
+                  disabled={actioning === item.contentId}
+                >
+                  {actioning === item.contentId ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <X className="h-3.5 w-3.5" />}
+                  Decline
+                </Button>
+                <Button
+                  size="sm"
+                  className="gap-1.5 h-8"
+                  onClick={() => handleModerate(item, "approved")}
+                  disabled={actioning === item.contentId}
+                >
+                  {actioning === item.contentId ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
+                  Approve
+                </Button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* ── History tab ───────────────────────────────────────────────── */}
+      {tab === "history" && (
+        <div className="space-y-3">
+          {historyLoading && (
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <Loader2 className="h-4 w-4 animate-spin" /> Loading history…
+            </div>
+          )}
+          {historyError && (
+            <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive">{historyError}</div>
+          )}
+          {!historyLoading && !historyError && historyItems.length === 0 && (
+            <div className="rounded-xl border border-dashed border-border p-10 text-center text-sm text-muted-foreground">
+              No moderation history yet.
+            </div>
+          )}
+          {historyItems.map((item) => (
+            <div key={item.id} className="flex items-start gap-3 px-4 py-3 rounded-xl border border-border bg-card text-sm">
+              <div className={`mt-0.5 shrink-0 h-5 w-5 rounded-full flex items-center justify-center ${
+                item.action === "approved" ? "bg-emerald-100 dark:bg-emerald-950 text-emerald-600" :
+                item.action === "declined" ? "bg-red-100 dark:bg-red-950 text-red-600" :
+                "bg-muted text-muted-foreground"
+              }`}>
+                {item.action === "approved" && <Check className="h-3 w-3" />}
+                {item.action === "declined" && <X className="h-3 w-3" />}
+                {item.action === "submitted" && <Clock className="h-3 w-3" />}
+              </div>
+              <div className="flex-1 min-w-0 space-y-0.5">
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <span className={`text-[10px] font-semibold rounded-full px-1.5 py-0.5 uppercase tracking-wide ${TYPE_BADGE[item.contentType]}`}>
+                    {item.contentType}
+                  </span>
+                  <span className="font-medium truncate">{item.title}</span>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  {item.action === "submitted" && `Submitted by ${item.submitterName ?? "unknown"}`}
+                  {item.action === "approved" && `Approved by ${item.actorName ?? "admin"} · submitted by ${item.submitterName ?? "unknown"}`}
+                  {item.action === "declined" && `Declined by ${item.actorName ?? "admin"} · submitted by ${item.submitterName ?? "unknown"}`}
+                  {item.reason && <> · <span className="italic">"{item.reason}"</span></>}
+                </p>
+              </div>
+              <span className="shrink-0 text-xs text-muted-foreground whitespace-nowrap">
+                {new Date(item.createdAt).toLocaleDateString()}
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* ── AI Analysis tab ───────────────────────────────────────────── */}
+      {tab === "analysis" && (<>
 
 
       {/* Content load state */}
@@ -538,6 +748,7 @@ export default function AdminPage() {
           {posts.length} posts.
         </div>
       )}
+      </>)}
     </div>
   );
 }

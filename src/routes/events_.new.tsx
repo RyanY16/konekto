@@ -75,9 +75,10 @@ export const Route = createFileRoute("/events_/new")({
 
 function NewEventPage() {
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, isAdmin } = useAuth();
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
+  const [pendingId, setPendingId] = useState<string | null>(null);
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [cost, setCost] = useState("");
@@ -236,6 +237,7 @@ function NewEventPage() {
         startDate: startDateIso,
         recurrence: isWeekly ? "weekly" : undefined,
         howToJoin: howToJoin.trim() || undefined,
+        isAdmin,
       } as any);
 
       if (selectedCircleIds.length > 0 || invitedCircleIds.length > 0) {
@@ -249,8 +251,12 @@ function NewEventPage() {
         });
       }
 
-      const handle = getEventHandle({ id: eventId, title: trimmedTitle });
-      navigate({ to: "/events/$eventHandle", params: { eventHandle: handle } });
+      if (isAdmin) {
+        const handle = getEventHandle({ id: eventId, title: trimmedTitle });
+        navigate({ to: "/events/$eventHandle", params: { eventHandle: handle } });
+      } else {
+        setPendingId(eventId);
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not add event.");
     } finally {
@@ -263,6 +269,24 @@ function NewEventPage() {
   const field = "space-y-1.5";
   const req = <span className="text-destructive ml-0.5">*</span>;
   const opt = <span className="font-normal text-muted-foreground/60 ml-1">(optional)</span>;
+
+  if (pendingId) {
+    return (
+      <div className="max-w-md mx-auto mt-16 text-center space-y-4">
+        <div className="text-4xl">⏳</div>
+        <h2 className="text-xl font-bold">Your event is pending review</h2>
+        <p className="text-muted-foreground text-sm">
+          Your submission is awaiting admin verification — this usually takes up to 24 hours.
+          You'll get a notification once it's approved.
+        </p>
+        <div className="flex justify-center gap-3 pt-2">
+          <Link to="/events" className="text-sm text-primary font-medium hover:underline">
+            Back to events
+          </Link>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div>

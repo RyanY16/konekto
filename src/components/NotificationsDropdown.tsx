@@ -60,6 +60,16 @@ function notifLabel(n: AppNotification): { icon: string; text: string; to?: stri
     return { icon: "❌", text: `Your request to join "${p.circleName}" was declined`, to };
   }
 
+  if (n.type === "post_approved") {
+    const label = p.contentType === "circle" ? "circle" : "event";
+    return { icon: "✅", text: `Your ${label} "${p.title}" was approved and is now live!`, to: p.contentId ? `/${label}s/${p.contentId}` : undefined };
+  }
+  if (n.type === "post_declined") {
+    const label = p.contentType === "circle" ? "circle" : "event";
+    const reason = p.reason ? ` Reason: ${p.reason}` : "";
+    return { icon: "❌", text: `Your ${label} "${p.title}" was not approved.${reason}`, to: undefined };
+  }
+
   return { icon: "🔔", text: n.type };
 }
 

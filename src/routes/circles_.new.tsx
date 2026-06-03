@@ -22,9 +22,10 @@ export const Route = createFileRoute("/circles_/new")({
 
 function NewCirclePage() {
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, isAdmin } = useAuth();
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
+  const [pendingId, setPendingId] = useState<string | null>(null);
 
   // Controlled form state (so SmartFill can populate them)
   const [name, setName] = useState("");
@@ -45,6 +46,7 @@ function NewCirclePage() {
   const [vibe, setVibe] = useState("Casual");
   const [recruiting, setRecruiting] = useState(false);
   const [englishFriendly, setEnglishFriendly] = useState(false);
+  const [openAccess, setOpenAccess] = useState(false);
   const [pendingIcon, setPendingIcon] = useState<File | null>(null);
   const [iconPreview, setIconPreview] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -127,10 +129,16 @@ function NewCirclePage() {
         tags: selectedTags,
         ownerId: user.id,
         iconUrl,
+        isAdmin,
+        openAccess,
       });
 
-      const handle = getCircleHandle({ id: circleId, name: name.trim() });
-      navigate({ to: "/circles/$circleHandle" as any, params: { circleHandle: handle } as any });
+      if (isAdmin) {
+        const handle = getCircleHandle({ id: circleId, name: name.trim() });
+        navigate({ to: "/circles/$circleHandle" as any, params: { circleHandle: handle } as any });
+      } else {
+        setPendingId(circleId);
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not add circle.");
     } finally {
@@ -143,6 +151,24 @@ function NewCirclePage() {
   const field = "space-y-1.5";
   const req = <span className="text-destructive ml-0.5">*</span>;
   const opt = <span className="font-normal text-muted-foreground/60 ml-1">(optional)</span>;
+
+  if (pendingId) {
+    return (
+      <div className="max-w-md mx-auto mt-16 text-center space-y-4">
+        <div className="text-4xl">⏳</div>
+        <h2 className="text-xl font-bold">Your circle is pending review</h2>
+        <p className="text-muted-foreground text-sm">
+          Your submission is awaiting admin verification — this usually takes up to 24 hours.
+          You'll get a notification once it's approved.
+        </p>
+        <div className="flex justify-center gap-3 pt-2">
+          <Link to="/circles" className="text-sm text-primary font-medium hover:underline">
+            Back to circles
+          </Link>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div>
@@ -279,6 +305,24 @@ function NewCirclePage() {
                 </button>
               ))}
             </div>
+          </div>
+
+          {/* Open access */}
+          <div className={field}>
+            <label className="flex items-center gap-2.5 text-sm cursor-pointer select-none">
+              <input
+                type="checkbox"
+                className="h-4 w-4 rounded"
+                checked={openAccess}
+                onChange={(e) => setOpenAccess(e.target.checked)}
+              />
+              <span>Open to all — no need to apply</span>
+            </label>
+            {openAccess && (
+              <p className="text-xs text-muted-foreground mt-1 pl-6">
+                The join/apply button will be hidden. Anyone can participate by just showing up.
+              </p>
+            )}
           </div>
 
           {/* Recruiting */}
