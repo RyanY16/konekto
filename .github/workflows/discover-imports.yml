@@ -1,0 +1,23 @@
+name: Discover imports
+
+on:
+  schedule:
+    # 03:00 Asia/Tokyo daily
+    - cron: "0 18 * * *"
+  workflow_dispatch:
+
+jobs:
+  discover:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Run discovery
+        run: |
+          curl --fail --show-error --silent \
+            --request POST \
+            --header "Content-Type: application/json" \
+            --header "x-cron-secret: ${DISCOVERY_CRON_SECRET}" \
+            --data '{"mode":"scheduled"}' \
+            "${SUPABASE_URL}/functions/v1/discover-imports"
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          DISCOVERY_CRON_SECRET: ${{ secrets.DISCOVERY_CRON_SECRET }}

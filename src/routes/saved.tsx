@@ -1,7 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState, useEffect } from "react";
 import { useTranslation } from "react-i18next";
-import { Bookmark, Calendar, MapPin, Users } from "lucide-react";
+import { Bookmark, Calendar, MapPin } from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
 import { SaveButton } from "@/components/SaveButton";
 import { getCircles, getEvents, getDeals, getCircleHandle, getEventHandle, getDealHandle } from "@/data/backend";
@@ -9,20 +9,13 @@ import { useSaves } from "@/lib/saves";
 import { filterValidTags, tagLabel } from "@/data/tags";
 import { tagClass } from "@/lib/tag-class";
 import { useAuth } from "@/components/AuthProvider";
-import { DEAL_CATEGORY_EMOJI } from "@/data/profile-options";
+import { CATEGORY_EMOJI, DEAL_CATEGORY_EMOJI } from "@/data/profile-options";
 import type { Circle, EventItem, Deal } from "@/data/mock";
 
 export const Route = createFileRoute("/saved")({
   head: () => ({ meta: [{ title: "Saved — Konekto" }] }),
   component: SavedPage,
 });
-
-const CATEGORY_EMOJI: Record<string, string> = {
-  Social: "🥂",
-  Career: "💼",
-  Hackathon: "⚡",
-  Networking: "🚀",
-};
 
 function SavedPage() {
   const { i18n } = useTranslation();
@@ -139,7 +132,7 @@ function SavedPage() {
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="font-semibold text-sm truncate">{c.name}</p>
-                      <p className="text-xs text-muted-foreground">{c.category} · {c.members} members</p>
+                      <p className="text-xs text-muted-foreground">{c.category}</p>
                       {filterValidTags(c.tags).length > 0 && (
                         <div className="mt-1.5 flex flex-wrap gap-1">
                           {filterValidTags(c.tags).slice(0, 3).map((tag) => (
@@ -177,7 +170,6 @@ function SavedPage() {
                       <div className="flex flex-wrap gap-x-3 mt-0.5 text-xs text-muted-foreground">
                         <span className="flex items-center gap-1"><Calendar className="h-3 w-3" />{e.date}</span>
                         <span className="flex items-center gap-1"><MapPin className="h-3 w-3" />{e.location}</span>
-                        <span className="flex items-center gap-1"><Users className="h-3 w-3" />{e.going} going</span>
                       </div>
                     </div>
                     <div className="relative z-10 shrink-0">

@@ -886,7 +886,6 @@ function CircleDetailPage() {
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <Detail label="Category" value={circle.category} />
-              <Detail label="Members" value={`${circle.members}`} />
             </div>
 
             {circle.university && (
@@ -1238,11 +1237,10 @@ function CircleDetailPage() {
               const dr = rank(a) - rank(b);
               return dr !== 0 ? dr : name(a).localeCompare(name(b));
             });
-            const total = displayMembers.length;
             return (
               <>
-                <h2 className="text-sm font-semibold">Members{total > 0 && ` (${total})`}</h2>
-                {total === 0 ? (
+                <h2 className="text-sm font-semibold">Members</h2>
+                {displayMembers.length === 0 ? (
                   <p className="text-sm text-muted-foreground">No members yet — be the first to join!</p>
                 ) : (
                   <div className="space-y-1">

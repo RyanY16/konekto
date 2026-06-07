@@ -43,18 +43,9 @@ import {
 } from "@/data/backend";
 import type { Circle } from "@/data/mock";
 import type { AttendeeStatus, EventAttendee, EventCircleLink } from "@/data/backend";
-import { LANGUAGES } from "@/data/profile-options";
+import { CATEGORY_EMOJI, EVENT_CATEGORIES, LANGUAGES } from "@/data/profile-options";
 import { NativeSelect } from "@/components/ui/native-select";
 import type { EventItem } from "@/data/mock";
-
-const EVENT_CATEGORIES = ["Social", "Career", "Hackathon", "Workshop", "Casual"] as const;
-
-const CATEGORY_EMOJI: Record<string, string> = {
-  Social: "🥂",
-  Career: "💼",
-  Hackathon: "⚡",
-  Networking: "🚀",
-};
 
 function mapsUrl(location: string) {
   return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(location)}`;
@@ -736,7 +727,6 @@ function EventDetailPage() {
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <Detail label="Date & time" value={event.date} />
-              <Detail label="Going" value={`${event.going} people`} />
               {event.cost && <Detail label="Cost" value={event.cost} />}
               {event.recurrence === "weekly" && event.startDate && (
                 <Detail label="Repeats" value={`Every ${DAY_NAMES[new Date(event.startDate).getDay()]}`} />
@@ -951,10 +941,10 @@ function EventDetailPage() {
           {attendeesLoaded && (["pending", "approved", "declined"] as AttendeeStatus[]).map((statusGroup) => {
             const group = attendees.filter((a) => a.status === statusGroup);
             if (group.length === 0) return null;
-            const label = statusGroup === "pending" ? "Pending" : statusGroup === "approved" ? "Going" : "Declined";
+            const label = statusGroup === "pending" ? "Pending" : statusGroup === "approved" ? "Approved" : "Declined";
             return (
               <div key={statusGroup}>
-                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">{label} · {group.length}</p>
+                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">{label}</p>
                 <div className="space-y-2">
                   {group.map((a) => (
                     <div key={a.userId} className="flex items-center gap-3">
@@ -1051,7 +1041,7 @@ function RsvpButton({
         }}
         className="text-xs px-3 py-1 rounded-full bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-400 border border-green-300 dark:border-green-700 hover:bg-green-200 dark:hover:bg-green-900/60 transition-colors"
       >
-        ✓ Going
+        ✓ RSVP'd
       </button>
     );
   }

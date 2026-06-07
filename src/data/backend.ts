@@ -5,6 +5,8 @@ import { toSlug } from "@/lib/slug";
 import { supabase } from "@/lib/supabase";
 import { timeoutAfter } from "@/lib/async";
 import type { Database } from "@/lib/supabase.types";
+import { CATEGORY_EMOJI, EVENT_CATEGORIES, LANGUAGES } from "@/data/profile-options";
+import { filterValidTags, inferRelevantTags } from "@/data/tags";
 
 type PublicTable = keyof Database["public"]["Tables"];
 type Row<T extends PublicTable> = Database["public"]["Tables"][T]["Row"];
@@ -790,6 +792,353 @@ export async function deleteAllDeals() {
   const { error } = await (client.from("deals").delete().neq("id", "") as any);
   if (error) { console.error("[db] delete all deals ✗", error); throw new Error(error.message); }
   console.log("[db] delete all deals ✓");
+}
+
+export type ImportSourceType = "event" | "circle" | "deal" | "mixed";
+export type ImportCadence = "manual" | "daily" | "weekly";
+export type ImportCandidateType = "event" | "circle" | "deal";
+export type ImportCandidateStatus = "new" | "approved" | "rejected" | "duplicate";
+
+export type ImportSource = {
+  id: string;
+  name: string;
+  type: ImportSourceType;
+  url: string;
+  enabled: boolean;
+  cadence: ImportCadence;
+  lastScrapedAt?: string;
+  lastStatus?: string;
+  errorCount: number;
+  createdAt: string;
+  updatedAt?: string;
+};
+
+export type ImportCandidate = {
+  id: string;
+  sourceId?: string;
+  sourceName: string;
+  sourceUrl: string;
+  itemUrl: string;
+  type: ImportCandidateType;
+  title: string;
+  description: string;
+  normalizedPayload: Record<string, any>;
+  rawPayload: Record<string, any>;
+  confidence: number;
+  duplicateKey: string;
+  status: ImportCandidateStatus;
+  rejectionReason?: string;
+  reviewedBy?: string;
+  reviewedAt?: string;
+  createdAt: string;
+  updatedAt?: string;
+};
+
+function mapImportSource(row: any): ImportSource {
+  return {
+    id: row.id,
+    name: row.name,
+    type: row.type,
+    url: row.url,
+    enabled: row.enabled,
+    cadence: row.cadence,
+    lastScrapedAt: row.last_scraped_at ?? undefined,
+    lastStatus: row.last_status ?? undefined,
+    errorCount: row.error_count ?? 0,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at ?? undefined,
+  };
+}
+
+function mapImportCandidate(row: any): ImportCandidate {
+  return {
+    id: row.id,
+    sourceId: row.source_id ?? undefined,
+    sourceName: row.source_name ?? "",
+    sourceUrl: row.source_url ?? "",
+    itemUrl: row.item_url,
+    type: row.type,
+    title: row.title,
+    description: row.description ?? "",
+    normalizedPayload: row.normalized_payload ?? {},
+    rawPayload: row.raw_payload ?? {},
+    confidence: Number(row.confidence ?? 0.5),
+    duplicateKey: row.duplicate_key,
+    status: row.status,
+    rejectionReason: row.rejection_reason ?? undefined,
+    reviewedBy: row.reviewed_by ?? undefined,
+    reviewedAt: row.reviewed_at ?? undefined,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at ?? undefined,
+  };
+}
+
+export async function getImportSources(): Promise<ImportSource[]> {
+  const client = assertSupabase();
+  const { data, error } = await (client.from("import_sources") as any)
+    .select("*")
+    .order("created_at", { ascending: false });
+  if (error) throw new Error(error.message);
+  return (data ?? []).map(mapImportSource);
+}
+
+export async function addImportSource(input: {
+  name: string;
+  url: string;
+  type: ImportSourceType;
+  cadence?: ImportCadence;
+}): Promise<ImportSource> {
+  const client = assertSupabase();
+  const id = `source-${crypto.randomUUID()}`;
+  const { data, error } = await (client.from("import_sources") as any)
+    .insert({
+      id,
+      name: input.name.trim(),
+      url: input.url.trim(),
+      type: input.type,
+      cadence: input.cadence ?? "daily",
+      enabled: true,
+    })
+    .select("*")
+    .single();
+  if (error) throw new Error(error.message);
+  return mapImportSource(data);
+}
+
+export async function updateImportSource(id: string, patch: Partial<Pick<ImportSource, "enabled" | "cadence" | "name" | "type" | "url">>): Promise<ImportSource> {
+  const client = assertSupabase();
+  const values: Record<string, unknown> = { updated_at: new Date().toISOString() };
+  if (patch.enabled !== undefined) values.enabled = patch.enabled;
+  if (patch.cadence !== undefined) values.cadence = patch.cadence;
+  if (patch.name !== undefined) values.name = patch.name;
+  if (patch.type !== undefined) values.type = patch.type;
+  if (patch.url !== undefined) values.url = patch.url;
+  const { data, error } = await (client.from("import_sources") as any)
+    .update(values)
+    .eq("id", id)
+    .select("*")
+    .single();
+  if (error) throw new Error(error.message);
+  return mapImportSource(data);
+}
+
+export async function getImportCandidates(status: ImportCandidateStatus | "all" = "new"): Promise<ImportCandidate[]> {
+  const client = assertSupabase();
+  let query = (client.from("import_candidates") as any)
+    .select("*")
+    .order("created_at", { ascending: false });
+  if (status !== "all") query = query.eq("status", status);
+  const { data, error } = await query;
+  if (error) throw new Error(error.message);
+  return (data ?? []).map(mapImportCandidate);
+}
+
+export async function deleteAllImportCandidates(): Promise<void> {
+  const client = assertSupabase();
+  const { error } = await (client.from("import_candidates") as any)
+    .delete()
+    .neq("id", "");
+  if (error) throw new Error(error.message);
+}
+
+export async function runImportDiscovery(): Promise<{ inserted: number; skipped: number; repeated?: number; sources: number; errors?: string[] }> {
+  const client = assertSupabase();
+  const { data, error } = await client.functions.invoke("discover-imports", {
+    body: { mode: "manual" },
+  });
+  if (error) throw new Error(error.message);
+  if (data?.error) throw new Error(data.error);
+  return {
+    inserted: Number(data?.inserted ?? 0),
+    skipped: Number(data?.skipped ?? 0),
+    repeated: Number(data?.repeated ?? data?.skipped ?? 0),
+    sources: Number(data?.sources ?? 0),
+    errors: Array.isArray(data?.errors) ? data.errors : undefined,
+  };
+}
+
+function cleanString(value: unknown, fallback = "") {
+  return typeof value === "string" && value.trim() ? value.trim() : fallback;
+}
+
+function normalizeEventCategory(value: unknown): EventItem["category"] {
+  const category = cleanString(value);
+  if ((EVENT_CATEGORIES as readonly string[]).includes(category)) return category as EventItem["category"];
+
+  const lower = category.toLowerCase();
+  if (/(hackathon|hack|coding|developer|dev|engineer|ai|artificial intelligence|tech|technology|software|web3|crypto)/.test(lower)) {
+    return "Hackathon";
+  }
+  if (/(career|job|intern|recruit|network|founder|startup|business|finance|consult|vc|venture)/.test(lower)) {
+    return "Career";
+  }
+  if (/(workshop|seminar|talk|lecture|class|study|learn|session)/.test(lower)) {
+    return "Workshop";
+  }
+  if (/(travel|trip|tour|hike|hiking|outdoor|excursion)/.test(lower)) {
+    return "Travel";
+  }
+  if (/(casual|picnic|party|social|mixer|meetup|food|drink|culture)/.test(lower)) {
+    return "Social";
+  }
+  return "Social";
+}
+
+function normalizeImportTags(payload: Record<string, any>, fallbackText: Array<string | undefined>, limit = 4): string[] {
+  return filterValidTags(inferRelevantTags({
+    tags: payload.tags,
+    text: fallbackText,
+    limit,
+  })).slice(0, limit);
+}
+
+function normalizeImportLanguage(value: unknown, text = ""): string | undefined {
+  const raw = cleanString(value);
+  if (raw) {
+    const exact = LANGUAGES.find((language) => language.name.toLowerCase() === raw.toLowerCase());
+    if (exact) return exact.name;
+    if (/日本|japanese|日本語/i.test(raw)) return "Japanese";
+    if (/英語|english/i.test(raw)) return "English";
+  }
+  if (/日本語|開催|参加|会場|無料|受付/.test(text) && !/[A-Za-z]{20,}/.test(text)) return "Japanese";
+  if (/[A-Za-z]{20,}/.test(text) && !/[ぁ-んァ-ン一-龯]/.test(text)) return "English";
+  return undefined;
+}
+
+function normalizeImportCost(cost: unknown, text: unknown): string | undefined {
+  const costText = cleanString(cost);
+  const raw = [costText, cleanString(text)].filter(Boolean).join(" ");
+  if (!raw) return undefined;
+  const price = raw.match(/(?:¥|￥)\s?[\d,]+(?:\s?[-–~]\s?(?:¥|￥)?\s?[\d,]+)?|(?:free|無料)/i)?.[0];
+  if (price) return price.replace(/\s+/g, " ").trim();
+  if (/(sold\s*out|full|満席|売り切れ|完売|受付終了)/i.test(raw)) return "Sold out / 売り切れ";
+  return costText || undefined;
+}
+
+function withSoldOutJoinNote(howToJoin: unknown, cost: unknown, description: unknown): string | undefined {
+  const current = cleanString(howToJoin);
+  const raw = [cleanString(cost), cleanString(description), current].filter(Boolean).join(" ");
+  if (!/(sold\s*out|full|満席|売り切れ|完売|受付終了)/i.test(raw)) return current || undefined;
+  if (/sold\s*out|売り切れ|完売|満席|受付終了/i.test(current)) return current;
+  return current ? `${current} Sold out / 売り切れ.` : "Sold out / 売り切れ.";
+}
+
+function normalizeImportStartDate(value: unknown): string | undefined {
+  const raw = cleanString(value);
+  if (!raw) return undefined;
+  const date = new Date(raw);
+  return Number.isNaN(date.getTime()) ? undefined : date.toISOString();
+}
+
+function formatImportEventDate(startDate: string | undefined, fallback: unknown): string {
+  const fallbackText = cleanString(fallback);
+  if (fallbackText && !/^(tbd|unknown|null|undefined)$/i.test(fallbackText)) return fallbackText;
+  if (!startDate) return "TBD";
+  const date = new Date(startDate);
+  if (Number.isNaN(date.getTime())) return "TBD";
+  return new Intl.DateTimeFormat("en-US", {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+    timeZone: "Asia/Tokyo",
+  }).format(date);
+}
+
+export async function approveImportCandidate(candidate: ImportCandidate, adminId: string): Promise<string> {
+  const payload = candidate.normalizedPayload ?? {};
+  let href = "";
+
+  if (candidate.type === "event") {
+    const title = cleanString(payload.title, candidate.title);
+    const category = normalizeEventCategory(payload.category);
+    const description = cleanString(payload.description, candidate.description);
+    const startDate = normalizeImportStartDate(payload.startDate);
+    const cost = normalizeImportCost(payload.cost, description);
+    const primaryLanguage = normalizeImportLanguage(payload.primaryLanguage, [title, description, cleanString(payload.location)].join(" "));
+    const id = await addEvent({
+      title,
+      description,
+      category,
+      date: formatImportEventDate(startDate, payload.date),
+      location: cleanString(payload.location, "TBD"),
+      emoji: cleanString(payload.emoji, CATEGORY_EMOJI[category] ?? "📅"),
+      tags: normalizeImportTags(payload, [title, description, cleanString(payload.category), cleanString(payload.location)]),
+      cost,
+      primaryLanguage,
+      socialLinks: payload.socialLinks ?? { website: candidate.itemUrl },
+      online: Boolean(payload.online),
+      startDate,
+      howToJoin: withSoldOutJoinNote(payload.howToJoin, payload.cost, description),
+      ownerId: adminId,
+      isAdmin: true,
+    } as any);
+    href = `/events/${getEventHandle({ id, title } as EventItem)}`;
+  } else if (candidate.type === "circle") {
+    const id = `circle-${crypto.randomUUID()}`;
+    const name = cleanString(payload.name, candidate.title);
+    await addCircle({
+      id,
+      name,
+      category: cleanString(payload.category, "Community"),
+      description: cleanString(payload.description, candidate.description),
+      activity: "Weekly",
+      englishFriendly: Boolean(payload.englishFriendly),
+      emoji: cleanString(payload.emoji, "👥"),
+      tags: Array.isArray(payload.tags) ? payload.tags : [],
+      university: cleanString(payload.university, undefined as any) || undefined,
+      primaryLanguage: cleanString(payload.primaryLanguage, undefined as any) || undefined,
+      recruiting: Boolean(payload.recruiting),
+      recruitingPeriod: cleanString(payload.recruitingPeriod, undefined as any) || undefined,
+      membershipFee: cleanString(payload.membershipFee, undefined as any) || undefined,
+      howToJoin: cleanString(payload.howToJoin, undefined as any) || undefined,
+      socialLinks: payload.socialLinks ?? { website: candidate.itemUrl },
+      ownerId: adminId,
+      isAdmin: true,
+    } as any);
+    href = `/circles/${getCircleHandle({ id, name } as Circle)}`;
+  } else {
+    const deal = await addDeal({
+      brand: cleanString(payload.brand, "Unknown"),
+      title: cleanString(payload.title, candidate.title),
+      category: cleanString(payload.category, "Other") as Deal["category"],
+      description: cleanString(payload.description, candidate.description) || undefined,
+      originalPrice: cleanString(payload.originalPrice, undefined as any) || undefined,
+      newPrice: cleanString(payload.newPrice, undefined as any) || undefined,
+      studentOnly: payload.studentOnly !== false,
+      mode: (["Online", "In-Person", "Both"].includes(payload.mode) ? payload.mode : "Online") as Deal["mode"],
+      socialLinks: payload.socialLinks ?? { website: candidate.itemUrl },
+    });
+    href = `/discounts/${getDealHandle(deal)}`;
+  }
+
+  const client = assertSupabase();
+  const { error } = await (client.from("import_candidates") as any)
+    .update({
+      status: "approved",
+      rejection_reason: null,
+      reviewed_by: adminId,
+      reviewed_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", candidate.id);
+  if (error) throw new Error(error.message);
+  return href;
+}
+
+export async function rejectImportCandidate(id: string, adminId: string, reason?: string): Promise<void> {
+  const client = assertSupabase();
+  const { error } = await (client.from("import_candidates") as any)
+    .update({
+      status: "rejected",
+      rejection_reason: reason ?? null,
+      reviewed_by: adminId,
+      reviewed_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", id);
+  if (error) throw new Error(error.message);
 }
 
 export async function addJob(input: Omit<Job, "id">) {

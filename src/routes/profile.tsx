@@ -946,7 +946,7 @@ function ProfilePage() {
                   <span className="text-2xl shrink-0">{c.emoji}</span>
                   <div className="flex-1 min-w-0">
                     <p className="font-medium text-sm truncate">{c.name}</p>
-                    <p className="text-xs text-muted-foreground">{c.category} · {c.members} members</p>
+                    <p className="text-xs text-muted-foreground">{c.category}</p>
                   </div>
                   {isOwner ? (
                     <span className="shrink-0 px-3 py-1 rounded-full text-xs font-medium bg-primary/10 text-primary border border-primary/20">{t("profile.circles.owner")}</span>
@@ -981,7 +981,7 @@ function ProfilePage() {
                   <span className="text-2xl">{c.emoji}</span>
                   <div className="flex-1 min-w-0">
                     <p className="font-medium text-sm truncate">{c.name}</p>
-                    <p className="text-xs text-muted-foreground">{c.category} · {c.members} members</p>
+                    <p className="text-xs text-muted-foreground">{c.category}</p>
                   </div>
                   {c.ownerId === user.id && (
                     <span className="shrink-0 px-2 py-0.5 rounded-full text-xs font-semibold bg-primary/10 text-primary">{t("profile.circles.owner")}</span>

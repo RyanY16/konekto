@@ -56,6 +56,15 @@ export const DEAL_CATEGORY_EMOJI: Record<string, string> = {
   "Other":           "🏷️",
 };
 
+export const EVENT_CATEGORIES = [
+  "Social",
+  "Career",
+  "Hackathon",
+  "Workshop",
+  "Casual",
+  "Travel",
+] as const;
+
 export const CIRCLE_CATEGORIES = [
   "Technology",
   "Business / Career",
@@ -84,6 +93,7 @@ export const CATEGORY_EMOJI: Record<string, string> = {
   "Hackathon":                         "⚡",
   "Workshop":                          "🛠️",
   "Casual":                            "🌸",
+  "Travel":                            "✈️",
 };
 
 export const ACTIVITY_LEVELS = ["Daily", "Weekly", "Monthly", "Occasionally"] as const;

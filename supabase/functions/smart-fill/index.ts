@@ -21,6 +21,8 @@ const CIRCLE_CATEGORIES = [
   "Lifestyle",
 ];
 
+const EVENT_CATEGORIES = ["Social", "Career", "Hackathon", "Workshop", "Casual", "Travel"];
+
 const LANGUAGES = [
   "Japanese", "English", "Chinese", "Korean", "French", "Spanish",
   "German", "Portuguese", "Arabic", "Hindi", "Vietnamese", "Thai",
@@ -124,6 +126,17 @@ function languageFieldRules(outputLanguage: unknown): string {
   );
 }
 
+function isLumaUrl(value: unknown): value is string {
+  if (typeof value !== "string" || !value.trim()) return false;
+  try {
+    const url = new URL(/^https?:\/\//i.test(value) ? value : `https://${value}`);
+    const host = url.hostname.toLowerCase().replace(/^www\./, "");
+    return host === "lu.ma" || host.endsWith(".lu.ma") || host === "luma.com" || host.endsWith(".luma.com");
+  } catch {
+    return false;
+  }
+}
+
 async function handleRequest(req: Request, openaiKey: string, body: unknown, url: string, type: string, outputLanguage: unknown): Promise<Response> {
   try {
     if (!url || typeof url !== "string") return json({ error: "url is required" }, 400);
@@ -210,13 +223,13 @@ async function handleRequest(req: Request, openaiKey: string, body: unknown, url
         `Rules:\n` +
         `- title: event name (MUST follow language output rules)\n` +
         `- description: what the event is about, 2-4 sentences (follow language output rules)\n` +
-        `- category: must be exactly one of: Social, Career, Hackathon, Workshop, Casual\n` +
+        `- category: must be exactly one of: ${EVENT_CATEGORIES.join(", ")}\n` +
         `- location: venue name and/or address, or platform if online (MUST follow language output rules for words like Online, TBA, campus names)\n` +
         `- cost: e.g. "Free", "¥1,000", "¥500 at door" (MUST follow language output rules for words like Free or at door)\n` +
         `- primaryLanguage: must be exactly one of: ${LANGUAGES.join(", ")}\n` +
         `- online: true if the event is online/virtual\n` +
         `- howToJoin: how to register or attend, 1-2 sentences (MUST follow language output rules)\n` +
-        `- luma: full lu.ma URL if present\n` +
+        `- luma: full lu.ma or luma.com URL if present; if the source URL is a Luma page, put that URL here\n` +
         `- website: other event website URL\n` +
         `- tags: pick 0-4 that apply from this exact list only (use exact strings): ${TAGS.map((tag) => `"${tag}"`).join(", ")}\n` +
         `- startDate: ISO 8601 datetime string for event start (e.g. "2026-05-25T18:00:00+09:00"), extract from JSON-LD startDate or visible date text\n` +
@@ -344,6 +357,18 @@ async function handleRequest(req: Request, openaiKey: string, body: unknown, url
     } catch {
       console.error("[smart-fill] failed to parse AI response:", rawText);
       return json({ error: "Could not parse AI response" }, 500);
+    }
+
+    if (type === "event") {
+      const website = extracted.website;
+      const luma = extracted.luma;
+      if (!luma && isLumaUrl(website)) {
+        extracted.luma = website;
+        extracted.website = null;
+      } else if (!luma && isLumaUrl(normalised)) {
+        extracted.luma = normalised;
+      }
+      if (extracted.website === extracted.luma) extracted.website = null;
     }
 
     return json({ data: extracted });

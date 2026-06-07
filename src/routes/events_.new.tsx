@@ -10,23 +10,14 @@ import { Calendar } from "@/components/ui/calendar";
 import TagPicker from "@/components/TagPicker";
 import { CIRCLE_TAG_GROUPS, filterValidTags, inferRelevantTags } from "@/data/tags";
 import EventCircleCollabPicker from "@/components/EventCircleCollabPicker";
-import { socialLinksFromForm } from "@/lib/social-links";
+import { isLumaUrl } from "@/lib/social-links";
 import { addEvent, setEventCircleCollaborations, getEventHandle } from "@/data/backend";
 import { useAuth } from "@/components/AuthProvider";
-import { LANGUAGES } from "@/data/profile-options";
+import { CATEGORY_EMOJI, EVENT_CATEGORIES, LANGUAGES } from "@/data/profile-options";
 import { format } from "date-fns";
 import type { DateRange } from "react-day-picker";
 import { PageHeader } from "@/components/PageHeader";
 import { NativeSelect } from "@/components/ui/native-select";
-
-const EVENT_CATEGORIES = ["Social", "Career", "Hackathon", "Workshop", "Casual"] as const;
-
-const CATEGORY_EMOJI: Record<string, string> = {
-  Social: "🥂",
-  Career: "💼",
-  Hackathon: "⚡",
-  Networking: "🚀",
-};
 
 const TIME_OPTIONS: string[] = [];
 for (let h = 0; h < 24; h++) {
@@ -100,6 +91,7 @@ function NewEventPage() {
   const [endTime, setEndTime] = useState("9:00 PM");
   const [multiDay, setMultiDay] = useState(false);
   const [datePickerOpen, setDatePickerOpen] = useState(false);
+  const dateDisabled = isAdmin ? undefined : { before: new Date() };
 
   if (!user) {
     return (
@@ -139,11 +131,11 @@ function NewEventPage() {
     if (data.description) setDescription(data.description);
     if (data.cost) setCost(data.cost);
     if (data.howToJoin) setHowToJoin(data.howToJoin);
-    const lumaLink = data.luma || (/lu\.ma\//i.test(sourceUrl) ? sourceUrl : null);
+    const lumaLink = data.luma || (isLumaUrl(data.website) ? data.website : null) || (isLumaUrl(sourceUrl) ? sourceUrl : null);
     if (lumaLink) {
       setLumaUrl(lumaLink);
     }
-    setWebsiteUrl(data.website || (!lumaLink ? sourceUrl : ""));
+    setWebsiteUrl(data.website && data.website !== lumaLink ? data.website : (!lumaLink ? sourceUrl : ""));
     if (data.location) setLocation(data.location);
     if (data.online != null) setOnline(data.online);
     if (data.primaryLanguage) {
@@ -384,7 +376,7 @@ function NewEventPage() {
                           mode="range"
                           selected={dateRange}
                           onSelect={(val: DateRange | undefined) => setDateRange(val)}
-                          disabled={{ before: new Date() }}
+                          disabled={dateDisabled}
                           initialFocus
                         />
                         <div className="p-2 border-t flex justify-end">
@@ -399,7 +391,7 @@ function NewEventPage() {
                           setDateRange(val ? { from: val, to: undefined } : undefined);
                           setDatePickerOpen(false);
                         }}
-                        disabled={{ before: new Date() }}
+                        disabled={dateDisabled}
                         initialFocus
                       />
                     )}

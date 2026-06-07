@@ -26,6 +26,18 @@ type AuthContextValue = {
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
+function pendingUserFromAuthUser(
+  authUser: { id: string; email?: string | null },
+  previousUser: User | null,
+): User {
+  return {
+    id: authUser.id,
+    email: authUser.email,
+    role: previousUser?.id === authUser.id ? previousUser.role : "user",
+    username: previousUser?.id === authUser.id ? previousUser.username : null,
+  };
+}
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
@@ -64,7 +76,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setProfileReady(true);
       } else {
         console.log("[auth] getSession: user found → partial user set, loading=false, awaiting profileReady from onAuthStateChange");
-        setUser({ id: u.id, email: u.email, role: "user", username: null });
+        setUser((prev) => pendingUserFromAuthUser(u, prev));
         setLoading(false);
         // profileReady / profileFetchOk will be set once onAuthStateChange completes the profile fetch
       }
@@ -104,7 +116,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         // Reset profile state so stale profileReady/profileFetchOk from a
         // previous generation don't make profileIncomplete=true while we wait
         // for the new profile fetch (e.g. TOKEN_REFRESHED firing after INITIAL_SESSION).
-        setUser({ id: u.id, email: u.email, role: "user", username: null });
+        setUser((prev) => pendingUserFromAuthUser(u, prev));
         setProfileReady(false);
         setProfileFetchOk(false);
         setLoading(false);
@@ -120,7 +132,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             .select("role, username")
             .eq("id", u.id)
             .maybeSingle(),
-          5_000,
+          15_000,
           "Supabase profile fetch timed out",
         ) as any;
 
@@ -150,6 +162,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
       } catch (err) {
         console.error(`[auth] profile fetch threw — gen=${gen}`, err);
+        if (mounted && gen === generation) {
+          setUser((prev) => pendingUserFromAuthUser(u, prev));
+        }
         // fetchOk stays false → profileIncomplete stays false → no redirect
       } finally {
         if (mounted && gen === generation) {
@@ -237,15 +252,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (!supabase) return;
     const { data: { user: u } } = await supabase.auth.getUser();
     if (!u) return;
-    const { data: profile, error } = await supabase.from("users").select("role, username").eq("id", u.id).maybeSingle();
-    if (!error) {
-      setProfileFetchOk(true);
+    const { data: profile, error } = await withTimeout(
+      supabase.from("users").select("role, username").eq("id", u.id).maybeSingle(),
+      15_000,
+      "Supabase profile refresh timed out",
+    ) as any;
+    if (!error && profile) {
       setUser({
         id: u.id,
         email: u.email,
         role: (profile?.role ?? "user") as "user" | "admin",
         username: (profile as any)?.username ?? null,
       });
+      setProfileFetchOk(true);
+    } else if (!error) {
+      setUser((prev) => pendingUserFromAuthUser(u, prev));
     }
   }
 

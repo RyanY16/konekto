@@ -15,19 +15,10 @@ import { socialLinksFromForm } from "@/lib/social-links";
 import { addEvent, setEventCircleCollaborations } from "@/data/backend";
 import { useRouter } from "@tanstack/react-router";
 import { useAuth } from "@/components/AuthProvider";
-import { LANGUAGES } from "@/data/profile-options";
+import { CATEGORY_EMOJI, EVENT_CATEGORIES, LANGUAGES } from "@/data/profile-options";
 import { NativeSelect } from "@/components/ui/native-select";
 import { format } from "date-fns";
 import type { DateRange } from "react-day-picker";
-
-const EVENT_CATEGORIES = ["Social", "Career", "Hackathon", "Workshop", "Casual"] as const;
-
-const CATEGORY_EMOJI: Record<string, string> = {
-  Social: "🥂",
-  Career: "💼",
-  Hackathon: "⚡",
-  Networking: "🚀",
-};
 
 const TIME_OPTIONS: string[] = [];
 for (let h = 0; h < 24; h++) {
@@ -76,7 +67,7 @@ function mapsUrl(location: string) {
 
 export default function AddEventDialog() {
   const router = useRouter();
-  const { user } = useAuth();
+  const { user, isAdmin } = useAuth();
   const [open, setOpen] = useState(false);
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
@@ -96,6 +87,7 @@ export default function AddEventDialog() {
   const [multiDay, setMultiDay] = useState(false);
   const [datePickerOpen, setDatePickerOpen] = useState(false);
   const formRef = useRef<HTMLFormElement>(null);
+  const dateDisabled = isAdmin ? undefined : { before: new Date() };
 
   function reset() {
     setSaving(false);
@@ -160,7 +152,7 @@ export default function AddEventDialog() {
         tags: selectedTags,
         cost: String(form.get("cost") ?? "").trim() || undefined,
         primaryLanguage: primaryLanguage || undefined,
-        socialLinks: socialLinksFromForm(form),
+        socialLinks: socialLinksFromForm(form, { classifyLuma: true }),
         ownerId: user?.id,
         circleIds: selectedCircleIds,
         online,
@@ -278,7 +270,7 @@ export default function AddEventDialog() {
                           mode="range"
                           selected={dateRange}
                           onSelect={(val: DateRange | undefined) => setDateRange(val)}
-                          disabled={{ before: new Date() }}
+                          disabled={dateDisabled}
                           initialFocus
                         />
                         <div className="p-2 border-t flex justify-end">
@@ -293,7 +285,7 @@ export default function AddEventDialog() {
                           setDateRange(val ? { from: val, to: undefined } : undefined);
                           setDatePickerOpen(false);
                         }}
-                        disabled={{ before: new Date() }}
+                        disabled={dateDisabled}
                         initialFocus
                       />
                     )}

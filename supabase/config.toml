@@ -1,0 +1,2 @@
+[functions.discover-imports]
+verify_jwt = false

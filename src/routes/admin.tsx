@@ -1,12 +1,33 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useState, useEffect, useCallback } from "react";
-import { Shield, RefreshCw, Trash2, ExternalLink, ChevronDown, ChevronUp, AlertTriangle, CheckCircle, Loader2, Clock, History, Check, X } from "lucide-react";
+import { Shield, RefreshCw, Trash2, ExternalLink, ChevronDown, ChevronUp, AlertTriangle, CheckCircle, Loader2, Clock, History, Check, X, Search, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/components/AuthProvider";
-import { getCircles, getEvents, getDeals, deleteCircle, deleteEvent, deleteDeal, getCircleHandle, getEventHandle, getDealHandle, getModerationQueue, getModerationHistory, moderatePost } from "@/data/backend";
+import {
+  getCircles,
+  getEvents,
+  getDeals,
+  deleteCircle,
+  deleteEvent,
+  deleteDeal,
+  getCircleHandle,
+  getEventHandle,
+  getDealHandle,
+  getModerationQueue,
+  getModerationHistory,
+  moderatePost,
+  getImportSources,
+  addImportSource,
+  updateImportSource,
+  getImportCandidates,
+  deleteAllImportCandidates,
+  runImportDiscovery,
+  approveImportCandidate,
+  rejectImportCandidate,
+} from "@/data/backend";
 import { moderateTexts, CATEGORY_META, CATEGORIES_SORTED } from "@/lib/moderation";
 import type { ModerationResult } from "@/lib/moderation";
-import type { ModerationQueueItem, ModerationHistoryItem } from "@/data/backend";
+import type { ModerationQueueItem, ModerationHistoryItem, ImportCandidate, ImportCandidateStatus, ImportCandidateType, ImportSource, ImportSourceType } from "@/data/backend";
 import type { Circle, EventItem, Deal } from "@/data/mock";
 
 export const Route = createFileRoute("/admin")({
@@ -31,6 +52,8 @@ type AnalysedPost = Post & {
 
 type FilterType = "all" | "flagged" | "circle" | "event" | "deal";
 type SortKey = "risk" | "newest" | "type";
+type ImportTypeFilter = "all" | ImportCandidateType;
+type ImportRejectionFilter = "all" | "rejected" | "not_rejected";
 
 function buildText(post: Post): string {
   return [post.title, post.description].filter(Boolean).join(" ");
@@ -56,6 +79,13 @@ const TYPE_BADGE: Record<PostType, string> = {
   circle: "bg-violet-100 text-violet-700 dark:bg-violet-950 dark:text-violet-300",
   event:  "bg-sky-100 text-sky-700 dark:bg-sky-950 dark:text-sky-300",
   deal:   "bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-300",
+};
+
+const IMPORT_STATUS_BADGE: Record<ImportCandidateStatus, string> = {
+  new: "bg-primary/10 text-primary",
+  approved: "bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300",
+  rejected: "bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-300",
+  duplicate: "bg-muted text-muted-foreground",
 };
 
 function ScoreBar({ score, colorClass }: { score: number; colorClass: string }) {
@@ -220,10 +250,10 @@ function PostCard({
   );
 }
 
-type AdminTab = "queue" | "analysis" | "history";
+type AdminTab = "queue" | "imports" | "analysis" | "history";
 
 export default function AdminPage() {
-  const { user, isAdmin, loading } = useAuth();
+  const { user, isAdmin, loading, refreshUser } = useAuth();
   const navigate = useNavigate();
   const [tab, setTab] = useState<AdminTab>("queue");
 
@@ -238,6 +268,26 @@ export default function AdminPage() {
   const [historyItems, setHistoryItems] = useState<ModerationHistoryItem[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
   const [historyError, setHistoryError] = useState<string | null>(null);
+
+  // Import discovery state
+  const [importSources, setImportSources] = useState<ImportSource[]>([]);
+  const [importCandidates, setImportCandidates] = useState<ImportCandidate[]>([]);
+  const [importsLoading, setImportsLoading] = useState(false);
+  const [importsError, setImportsError] = useState<string | null>(null);
+  const [runningDiscovery, setRunningDiscovery] = useState(false);
+  const [discoveryResult, setDiscoveryResult] = useState<string | null>(null);
+  const [importSourceFilter, setImportSourceFilter] = useState("all");
+  const [importTypeFilter, setImportTypeFilter] = useState<ImportTypeFilter>("all");
+  const [importRejectionFilter, setImportRejectionFilter] = useState<ImportRejectionFilter>("all");
+  const [sourceForm, setSourceForm] = useState<{ name: string; url: string; type: ImportSourceType }>({
+    name: "",
+    url: "",
+    type: "mixed",
+  });
+  const [addingSource, setAddingSource] = useState(false);
+  const [importActioning, setImportActioning] = useState<string | null>(null);
+  const [clearingCandidates, setClearingCandidates] = useState(false);
+  const [rejectReason, setRejectReason] = useState<Record<string, string>>({});
 
   // AI analysis state
   const [posts, setPosts] = useState<Post[]>([]);
@@ -328,6 +378,118 @@ export default function AdminPage() {
       .finally(() => setHistoryLoading(false));
   }, [isAdmin, tab]);
 
+  const loadImports = useCallback(async () => {
+    setImportsLoading(true);
+    setImportsError(null);
+    try {
+      const [sources, candidates] = await Promise.all([
+        getImportSources(),
+        getImportCandidates("all"),
+      ]);
+      setImportSources(sources);
+      setImportCandidates(candidates);
+    } catch (err) {
+      setImportsError(err instanceof Error ? err.message : "Failed to load imports");
+    } finally {
+      setImportsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!isAdmin || tab !== "imports") return;
+    loadImports();
+  }, [isAdmin, tab, loadImports]);
+
+  async function handleAddImportSource() {
+    if (!sourceForm.name.trim() || !sourceForm.url.trim()) return;
+    setAddingSource(true);
+    try {
+      const source = await addImportSource(sourceForm);
+      setImportSources((prev) => [source, ...prev]);
+      setSourceForm({ name: "", url: "", type: "mixed" });
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Could not add source");
+    } finally {
+      setAddingSource(false);
+    }
+  }
+
+  async function handleRunDiscovery() {
+    setRunningDiscovery(true);
+    setDiscoveryResult(null);
+    setImportsError(null);
+    try {
+      const result = await runImportDiscovery();
+      const repeated = result.repeated ?? result.skipped;
+      setDiscoveryResult(`Added ${result.inserted} new candidate${result.inserted === 1 ? "" : "s"} and saw ${repeated} repeated candidate${repeated === 1 ? "" : "s"} from ${result.sources} source${result.sources === 1 ? "" : "s"}.`);
+      await loadImports();
+      if (result.errors?.length) {
+        setImportsError(result.errors.join("\n"));
+      }
+    } catch (err) {
+      setImportsError(err instanceof Error ? err.message : "Discovery failed");
+    } finally {
+      setRunningDiscovery(false);
+    }
+  }
+
+  async function handleApproveImport(candidate: ImportCandidate) {
+    if (!user) return;
+    setImportActioning(candidate.id);
+    try {
+      await refreshUser().catch((err) => console.warn("[imports] profile refresh before approve failed", err));
+      await approveImportCandidate(candidate, user.id);
+      setImportCandidates((prev) => prev.map((c) => c.id === candidate.id
+        ? { ...c, status: "approved", rejectionReason: undefined, reviewedBy: user.id, reviewedAt: new Date().toISOString() }
+        : c,
+      ));
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Approve failed");
+    } finally {
+      setImportActioning(null);
+    }
+  }
+
+  async function handleRejectImport(candidate: ImportCandidate) {
+    if (!user) return;
+    setImportActioning(candidate.id);
+    try {
+      await rejectImportCandidate(candidate.id, user.id, rejectReason[candidate.id]);
+      setImportCandidates((prev) => prev.map((c) => c.id === candidate.id
+        ? {
+            ...c,
+            status: "rejected",
+            rejectionReason: rejectReason[candidate.id],
+            reviewedBy: user.id,
+            reviewedAt: new Date().toISOString(),
+          }
+        : c,
+      ));
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Reject failed");
+    } finally {
+      setImportActioning(null);
+    }
+  }
+
+  async function handleDeleteAllImportCandidates() {
+    if (importCandidates.length === 0) return;
+    const confirmed = confirm(`Delete all ${importCandidates.length} import candidate${importCandidates.length === 1 ? "" : "s"}? This cannot be undone.`);
+    if (!confirmed) return;
+    setClearingCandidates(true);
+    setImportsError(null);
+    try {
+      await deleteAllImportCandidates();
+      setImportCandidates([]);
+      setRejectReason({});
+      setDiscoveryResult(null);
+    } catch (err) {
+      setImportsError(err instanceof Error ? err.message : "Could not delete candidates");
+    } finally {
+      setClearingCandidates(false);
+    }
+  }
+
   async function handleModerate(item: ModerationQueueItem, action: "approved" | "declined") {
     if (!user) return;
     const reason = action === "declined" ? (declineReason[item.contentId] ?? "") : undefined;
@@ -399,6 +561,27 @@ export default function AdminPage() {
   const highCount = analysed.filter((p) => !p.moderation.flagged && p.moderation.topScore >= 0.5).length;
   const mediumCount = analysed.filter((p) => !p.moderation.flagged && p.moderation.topScore >= 0.15 && p.moderation.topScore < 0.5).length;
   const cleanCount = analysed.filter((p) => !p.moderation.flagged && p.moderation.topScore < 0.03).length;
+  const pendingImportCount = importCandidates.filter((candidate) => candidate.status === "new").length;
+  const selectedImportSource = importSources.find((source) => source.id === importSourceFilter);
+  const filteredImportCandidates = importCandidates
+    .filter((candidate) => (
+      importSourceFilter === "all"
+      || candidate.sourceId === importSourceFilter
+      || (!!selectedImportSource && candidate.sourceName === selectedImportSource.name && candidate.sourceUrl === selectedImportSource.url)
+    ))
+    .filter((candidate) => importTypeFilter === "all" || candidate.type === importTypeFilter)
+    .filter((candidate) => {
+      if (importRejectionFilter === "rejected") return candidate.status === "rejected";
+      if (importRejectionFilter === "not_rejected") return candidate.status !== "rejected";
+      return true;
+    })
+    .sort((a, b) => {
+      if (a.status !== b.status) {
+        const order: ImportCandidateStatus[] = ["new", "duplicate", "rejected", "approved"];
+        return order.indexOf(a.status) - order.indexOf(b.status);
+      }
+      return new Date(b.updatedAt ?? b.createdAt).getTime() - new Date(a.updatedAt ?? a.createdAt).getTime();
+    });
 
   return (
     <div className="max-w-3xl mx-auto space-y-6">
@@ -417,6 +600,7 @@ export default function AdminPage() {
       <div className="flex gap-1 border-b border-border">
         {([
           { id: "queue", label: "Queue", icon: <Clock className="h-3.5 w-3.5" /> },
+          { id: "imports", label: "Imports", icon: <Search className="h-3.5 w-3.5" /> },
           { id: "analysis", label: "AI Analysis", icon: <Shield className="h-3.5 w-3.5" /> },
           { id: "history", label: "History", icon: <History className="h-3.5 w-3.5" /> },
         ] as { id: AdminTab; label: string; icon: React.ReactNode }[]).map((t) => (
@@ -434,6 +618,11 @@ export default function AdminPage() {
             {t.id === "queue" && queue.length > 0 && (
               <span className="ml-1 h-4.5 min-w-4 rounded-full bg-primary text-primary-foreground text-[10px] font-bold px-1 flex items-center justify-center leading-none">
                 {queue.length}
+              </span>
+            )}
+            {t.id === "imports" && pendingImportCount > 0 && (
+              <span className="ml-1 h-4.5 min-w-4 rounded-full bg-primary text-primary-foreground text-[10px] font-bold px-1 flex items-center justify-center leading-none">
+                {pendingImportCount}
               </span>
             )}
           </button>
@@ -515,6 +704,254 @@ export default function AdminPage() {
               </div>
             </div>
           ))}
+        </div>
+      )}
+
+      {/* ── Imports tab ──────────────────────────────────────────────── */}
+      {tab === "imports" && (
+        <div className="space-y-5">
+          <div className="rounded-xl border border-border bg-card p-4 space-y-3">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <h2 className="text-sm font-semibold">Discovery sources</h2>
+                <p className="text-xs text-muted-foreground">
+                  Daily overnight scraping uses enabled daily sources. Run now triggers the same discovery pass.
+                </p>
+              </div>
+              <Button size="sm" onClick={handleRunDiscovery} disabled={runningDiscovery || importSources.length === 0} className="gap-1.5 shrink-0">
+                {runningDiscovery ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
+                Run now
+              </Button>
+            </div>
+
+            <div className="grid gap-2 sm:grid-cols-[1fr_1.2fr_auto_auto]">
+              <input
+                value={sourceForm.name}
+                onChange={(e) => setSourceForm((s) => ({ ...s, name: e.target.value }))}
+                placeholder="Source name"
+                className="h-9 rounded-md border border-input bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+              />
+              <input
+                value={sourceForm.url}
+                onChange={(e) => setSourceForm((s) => ({ ...s, url: e.target.value }))}
+                placeholder="https://..."
+                className="h-9 rounded-md border border-input bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+              />
+              <select
+                value={sourceForm.type}
+                onChange={(e) => setSourceForm((s) => ({ ...s, type: e.target.value as ImportSourceType }))}
+                className="h-9 rounded-md border border-input bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+              >
+                {(["mixed", "event", "circle", "deal"] as ImportSourceType[]).map((type) => (
+                  <option key={type} value={type}>{type}</option>
+                ))}
+              </select>
+              <Button size="sm" onClick={handleAddImportSource} disabled={addingSource || !sourceForm.name.trim() || !sourceForm.url.trim()} className="gap-1.5">
+                {addingSource ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Plus className="h-3.5 w-3.5" />}
+                Add
+              </Button>
+            </div>
+
+            {discoveryResult && <p className="text-xs text-emerald-600 dark:text-emerald-400">{discoveryResult}</p>}
+            {importsError && <pre className="whitespace-pre-wrap rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-xs text-destructive">{importsError}</pre>}
+
+            <div className="space-y-2">
+              {importsLoading && (
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <Loader2 className="h-4 w-4 animate-spin" /> Loading imports…
+                </div>
+              )}
+              {!importsLoading && importSources.length === 0 && (
+                <p className="rounded-lg border border-dashed border-border p-4 text-center text-sm text-muted-foreground">
+                  Add a few trusted sources, then run discovery.
+                </p>
+              )}
+              {importSources.map((source) => (
+                <div key={source.id} className="flex items-center gap-2 rounded-lg border border-border px-3 py-2 text-sm">
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      const updated = await updateImportSource(source.id, { enabled: !source.enabled });
+                      setImportSources((prev) => prev.map((s) => s.id === source.id ? updated : s));
+                    }}
+                    className={`h-5 w-9 rounded-full p-0.5 transition-colors ${source.enabled ? "bg-primary" : "bg-muted"}`}
+                    aria-label={source.enabled ? "Disable source" : "Enable source"}
+                  >
+                    <span className={`block h-4 w-4 rounded-full bg-background transition-transform ${source.enabled ? "translate-x-4" : ""}`} />
+                  </button>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2">
+                      <span className="font-medium truncate">{source.name}</span>
+                      <span className="rounded-full bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground">{source.type}</span>
+                      <span className="rounded-full bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground">{source.cadence}</span>
+                    </div>
+                    <p className="truncate text-xs text-muted-foreground">{source.url}</p>
+                  </div>
+                  <div className="hidden sm:block max-w-36 truncate text-right text-[10px] text-muted-foreground">
+                    {source.lastScrapedAt ? new Date(source.lastScrapedAt).toLocaleString() : "Never scraped"}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="space-y-3">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <h2 className="text-sm font-semibold">Candidates</h2>
+                <p className="text-xs text-muted-foreground">Filter everything the scraper has found, then approve pending items after checking the source.</p>
+              </div>
+              <div className="flex shrink-0 items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleDeleteAllImportCandidates}
+                  disabled={clearingCandidates || importsLoading || importCandidates.length === 0}
+                  className="gap-1.5 text-destructive hover:text-destructive hover:bg-destructive/10 border-destructive/30"
+                >
+                  {clearingCandidates ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
+                  Delete all
+                </Button>
+                <Button variant="outline" size="sm" onClick={loadImports} disabled={importsLoading || clearingCandidates} className="gap-1.5">
+                  <RefreshCw className={`h-3.5 w-3.5 ${importsLoading ? "animate-spin" : ""}`} />
+                  Refresh
+                </Button>
+              </div>
+            </div>
+
+            <div className="grid gap-2 sm:grid-cols-3">
+              <select
+                value={importSourceFilter}
+                onChange={(e) => setImportSourceFilter(e.target.value)}
+                className="h-9 rounded-md border border-input bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                aria-label="Filter candidates by source"
+              >
+                <option value="all">All sources</option>
+                {importSources.map((source) => (
+                  <option key={source.id} value={source.id}>{source.name}</option>
+                ))}
+              </select>
+              <select
+                value={importTypeFilter}
+                onChange={(e) => setImportTypeFilter(e.target.value as ImportTypeFilter)}
+                className="h-9 rounded-md border border-input bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                aria-label="Filter candidates by type"
+              >
+                <option value="all">All types</option>
+                <option value="event">Events</option>
+                <option value="deal">Deals</option>
+                <option value="circle">Circles</option>
+              </select>
+              <select
+                value={importRejectionFilter}
+                onChange={(e) => setImportRejectionFilter(e.target.value as ImportRejectionFilter)}
+                className="h-9 rounded-md border border-input bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                aria-label="Filter candidates by rejection status"
+              >
+                <option value="all">All candidates</option>
+                <option value="rejected">Rejected</option>
+                <option value="not_rejected">Not rejected</option>
+              </select>
+            </div>
+
+            <p className="text-xs text-muted-foreground">
+              Showing {filteredImportCandidates.length} of {importCandidates.length} candidate{importCandidates.length === 1 ? "" : "s"}.
+            </p>
+
+            {!importsLoading && filteredImportCandidates.length === 0 && (
+              <div className="rounded-xl border border-dashed border-border p-10 text-center text-sm text-muted-foreground">
+                No candidates match these filters.
+              </div>
+            )}
+
+            {filteredImportCandidates.map((candidate) => {
+              const fields = candidate.normalizedPayload ?? {};
+              return (
+                <div key={candidate.id} className="rounded-xl border border-border bg-card overflow-hidden">
+                  <div className="p-4 space-y-2">
+                    <div className="flex items-start gap-3">
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className={`text-[11px] font-semibold rounded-full px-2 py-0.5 uppercase tracking-wide ${TYPE_BADGE[candidate.type]}`}>
+                            {candidate.type}
+                          </span>
+                          <span className={`text-[11px] font-semibold rounded-full px-2 py-0.5 uppercase tracking-wide ${IMPORT_STATUS_BADGE[candidate.status]}`}>
+                            {candidate.status === "new" ? "pending" : candidate.status}
+                          </span>
+                          <span className="text-xs text-muted-foreground">{candidate.sourceName || "Unknown source"}</span>
+                          <span className="text-xs text-muted-foreground">{Math.round(candidate.confidence * 100)}% confidence</span>
+                        </div>
+                        <p className="mt-1 font-semibold text-sm">{candidate.title}</p>
+                        {candidate.description && <p className="text-xs text-muted-foreground line-clamp-2">{candidate.description}</p>}
+                      </div>
+                      <a href={candidate.itemUrl} target="_blank" rel="noreferrer" className="shrink-0 text-muted-foreground hover:text-foreground" title="Open source">
+                        <ExternalLink className="h-4 w-4" />
+                      </a>
+                    </div>
+                    <div className="grid gap-2 text-xs sm:grid-cols-2">
+                      {Object.entries(fields).slice(0, 8).map(([key, value]) => (
+                        <div key={key} className="min-w-0 rounded-md bg-muted/50 px-2 py-1">
+                          <span className="font-medium text-muted-foreground">{key}: </span>
+                          <span className="break-words">{typeof value === "object" ? JSON.stringify(value) : String(value ?? "")}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                  {candidate.status === "new" ? (
+                    <div className="border-t border-border px-4 py-3 bg-muted/20 flex items-center gap-2 flex-wrap">
+                      <input
+                        type="text"
+                        placeholder="Reject reason (optional)"
+                        value={rejectReason[candidate.id] ?? ""}
+                        onChange={(e) => setRejectReason((r) => ({ ...r, [candidate.id]: e.target.value }))}
+                        className="flex-1 min-w-40 h-8 rounded-md border border-input bg-background px-3 text-xs focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                      />
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="gap-1.5 text-destructive hover:text-destructive hover:bg-destructive/10 border-destructive/30 h-8"
+                        onClick={() => handleRejectImport(candidate)}
+                        disabled={importActioning === candidate.id}
+                      >
+                        {importActioning === candidate.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <X className="h-3.5 w-3.5" />}
+                        Reject
+                      </Button>
+                      <Button
+                        size="sm"
+                        className="gap-1.5 h-8"
+                        onClick={() => handleApproveImport(candidate)}
+                        disabled={importActioning === candidate.id}
+                      >
+                        {importActioning === candidate.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
+                        Approve
+                      </Button>
+                    </div>
+                  ) : candidate.status === "rejected" ? (
+                    <div className="border-t border-border px-4 py-3 bg-muted/20 flex items-center gap-2 flex-wrap">
+                      <p className="min-w-0 flex-1 text-xs text-muted-foreground">
+                        {candidate.reviewedAt ? `Rejected ${new Date(candidate.reviewedAt).toLocaleString()}` : `Last updated ${new Date(candidate.updatedAt ?? candidate.createdAt).toLocaleString()}`}
+                        {candidate.rejectionReason ? ` · ${candidate.rejectionReason}` : ""}
+                      </p>
+                      <Button
+                        size="sm"
+                        className="gap-1.5 h-8"
+                        onClick={() => handleApproveImport(candidate)}
+                        disabled={importActioning === candidate.id}
+                      >
+                        {importActioning === candidate.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
+                        Approve
+                      </Button>
+                    </div>
+                  ) : (
+                    <div className="border-t border-border px-4 py-3 bg-muted/20 text-xs text-muted-foreground">
+                      {candidate.reviewedAt ? `Reviewed ${new Date(candidate.reviewedAt).toLocaleString()}` : `Last updated ${new Date(candidate.updatedAt ?? candidate.createdAt).toLocaleString()}`}
+                      {candidate.rejectionReason ? ` · ${candidate.rejectionReason}` : ""}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
         </div>
       )}
 

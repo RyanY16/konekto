@@ -5,14 +5,18 @@ import { Button } from "@/components/ui/button";
 import { addEvent, getEventHandle, addCircle, getCircleHandle, addDeal, getDealHandle } from "@/data/backend";
 import { useAuth } from "@/components/AuthProvider";
 import { inferRelevantTags, filterValidTags } from "@/data/tags";
-import { DEAL_CATEGORIES, DEAL_CATEGORY_EMOJI, CIRCLE_CATEGORIES, CATEGORY_EMOJI } from "@/data/profile-options";
+import { DEAL_CATEGORIES, DEAL_CATEGORY_EMOJI, CIRCLE_CATEGORIES, CATEGORY_EMOJI, EVENT_CATEGORIES } from "@/data/profile-options";
 import { format } from "date-fns";
 import type { SmartFillResult, SmartFillType } from "@/components/SmartFill";
+import { isLumaUrl } from "@/lib/social-links";
 
-const EVENT_CATEGORIES = ["Social", "Career", "Hackathon", "Workshop", "Casual"] as const;
-const EVENT_EMOJI: Record<string, string> = {
-  Social: "🥂", Career: "💼", Hackathon: "⚡", Workshop: "🛠️", Casual: "🌸",
-};
+type SmartFillLanguage = "en" | "ja" | "both";
+
+const LANGUAGE_OPTIONS: { value: SmartFillLanguage; label: string }[] = [
+  { value: "en", label: "EN" },
+  { value: "ja", label: "JP" },
+  { value: "both", label: "Both" },
+];
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -23,7 +27,7 @@ function normalizeUrl(s: string): string | null {
   } catch { return null; }
 }
 
-async function fetchSmartFill(url: string, type: SmartFillType): Promise<SmartFillResult> {
+async function fetchSmartFill(url: string, type: SmartFillType, outputLanguage: SmartFillLanguage): Promise<SmartFillResult> {
   const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string;
   const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string;
   const controller = new AbortController();
@@ -35,7 +39,7 @@ async function fetchSmartFill(url: string, type: SmartFillType): Promise<SmartFi
       "Authorization": `Bearer ${supabaseKey}`,
       "apikey": supabaseKey,
     },
-    body: JSON.stringify({ url, type, outputLanguage: "en" }),
+    body: JSON.stringify({ url, type, outputLanguage }),
     signal: controller.signal,
   }).finally(() => clearTimeout(timeout));
   const payload = await res.json().catch(() => ({}));
@@ -47,7 +51,7 @@ function buildEventParams(data: SmartFillResult, sourceUrl: string, ownerId: str
   const title = data.title?.trim() || "Untitled Event";
   const rawCat = data.category ?? "";
   const category = (EVENT_CATEGORIES.includes(rawCat as any) ? rawCat : "Social") as typeof EVENT_CATEGORIES[number];
-  const emoji = EVENT_EMOJI[category] || "📅";
+  const emoji = CATEGORY_EMOJI[category] || "📅";
   let dateStr = "TBD";
   let startDateIso: string | undefined;
   if (data.startDate) {
@@ -62,9 +66,9 @@ function buildEventParams(data: SmartFillResult, sourceUrl: string, ownerId: str
       }
     }
   }
-  const lumaLink = data.luma || (/lu\.ma\//i.test(sourceUrl) ? sourceUrl : undefined);
+  const lumaLink = data.luma || (isLumaUrl(data.website) ? data.website : undefined) || (isLumaUrl(sourceUrl) ? sourceUrl : undefined);
   const tags = filterValidTags(inferRelevantTags({ tags: data.tags, text: [data.title, data.description, data.category, data.location], limit: 4 }));
-  return { title, description: data.description?.trim() || undefined, category, date: dateStr, location: data.location?.trim() || "TBD", emoji, tags, cost: data.cost?.trim() || undefined, online: data.online ?? false, socialLinks: { luma: lumaLink, website: data.url || (!lumaLink ? sourceUrl : undefined) }, ownerId, startDate: startDateIso, isAdmin: true };
+  return { title, description: data.description?.trim() || undefined, category, date: dateStr, location: data.location?.trim() || "TBD", emoji, tags, cost: data.cost?.trim() || undefined, online: data.online ?? false, socialLinks: { luma: lumaLink, website: data.website && data.website !== lumaLink ? data.website : (!lumaLink ? sourceUrl : undefined) }, ownerId, startDate: startDateIso, isAdmin: true };
 }
 
 function buildCircleParams(data: SmartFillResult, sourceUrl: string, ownerId: string) {
@@ -94,7 +98,7 @@ type Step = "input" | "fetching" | "review" | "creating" | "done";
 
 function EventPreview({ data, url }: { data: SmartFillResult; url: string }) {
   const cat = EVENT_CATEGORIES.includes(data.category as any) ? data.category : "Social";
-  const emoji = EVENT_EMOJI[cat!] || "📅";
+  const emoji = CATEGORY_EMOJI[cat!] || "📅";
   return (
     <div className="space-y-1">
       <div className="flex items-center gap-1.5">
@@ -177,8 +181,9 @@ export function BatchAddDialog({ type }: Props) {
   const [fetchRows, setFetchRows] = useState<FetchRow[]>([]);
   const [reviewItems, setReviewItems] = useState<ReviewItem[]>([]);
   const [createRows, setCreateRows] = useState<CreateRow[]>([]);
+  const [language, setLanguage] = useState<SmartFillLanguage>("en");
 
-  function reset() { setStep("input"); setRawInput(""); setFetchRows([]); setReviewItems([]); setCreateRows([]); }
+  function reset() { setStep("input"); setRawInput(""); setFetchRows([]); setReviewItems([]); setCreateRows([]); setLanguage("en"); }
 
   function updateFetch(url: string, patch: Partial<FetchRow>) {
     setFetchRows((prev) => prev.map((r) => r.url === url ? { ...r, ...patch } : r));
@@ -197,7 +202,7 @@ export function BatchAddDialog({ type }: Props) {
     for (const url of deduped) {
       updateFetch(url, { status: "fetching" });
       try {
-        const data = await fetchSmartFill(url, type);
+        const data = await fetchSmartFill(url, type, language);
         updateFetch(url, { status: "done", data });
         results.push({ url, data, selected: true });
       } catch (err) {
@@ -278,6 +283,25 @@ export function BatchAddDialog({ type }: Props) {
               <p className="text-sm text-muted-foreground">
                 Paste URLs — one per line or comma-separated. {TYPE_HINTS[type]}
               </p>
+              <div className="flex items-center justify-between gap-3">
+                <p className="text-xs font-medium text-muted-foreground">Output language</p>
+                <div className="flex h-9 shrink-0 overflow-hidden rounded-lg border border-input bg-background">
+                  {LANGUAGE_OPTIONS.map((option) => (
+                    <button
+                      key={option.value}
+                      type="button"
+                      onClick={() => setLanguage(option.value)}
+                      className={`px-2.5 text-xs font-semibold transition-colors ${
+                        language === option.value
+                          ? "bg-primary text-primary-foreground"
+                          : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                      }`}
+                    >
+                      {option.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
               <textarea
                 value={rawInput}
                 onChange={(e) => setRawInput(e.target.value)}

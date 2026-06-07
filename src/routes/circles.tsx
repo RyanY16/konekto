@@ -147,7 +147,7 @@ function CirclesPage() {
         case "az":
           return a.name.localeCompare(b.name);
         case "popular":
-          return b.members - a.members;
+          return a.name.localeCompare(b.name);
       }
     });
   }, [allCircles, cat, uniFilter, langFilter, recruitingOnly, q, sortKey, userInterests]);
@@ -296,7 +296,7 @@ function CirclesPage() {
               <div className="flex flex-col flex-1 min-w-0 py-0.5">
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0">
-                    <p className="text-xs text-muted-foreground">{c.category} · {c.members} members</p>
+                    <p className="text-xs text-muted-foreground">{c.category}</p>
                     <h3 className="font-semibold leading-snug">{c.name}</h3>
                   </div>
                   <SaveButton itemId={c.id} itemType="circle" />

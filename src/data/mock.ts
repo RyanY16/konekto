@@ -43,7 +43,7 @@ export type Circle = {
 export type EventItem = {
   id: string;
   title: string;
-  category: "Social" | "Career" | "Hackathon" | "Workshop" | "Casual";
+  category: "Social" | "Career" | "Hackathon" | "Workshop" | "Casual" | "Travel";
   date: string;
   location: string;
   description?: string;

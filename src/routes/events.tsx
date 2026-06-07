@@ -1,20 +1,13 @@
 import { createFileRoute, Link, useRouter } from "@tanstack/react-router";
-import { useState, useMemo } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { useTranslation } from "react-i18next";
-import { Users, MapPin, Calendar, Search, Trash2, ArrowUpDown } from "lucide-react";
+import { MapPin, Calendar, Search, Trash2, ArrowUpDown } from "lucide-react";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { eventGradient } from "@/lib/placeholders";
 import { useOgImage } from "@/hooks/useOgImage";
 import { NativeSelect } from "@/components/ui/native-select";
-
-const CATEGORY_EMOJI: Record<string, string> = {
-  Social:    "🥂",
-  Career:    "💼",
-  Hackathon: "⚡",
-  Workshop:  "🛠️",
-  Casual:    "🌸",
-};
+import { CATEGORY_EMOJI, EVENT_CATEGORIES } from "@/data/profile-options";
 import { PageHeader } from "@/components/PageHeader";
 import { SaveButton } from "@/components/SaveButton";
 import { getEvents, getEventHandle, getProfilesByIds, deleteAllEvents } from "@/data/backend";
@@ -68,7 +61,7 @@ export const Route = createFileRoute("/events")({
   component: EventsPage,
 });
 
-const cats = ["All", "Social", "Career", "Hackathon", "Workshop", "Casual"] as const;
+const cats = ["All", ...EVENT_CATEGORIES] as const;
 
 type TimeFilter = "all" | "this-week" | "this-month";
 
@@ -193,10 +186,6 @@ function EventCard({ event: e, ownerMap }: { event: EventItem; ownerMap: Record<
             </div>
           )}
 
-          <div className="mt-auto pt-2 flex items-center gap-1 text-xs text-muted-foreground relative z-10">
-            <Users className="h-3 w-3" />
-            <span className="font-medium text-foreground">{e.going}</span> {t("events.card.going")}
-          </div>
         </div>
       </div>
     </article>
@@ -235,9 +224,13 @@ function EventsPage() {
   const [deletingAll, setDeletingAll] = useState(false);
   const [cat, setCat] = useState<(typeof cats)[number]>("All");
   const [q, setQ] = useState("");
-  const [showPast, setShowPast] = useState(false);
+  const [showPast, setShowPast] = useState(isAdmin);
   const [sortKey, setSortKey] = useState<SortKey>("date-asc");
   const [timeFilter, setTimeFilter] = useState<TimeFilter>("all");
+
+  useEffect(() => {
+    if (isAdmin) setShowPast(true);
+  }, [isAdmin]);
 
   const TIME_FILTERS: { value: TimeFilter; label: string }[] = [
     { value: "all",        label: t("events.filters.anyTime") },
@@ -277,7 +270,7 @@ function EventsPage() {
       switch (sortKey) {
         case "date-asc":  return parseSortDate(a).getTime() - parseSortDate(b).getTime();
         case "date-desc": return parseSortDate(b).getTime() - parseSortDate(a).getTime();
-        case "popular":   return b.going - a.going;
+        case "popular":   return parseSortDate(a).getTime() - parseSortDate(b).getTime();
       }
     });
   }, [allEvents, cat, q, showPast, sortKey]);

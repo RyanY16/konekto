@@ -60,6 +60,57 @@ export type Database = {
         Insert: { user_id: string; circle_id: string; joined_at?: string };
         Update: never;
       };
+      import_sources: {
+        Row: {
+          id: string;
+          name: string;
+          type: "event" | "circle" | "deal" | "mixed";
+          url: string;
+          enabled: boolean;
+          cadence: "manual" | "daily" | "weekly";
+          last_scraped_at: string | null;
+          last_status: string | null;
+          error_count: number;
+          created_at: string;
+          updated_at: string | null;
+        };
+        Insert: Partial<Database["public"]["Tables"]["import_sources"]["Row"]> & {
+          id: string;
+          name: string;
+          url: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["import_sources"]["Insert"]>;
+      };
+      import_candidates: {
+        Row: {
+          id: string;
+          source_id: string | null;
+          source_name: string;
+          source_url: string;
+          item_url: string;
+          type: "event" | "circle" | "deal";
+          title: string;
+          description: string;
+          normalized_payload: Json;
+          raw_payload: Json;
+          confidence: number;
+          duplicate_key: string;
+          status: "new" | "approved" | "rejected" | "duplicate";
+          rejection_reason: string | null;
+          reviewed_by: string | null;
+          reviewed_at: string | null;
+          created_at: string;
+          updated_at: string | null;
+        };
+        Insert: Partial<Database["public"]["Tables"]["import_candidates"]["Row"]> & {
+          id: string;
+          item_url: string;
+          type: "event" | "circle" | "deal";
+          title: string;
+          duplicate_key: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["import_candidates"]["Insert"]>;
+      };
       circle_editors: {
         Row: { circle_id: string; user_id: string };
         Insert: { circle_id: string; user_id: string };
@@ -98,7 +149,7 @@ export type Database = {
         Row: {
           id: string;
           title: string;
-          category: "Social" | "Career" | "Hackathon" | "Networking";
+          category: "Social" | "Career" | "Hackathon" | "Workshop" | "Casual" | "Travel";
           date: string;
           location: string;
           description: string;

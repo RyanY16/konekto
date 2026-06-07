@@ -95,7 +95,7 @@ create table if not exists public.circles (
 create table if not exists public.events (
   id text primary key,
   title text not null,
-  category text not null check (category in ('Social', 'Career', 'Hackathon', 'Networking')),
+  category text not null check (category in ('Social', 'Career', 'Hackathon', 'Workshop', 'Casual', 'Travel')),
   date text not null,
   location text not null,
   emoji text not null,
@@ -104,6 +104,11 @@ create table if not exists public.events (
   social_links jsonb not null default '{}'::jsonb,
   created_at timestamptz not null default now()
 );
+
+alter table public.events drop constraint if exists events_category_check;
+update public.events set category = 'Career', emoji = '💼' where category = 'Networking';
+alter table public.events add constraint events_category_check
+  check (category in ('Social', 'Career', 'Hackathon', 'Workshop', 'Casual', 'Travel'));
 
 create table if not exists public.deals (
   id text primary key,
@@ -353,8 +358,8 @@ insert into public.events (id, title, category, date, location, emoji, going, ta
   ('e1', 'International Welcome Mixer', 'Social', 'Fri, May 8 · 7:00 PM', 'Shibuya', '🥂', 124, array['international-friendly', 'free']),
   ('e2', 'Spring Career Forum 2026', 'Career', 'Sat, May 16 · 10:00 AM', 'Tokyo Big Sight', '💼', 1820, array['shukatsu', 'tech', 'finance']),
   ('e3', '48h AI Hackathon', 'Hackathon', 'Sat, May 23 · 9:00 AM', 'Roppongi Hills', '⚡', 312, array['coding', 'ai', 'prizes']),
-  ('e4', 'Startup Founders Meetup', 'Networking', 'Wed, May 13 · 6:30 PM', 'Otemachi', '🚀', 78, array['startup', 'networking']),
-  ('e5', 'Hanami Picnic @ Yoyogi', 'Social', 'Sun, May 4 · 12:00 PM', 'Yoyogi Park', '🌸', 56, array['outdoors', 'free']),
+  ('e4', 'Startup Founders Meetup', 'Career', 'Wed, May 13 · 6:30 PM', 'Otemachi', '💼', 78, array['startup', 'networking']),
+  ('e5', 'Hanami Picnic @ Yoyogi', 'Casual', 'Sun, May 4 · 12:00 PM', 'Yoyogi Park', '🌸', 56, array['outdoors', 'free']),
   ('e6', 'Goldman Sachs Info Session', 'Career', 'Tue, May 12 · 7:00 PM', 'Online', '🏦', 430, array['finance', 'shukatsu'])
 on conflict (id) do update set
   title = excluded.title,
@@ -510,6 +515,60 @@ alter table public.circles add column if not exists status text not null default
   check (status in ('pending', 'approved', 'declined'));
 alter table public.events add column if not exists status text not null default 'approved'
   check (status in ('pending', 'approved', 'declined'));
+
+-- ── Admin discovery / import queue ──────────────────────────────────────────
+create table if not exists public.import_sources (
+  id text primary key,
+  name text not null,
+  type text not null default 'mixed' check (type in ('event', 'circle', 'deal', 'mixed')),
+  url text not null unique,
+  enabled boolean not null default true,
+  cadence text not null default 'daily' check (cadence in ('manual', 'daily', 'weekly')),
+  last_scraped_at timestamptz,
+  last_status text,
+  error_count integer not null default 0,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz
+);
+
+create table if not exists public.import_candidates (
+  id text primary key,
+  source_id text references public.import_sources(id) on delete set null,
+  source_name text not null default '',
+  source_url text not null default '',
+  item_url text not null,
+  type text not null check (type in ('event', 'circle', 'deal')),
+  title text not null,
+  description text not null default '',
+  normalized_payload jsonb not null default '{}'::jsonb,
+  raw_payload jsonb not null default '{}'::jsonb,
+  confidence numeric not null default 0.5,
+  duplicate_key text not null,
+  status text not null default 'new' check (status in ('new', 'approved', 'rejected', 'duplicate')),
+  rejection_reason text,
+  reviewed_by uuid references auth.users(id) on delete set null,
+  reviewed_at timestamptz,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz
+);
+
+create unique index if not exists import_candidates_duplicate_key_idx
+  on public.import_candidates (duplicate_key);
+
+alter table public.import_sources enable row level security;
+alter table public.import_candidates enable row level security;
+drop policy if exists "Admins manage import sources" on public.import_sources;
+create policy "Admins manage import sources" on public.import_sources for all
+  using (public.is_admin())
+  with check (public.is_admin());
+drop policy if exists "Admins manage import candidates" on public.import_candidates;
+create policy "Admins manage import candidates" on public.import_candidates for all
+  using (public.is_admin())
+  with check (public.is_admin());
+
+-- Daily overnight scraping is run by invoking the discover-imports Edge Function.
+-- Configure your deployed scheduler for roughly 03:00 Asia/Tokyo, plus admins
+-- can trigger the same function manually from /admin.
 
 -- Update circles SELECT: public sees only approved; owners and admins see all
 drop policy if exists "Public read circles" on public.circles;

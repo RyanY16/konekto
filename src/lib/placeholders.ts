@@ -5,6 +5,7 @@ const EVENT_CATEGORY_GRADIENTS: Record<string, string> = {
   Hackathon: "from-violet-400/30 to-purple-600/30",
   Workshop:  "from-cyan-400/30 to-teal-500/30",
   Casual:    "from-amber-400/30 to-orange-400/30",
+  Travel:    "from-sky-400/30 to-emerald-500/30",
 };
 
 export function eventGradient(category: string): string {

@@ -61,7 +61,7 @@ const featureGroups: FeatureGroup[] = [
     items: [
       { title: "Event fields", description: "Title, date, time, location, description, emoji, category, and tags." },
       { title: "Hosting circles", description: "Events can be linked to one or more circles so ownership stays visible." },
-      { title: "Attendees", description: "Going counts and attendee lists make participation easier to track." },
+      { title: "Attendees", description: "Attendee review tools make participation easier to manage." },
       { title: "Collab requests", description: "Circles can review and approve event collaboration requests." },
       { title: "Join flow", description: "Students can join, save, or revisit event pages from discovery." },
     ],
