@@ -1,5 +1,5 @@
 import { createFileRoute, Link, useRouter } from "@tanstack/react-router";
-import { useEffect, useState, useMemo } from "react";
+import { useState, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { MapPin, Calendar, Search, Trash2, ArrowUpDown } from "lucide-react";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
@@ -224,13 +224,9 @@ function EventsPage() {
   const [deletingAll, setDeletingAll] = useState(false);
   const [cat, setCat] = useState<(typeof cats)[number]>("All");
   const [q, setQ] = useState("");
-  const [showPast, setShowPast] = useState(isAdmin);
+  const [showPast, setShowPast] = useState(false);
   const [sortKey, setSortKey] = useState<SortKey>("date-asc");
   const [timeFilter, setTimeFilter] = useState<TimeFilter>("all");
-
-  useEffect(() => {
-    if (isAdmin) setShowPast(true);
-  }, [isAdmin]);
 
   const TIME_FILTERS: { value: TimeFilter; label: string }[] = [
     { value: "all",        label: t("events.filters.anyTime") },
@@ -273,7 +269,7 @@ function EventsPage() {
         case "popular":   return parseSortDate(a).getTime() - parseSortDate(b).getTime();
       }
     });
-  }, [allEvents, cat, q, showPast, sortKey]);
+  }, [allEvents, cat, q, showPast, sortKey, timeFilter]);
 
   return (
     <div>

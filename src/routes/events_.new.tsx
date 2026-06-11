@@ -15,7 +15,6 @@ import { addEvent, setEventCircleCollaborations, getEventHandle } from "@/data/b
 import { useAuth } from "@/components/AuthProvider";
 import { CATEGORY_EMOJI, EVENT_CATEGORIES, LANGUAGES } from "@/data/profile-options";
 import { format } from "date-fns";
-import type { DateRange } from "react-day-picker";
 import { PageHeader } from "@/components/PageHeader";
 import { NativeSelect } from "@/components/ui/native-select";
 
@@ -40,20 +39,19 @@ function parseTimeStr(t: string): { h: number; m: number } {
   return { h, m };
 }
 
-function buildStartDatetime(date: Date, timeStr: string): string {
+function buildDatetime(date: Date, timeStr: string): Date {
   const { h, m } = parseTimeStr(timeStr);
   const d = new Date(date);
   d.setHours(h, m, 0, 0);
-  return d.toISOString();
+  return d;
 }
 
-function formatDateRange(range: DateRange | undefined, startTime: string, endTime: string, isRange: boolean): string {
-  if (!range?.from) return "";
-  const from = format(range.from, "EEE, MMM d");
-  if (isRange && range.to && range.to.getTime() !== range.from.getTime()) {
-    return `${from}–${format(range.to, "MMM d")} · ${startTime} – ${endTime}`;
+function formatDateTimeRange(start: Date | undefined, startTime: string, end: Date | undefined, endTime: string): string {
+  if (!start || !end) return "";
+  if (start.toDateString() === end.toDateString()) {
+    return `${format(start, "EEE, MMM d")} · ${startTime} – ${endTime}`;
   }
-  return `${from} · ${startTime} – ${endTime}`;
+  return `${format(start, "EEE, MMM d")} · ${startTime} – ${format(end, "EEE, MMM d")} · ${endTime}`;
 }
 
 function mapsUrl(location: string) {
@@ -86,11 +84,12 @@ function NewEventPage() {
   const [approvalRequired, setApprovalRequired] = useState(false);
   const [isWeekly, setIsWeekly] = useState(false);
   const [recurringDay, setRecurringDay] = useState(0);
-  const [dateRange, setDateRange] = useState<DateRange | undefined>(undefined);
+  const [startDate, setStartDate] = useState<Date | undefined>(undefined);
+  const [endDate, setEndDate] = useState<Date | undefined>(undefined);
   const [startTime, setStartTime] = useState("7:00 PM");
   const [endTime, setEndTime] = useState("9:00 PM");
-  const [multiDay, setMultiDay] = useState(false);
-  const [datePickerOpen, setDatePickerOpen] = useState(false);
+  const [startDatePickerOpen, setStartDatePickerOpen] = useState(false);
+  const [endDatePickerOpen, setEndDatePickerOpen] = useState(false);
   const dateDisabled = isAdmin ? undefined : { before: new Date() };
 
   if (!user) {
@@ -170,14 +169,8 @@ function NewEventPage() {
       }
     }
     if (startD) {
-      // If end is on a different calendar day, enable multi-day range
-      const crossDay = endD && endD.toDateString() !== startD.toDateString();
-      if (crossDay) {
-        setMultiDay(true);
-        setDateRange({ from: startD, to: endD! });
-      } else {
-        setDateRange({ from: startD, to: startD });
-      }
+      setStartDate(startD);
+      setEndDate(endD && endD > startD ? endD : startD);
     }
   }
 
@@ -201,13 +194,20 @@ function NewEventPage() {
         d.setHours(h, m, 0, 0);
         startDateIso = d.toISOString();
       } else {
-        dateStr = formatDateRange(dateRange, startTime, endTime, multiDay);
+        dateStr = formatDateTimeRange(startDate, startTime, endDate, endTime);
         if (!dateStr) {
-          setError("Please select a date.");
+          setError("Please select a start and end date.");
           setSaving(false);
           return;
         }
-        startDateIso = dateRange?.from ? buildStartDatetime(dateRange.from, startTime) : undefined;
+        const startDateTime = buildDatetime(startDate!, startTime);
+        const endDateTime = buildDatetime(endDate!, endTime);
+        if (endDateTime <= startDateTime) {
+          setError("End date/time must be after the start date/time.");
+          setSaving(false);
+          return;
+        }
+        startDateIso = startDateTime.toISOString();
       }
 
       const trimmedTitle = title.trim();
@@ -338,84 +338,91 @@ function NewEventPage() {
             <label className={lbl}>Date &amp; Time {isWeekly ? opt : req}</label>
 
             {!isWeekly && (
-              <>
-                <div className="flex items-center gap-2 mb-1">
-                  <input
-                    id="new-multiday"
-                    type="checkbox"
-                    checked={multiDay}
-                    onChange={(e) => {
-                      setMultiDay(e.target.checked);
-                      if (!e.target.checked) setDateRange((r) => r ? { from: r.from, to: undefined } : undefined);
-                    }}
-                    className="h-4 w-4 rounded border-input accent-primary"
-                  />
-                  <label htmlFor="new-multiday" className="text-sm font-medium cursor-pointer select-none">Multi-day event</label>
-                </div>
-
-                <Popover open={datePickerOpen} onOpenChange={setDatePickerOpen}>
-                  <PopoverTrigger asChild>
-                    <button
-                      type="button"
-                      className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm text-left flex items-center gap-2 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-                    >
-                      <CalendarIcon className="h-4 w-4 text-muted-foreground shrink-0" />
-                      <span className={dateRange?.from ? "" : "text-muted-foreground"}>
-                        {dateRange?.from
-                          ? multiDay && dateRange.to && dateRange.to.getTime() !== dateRange.from.getTime()
-                            ? `${format(dateRange.from, "MMM d")} – ${format(dateRange.to, "MMM d, yyyy")}`
-                            : format(dateRange.from, "EEE, MMM d, yyyy")
-                          : "Select date…"}
-                      </span>
-                    </button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0" align="start">
-                    {multiDay ? (
-                      <>
-                        <Calendar
-                          mode="range"
-                          selected={dateRange}
-                          onSelect={(val: DateRange | undefined) => setDateRange(val)}
-                          disabled={dateDisabled}
-                          initialFocus
-                        />
-                        <div className="p-2 border-t flex justify-end">
-                          <Button size="sm" type="button" onClick={() => setDatePickerOpen(false)}>Done</Button>
-                        </div>
-                      </>
-                    ) : (
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div className="space-y-1.5">
+                  <span className="text-xs text-muted-foreground">Start</span>
+                  <Popover open={startDatePickerOpen} onOpenChange={setStartDatePickerOpen}>
+                    <PopoverTrigger asChild>
+                      <button
+                        type="button"
+                        className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm text-left flex items-center gap-2 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                      >
+                        <CalendarIcon className="h-4 w-4 text-muted-foreground shrink-0" />
+                        <span className={startDate ? "" : "text-muted-foreground"}>
+                          {startDate ? format(startDate, "EEE, MMM d, yyyy") : "Start date…"}
+                        </span>
+                      </button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="start">
                       <Calendar
                         mode="single"
-                        selected={dateRange?.from}
+                        selected={startDate}
                         onSelect={(val: Date | undefined) => {
-                          setDateRange(val ? { from: val, to: undefined } : undefined);
-                          setDatePickerOpen(false);
+                          setStartDate(val);
+                          if (val && (!endDate || endDate < val)) setEndDate(val);
+                          setStartDatePickerOpen(false);
                         }}
                         disabled={dateDisabled}
                         initialFocus
                       />
-                    )}
-                  </PopoverContent>
-                </Popover>
-              </>
+                    </PopoverContent>
+                  </Popover>
+                  <NativeSelect value={startTime} onChange={(e) => setStartTime(e.target.value)}>
+                    {TIME_OPTIONS.map((t) => <option key={t} value={t}>{t}</option>)}
+                  </NativeSelect>
+                </div>
+
+                <div className="space-y-1.5">
+                  <span className="text-xs text-muted-foreground">End</span>
+                  <Popover open={endDatePickerOpen} onOpenChange={setEndDatePickerOpen}>
+                    <PopoverTrigger asChild>
+                      <button
+                        type="button"
+                        className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm text-left flex items-center gap-2 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                      >
+                        <CalendarIcon className="h-4 w-4 text-muted-foreground shrink-0" />
+                        <span className={endDate ? "" : "text-muted-foreground"}>
+                          {endDate ? format(endDate, "EEE, MMM d, yyyy") : "End date…"}
+                        </span>
+                      </button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="start">
+                      <Calendar
+                        mode="single"
+                        selected={endDate}
+                        onSelect={(val: Date | undefined) => {
+                          setEndDate(val);
+                          setEndDatePickerOpen(false);
+                        }}
+                        disabled={startDate ? { before: startDate } : dateDisabled}
+                        initialFocus
+                      />
+                    </PopoverContent>
+                  </Popover>
+                  <NativeSelect value={endTime} onChange={(e) => setEndTime(e.target.value)}>
+                    {TIME_OPTIONS.map((t) => <option key={t} value={t}>{t}</option>)}
+                  </NativeSelect>
+                </div>
+              </div>
             )}
 
-            <div className="flex gap-2 mt-2">
-              <div className="flex-1 space-y-1">
-                <span className="text-xs text-muted-foreground">Start Time</span>
-                <NativeSelect value={startTime} onChange={(e) => setStartTime(e.target.value)}>
-                  {TIME_OPTIONS.map((t) => <option key={t} value={t}>{t}</option>)}
-                </NativeSelect>
+            {isWeekly && (
+              <div className="flex gap-2 mt-2">
+                <div className="flex-1 space-y-1">
+                  <span className="text-xs text-muted-foreground">Start Time</span>
+                  <NativeSelect value={startTime} onChange={(e) => setStartTime(e.target.value)}>
+                    {TIME_OPTIONS.map((t) => <option key={t} value={t}>{t}</option>)}
+                  </NativeSelect>
+                </div>
+                <div className="flex-1 space-y-1">
+                  <span className="text-xs text-muted-foreground">End Time</span>
+                  <NativeSelect value={endTime} onChange={(e) => setEndTime(e.target.value)}>
+                    {TIME_OPTIONS.map((t) => <option key={t} value={t}>{t}</option>)}
+                  </NativeSelect>
+                </div>
               </div>
-              <div className="flex-1 space-y-1">
-                <span className="text-xs text-muted-foreground">End Time</span>
-                <NativeSelect value={endTime} onChange={(e) => setEndTime(e.target.value)}>
-                  {TIME_OPTIONS.map((t) => <option key={t} value={t}>{t}</option>)}
-                </NativeSelect>
-              </div>
-            </div>
+            )}
           </div>
-
           {/* Online + approval */}
           <div className="flex flex-wrap gap-x-6 gap-y-2">
             <div className="flex items-center gap-2">
