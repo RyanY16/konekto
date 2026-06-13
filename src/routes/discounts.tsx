@@ -19,7 +19,7 @@ export const Route = createFileRoute("/discounts")({
       { name: "description", content: "Student discounts and deals — food, fashion, tech, and lifestyle perks across Japan." },
     ],
   }),
-  staleTime: 30_000,
+  staleTime: 0,
   loader: async () => {
     try {
       return { deals: await getDeals() };

@@ -23,6 +23,19 @@ const CIRCLE_CATEGORIES = [
 
 const EVENT_CATEGORIES = ["Social", "Career", "Hackathon", "Workshop", "Casual", "Travel"];
 
+const OPPORTUNITY_CATEGORIES = [
+  "Scholarship",
+  "Part-time Job",
+  "Internship",
+  "Study Abroad",
+  "Research",
+  "Competition",
+  "Grant",
+  "Volunteer",
+  "Career Event",
+  "Other",
+];
+
 const LANGUAGES = [
   "Japanese", "English", "Chinese", "Korean", "French", "Spanish",
   "German", "Portuguese", "Arabic", "Hindi", "Vietnamese", "Thai",
@@ -90,7 +103,7 @@ function languageInstruction(outputLanguage: unknown): string {
 
 function languageFieldRules(outputLanguage: unknown): string {
   const textFields =
-    "name/title/brand, description, location, cost, recruitingPeriod, membershipFee, howToJoin, university";
+    "name/title/brand/organization, description, location, cost, recruitingPeriod, membershipFee, howToJoin, university, deadline, eligibility";
   if (outputLanguage === "ja") {
     return (
       `REQUESTED OUTPUT LANGUAGE MODE: Japanese only.\n` +
@@ -258,6 +271,34 @@ async function handleRequest(req: Request, openaiKey: string, body: unknown, url
         `- studentOnly: true if this is exclusively for students\n` +
         `- mode: must be exactly one of: In-Person, Online, Both\n` +
         `- url: the deal or brand page URL`;
+    } else if (type === "opportunity") {
+      userPrompt =
+        `Web page content:\n---\n${pageContent}\n---\n\n` +
+        langRules +
+        `Extract student opportunity details and return ONLY a JSON object:\n` +
+        `{\n` +
+        `  "title": string | null,\n` +
+        `  "organization": string | null,\n` +
+        `  "category": string | null,\n` +
+        `  "location": string | null,\n` +
+        `  "mode": string | null,\n` +
+        `  "deadline": string | null,\n` +
+        `  "description": string | null,\n` +
+        `  "eligibility": string | null,\n` +
+        `  "applicationUrl": string | null,\n` +
+        `  "tags": string[] | null\n` +
+        `}\n\n` +
+        `Rules:\n` +
+        `- title: opportunity title or program name (MUST follow language output rules)\n` +
+        `- organization: company, university, foundation, host institution, or organizer (MUST follow language output rules when possible)\n` +
+        `- category: must be exactly one of: ${OPPORTUNITY_CATEGORIES.join(", ")}\n` +
+        `- location: workplace, destination, campus, city, or "Remote"/"Online" if applicable (MUST follow language output rules for words like Remote, Online, TBD)\n` +
+        `- mode: must be exactly one of: Online, In-Person, Hybrid\n` +
+        `- deadline: specific application deadline as a date in YYYY-MM-DD format only, or null when the page only says "Rolling", "Open until filled", varies, or no specific date is shown\n` +
+        `- description: what the opportunity is about, 2-4 sentences (MUST follow language output rules)\n` +
+        `- eligibility: who can apply, 1-3 sentences (MUST follow language output rules)\n` +
+        `- applicationUrl: the most direct application or details URL; use the source URL if no better URL exists\n` +
+        `- tags: pick 0-4 that apply from this exact list only (use exact strings): ${TAGS.map((tag) => `"${tag}"`).join(", ")}`;
     } else {
       // Default: circle
       userPrompt =

@@ -40,7 +40,7 @@ export const Route = createFileRoute("/events")({
     ],
   }),
   loaderDeps: () => ({}),
-  staleTime: 30_000,
+  staleTime: 0,
   loader: async () => {
     try {
       const evs = await getEvents();

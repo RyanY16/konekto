@@ -2,13 +2,15 @@ import { useState } from "react";
 import { Layers, X, Check, Loader2, ExternalLink, MapPin, Calendar, Tag } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { addEvent, getEventHandle, addCircle, getCircleHandle, addDeal, getDealHandle } from "@/data/backend";
+import { addEvent, getEventHandle, addCircle, getCircleHandle, addDeal, getDealHandle, addJob, getJobHandle } from "@/data/backend";
 import { useAuth } from "@/components/AuthProvider";
 import { inferRelevantTags, filterValidTags } from "@/data/tags";
-import { DEAL_CATEGORIES, DEAL_CATEGORY_EMOJI, CIRCLE_CATEGORIES, CATEGORY_EMOJI, EVENT_CATEGORIES } from "@/data/profile-options";
+import { DEAL_CATEGORIES, DEAL_CATEGORY_EMOJI, CIRCLE_CATEGORIES, CATEGORY_EMOJI, EVENT_CATEGORIES, OPPORTUNITY_CATEGORIES } from "@/data/profile-options";
 import { format } from "date-fns";
 import type { SmartFillResult, SmartFillType } from "@/components/SmartFill";
 import { isLumaUrl } from "@/lib/social-links";
+import { formatOpportunityDeadline, normalizeOpportunityDeadline } from "@/lib/opportunity-deadline";
+import type { Job } from "@/data/mock";
 
 type SmartFillLanguage = "en" | "ja" | "both";
 
@@ -87,6 +89,28 @@ function buildDealParams(data: SmartFillResult, sourceUrl: string) {
   return { brand: data.brand?.trim() || "Unknown", title: data.title?.trim() || "Untitled Deal", category: category as any, description: data.description?.trim() || undefined, originalPrice: data.originalPrice?.trim() || undefined, newPrice: data.newPrice?.trim() || undefined, studentOnly: data.studentOnly ?? true, mode: (data.mode && ["In-Person", "Online", "Both"].includes(data.mode) ? data.mode : "Online") as any, socialLinks: { website: data.url || sourceUrl } as any };
 }
 
+function buildOpportunityParams(data: SmartFillResult, sourceUrl: string): Omit<Job, "id"> {
+  const rawCat = data.category ?? "";
+  const category = ((OPPORTUNITY_CATEGORIES as readonly string[]).includes(rawCat) ? rawCat : "Other") as Job["category"];
+  const mode = data.mode === "Online" || data.mode === "Hybrid" || data.mode === "In-Person" ? data.mode : "In-Person";
+  const applicationUrl = data.applicationUrl || data.url || data.website || sourceUrl;
+  const tags = filterValidTags(inferRelevantTags({ tags: data.tags, text: [data.title, data.organization, data.category, data.description, data.eligibility], limit: 4 }));
+  return {
+    title: data.title?.trim() || "Untitled Opportunity",
+    organization: data.organization?.trim() || data.brand?.trim() || "Unknown organization",
+    category,
+    location: data.location?.trim() || "TBD",
+    mode,
+    deadline: normalizeOpportunityDeadline(data.deadline),
+    description: data.description?.trim() || undefined,
+    eligibility: data.eligibility?.trim() || undefined,
+    applicationUrl,
+    socialLinks: applicationUrl ? { website: applicationUrl } : {},
+    tags,
+    emoji: CATEGORY_EMOJI[category] || "✨",
+  };
+}
+
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 type FetchRow = { url: string; status: "pending" | "fetching" | "done" | "error"; data?: SmartFillResult; error?: string };
@@ -162,13 +186,38 @@ function DealPreview({ data }: { data: SmartFillResult }) {
   );
 }
 
+function OpportunityPreview({ data }: { data: SmartFillResult }) {
+  const cat = (OPPORTUNITY_CATEGORIES as readonly string[]).includes(data.category ?? "") ? data.category : "Other";
+  const emoji = CATEGORY_EMOJI[cat!] || "✨";
+  return (
+    <div className="space-y-1">
+      <div className="flex items-center gap-1.5">
+        <span>{emoji}</span>
+        <span className="font-semibold text-sm">{data.title || "Untitled Opportunity"}</span>
+        {cat && <span className="text-[10px] text-muted-foreground border border-border rounded px-1">{cat}</span>}
+      </div>
+      {data.organization && <p className="text-xs text-muted-foreground">{data.organization}</p>}
+      {data.location && <p className="text-xs text-muted-foreground flex items-center gap-1"><MapPin className="h-3 w-3" />{data.location}</p>}
+      {normalizeOpportunityDeadline(data.deadline) && <p className="text-xs text-muted-foreground flex items-center gap-1"><Calendar className="h-3 w-3" />Deadline: {formatOpportunityDeadline(data.deadline)}</p>}
+      {data.description && <p className="text-xs text-muted-foreground line-clamp-2">{data.description}</p>}
+      {data.tags && data.tags.length > 0 && (
+        <div className="flex items-center gap-1 flex-wrap">
+          <Tag className="h-3 w-3 text-muted-foreground shrink-0" />
+          {data.tags.slice(0, 4).map((t) => <span key={t} className="text-[10px] bg-muted rounded px-1.5 py-0.5">{t}</span>)}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── Main component ────────────────────────────────────────────────────────────
 
-const TYPE_LABELS: Record<SmartFillType, string> = { event: "events", circle: "circles", deal: "deals" };
+const TYPE_LABELS: Record<SmartFillType, string> = { event: "events", circle: "circles", deal: "deals", opportunity: "opportunities" };
 const TYPE_HINTS: Record<SmartFillType, string> = {
   event: "Works best with Luma links and event pages.",
   circle: "Works best with club websites.",
   deal: "Paste the deal or brand page.",
+  opportunity: "Paste scholarship, job, internship, study abroad, or application pages.",
 };
 
 interface Props { type: SmartFillType }
@@ -242,10 +291,14 @@ export function BatchAddDialog({ type }: Props) {
           const params = buildCircleParams(item.data, item.url, user.id);
           await addCircle(params as any);
           handle = getCircleHandle({ id: params.id, name: params.name });
-        } else {
+        } else if (type === "deal") {
           const params = buildDealParams(item.data, item.url);
           const deal = await addDeal(params as any);
           handle = getDealHandle(deal);
+        } else {
+          const params = buildOpportunityParams(item.data, item.url);
+          const opportunity = await addJob(params);
+          handle = getJobHandle(opportunity);
         }
         updateCreate(item.url, { status: "done", handle });
       } catch (err) {
@@ -256,7 +309,7 @@ export function BatchAddDialog({ type }: Props) {
     setStep("done");
   }
 
-  const hrefBase = type === "event" ? "events" : type === "circle" ? "circles" : "discounts";
+  const hrefBase = type === "event" ? "events" : type === "circle" ? "circles" : type === "deal" ? "discounts" : "careers";
   const allSelected = reviewItems.every((i) => i.selected);
   const someSelected = reviewItems.some((i) => i.selected);
   const doneCount = createRows.filter((r) => r.status === "done").length;
@@ -369,6 +422,7 @@ export function BatchAddDialog({ type }: Props) {
                       {type === "event" && <EventPreview data={item.data} url={item.url} />}
                       {type === "circle" && <CirclePreview data={item.data} />}
                       {type === "deal" && <DealPreview data={item.data} />}
+                      {type === "opportunity" && <OpportunityPreview data={item.data} />}
                       <p className="text-[10px] text-muted-foreground mt-1 truncate">{item.url}</p>
                     </div>
                   </label>

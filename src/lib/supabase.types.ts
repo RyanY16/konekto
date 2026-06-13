@@ -196,22 +196,30 @@ export type Database = {
         };
         Update: Partial<Database["public"]["Tables"]["deals"]["Insert"]>;
       };
-      jobs: {
+      opportunities: {
         Row: {
           id: string;
           company: string;
           role: string;
           type: "Shukatsu" | "Baito" | "Opportunity";
+          organization: string;
+          title: string;
+          category: "Scholarship" | "Part-time Job" | "Internship" | "Study Abroad" | "Research" | "Competition" | "Grant" | "Volunteer" | "Career Event" | "Other";
           location: string;
+          mode: "Online" | "In-Person" | "Hybrid";
+          deadline: string | null;
+          description: string;
+          eligibility: string;
+          application_url: string;
           tags: string[];
           emoji: string;
           social_links: Json;
           created_at: string;
         };
-        Insert: Omit<Database["public"]["Tables"]["jobs"]["Row"], "created_at"> & {
+        Insert: Omit<Database["public"]["Tables"]["opportunities"]["Row"], "created_at"> & {
           created_at?: string;
         };
-        Update: Partial<Database["public"]["Tables"]["jobs"]["Insert"]>;
+        Update: Partial<Database["public"]["Tables"]["opportunities"]["Insert"]>;
       };
       guides: {
         Row: {

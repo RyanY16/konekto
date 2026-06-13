@@ -1,5 +1,5 @@
 import { Link, Outlet, useRouterState, useNavigate } from "@tanstack/react-router";
-import { Home, Users, User, Calendar, Tag, Settings, Shield } from "lucide-react";
+import { BriefcaseBusiness, Home, Users, User, Calendar, Tag, Settings, Shield } from "lucide-react";
 import type { ComponentType } from "react";
 import { useEffect, useState } from "react";
 import AuthProvider, { useAuth } from "@/components/AuthProvider";
@@ -36,6 +36,7 @@ const navItems: NavItem[] = [
   { to: "/circles", labelKey: "nav.circles", icon: Users },
   { to: "/events", labelKey: "nav.events", icon: Calendar },
   { to: "/discounts", labelKey: "nav.deals", icon: Tag },
+  { to: "/careers", labelKey: "nav.opportunities", icon: BriefcaseBusiness },
   { to: "/profile", labelKey: "nav.profile", icon: User },
 ];
 

@@ -319,6 +319,7 @@ function DealDetailPage() {
           <div className="flex items-start justify-between gap-4">
             <PageHeader
               eyebrow={deal.category}
+              eyebrowVariant="chip"
               title={deal.title}
               subtitle={deal.brand}
             />

@@ -25,6 +25,23 @@ export function dealGradient(category: string): string {
   return DEAL_CATEGORY_GRADIENTS[category] ?? "from-primary/20 to-accent/20";
 }
 
+const OPPORTUNITY_CATEGORY_GRADIENTS: Record<string, string> = {
+  Scholarship:           "from-sky-400/30 to-blue-500/30",
+  "Part-time Job":       "from-emerald-400/30 to-teal-500/30",
+  Internship:            "from-indigo-400/30 to-violet-500/30",
+  "Study Abroad":        "from-cyan-400/30 to-emerald-500/30",
+  Research:              "from-amber-400/30 to-orange-400/30",
+  Competition:           "from-fuchsia-400/30 to-pink-500/30",
+  Grant:                 "from-emerald-400/30 to-lime-500/30",
+  Volunteer:             "from-lime-400/30 to-green-500/30",
+  "Career Event":        "from-blue-400/30 to-indigo-500/30",
+  Other:                 "from-primary/20 to-accent/20",
+};
+
+export function opportunityGradient(category: string): string {
+  return OPPORTUNITY_CATEGORY_GRADIENTS[category] ?? "from-primary/20 to-accent/20";
+}
+
 export function circlePlaceholderUrl(name: string): string {
   const seed = encodeURIComponent(name);
   return `https://api.dicebear.com/9.x/initials/svg?seed=${seed}&backgroundType=gradientLinear&backgroundColor=0081FA,745AF4&fontFamily=Inter&fontSize=40&fontWeight=700&textColor=ffffff`;

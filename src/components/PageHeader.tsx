@@ -2,15 +2,17 @@ export function PageHeader({
   title,
   subtitle,
   eyebrow,
+  eyebrowVariant = "text",
 }: {
   title: string;
   subtitle?: string;
   eyebrow?: string;
+  eyebrowVariant?: "text" | "chip";
 }) {
   return (
     <div className="mb-6 md:mb-8">
       {eyebrow && (
-        <p className="text-xs font-semibold uppercase tracking-wider text-primary mb-2">
+        <p className={eyebrowVariant === "chip" ? "chip chip-primary mb-2 w-fit" : "text-xs font-semibold uppercase tracking-wider text-primary mb-2"}>
           {eyebrow}
         </p>
       )}

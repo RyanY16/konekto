@@ -7,6 +7,7 @@ import { timeoutAfter } from "@/lib/async";
 import type { Database } from "@/lib/supabase.types";
 import { CATEGORY_EMOJI, EVENT_CATEGORIES, LANGUAGES } from "@/data/profile-options";
 import { filterValidTags, inferRelevantTags } from "@/data/tags";
+import { normalizeOpportunityDeadline } from "@/lib/opportunity-deadline";
 
 type PublicTable = keyof Database["public"]["Tables"];
 type Row<T extends PublicTable> = Database["public"]["Tables"][T]["Row"];
@@ -216,16 +217,29 @@ function mapDeal(row: Row<"deals">): Deal {
   };
 }
 
-function mapJob(row: Row<"jobs">): Job {
+function mapJob(row: Row<"opportunities">): Job {
+  const legacyType = (row as any).type;
+  const rawCategory = (row as any).category === "Competition / Grant" ? "Competition" : (row as any).category;
+  const category = (rawCategory ?? (
+    legacyType === "Baito" ? "Part-time Job" :
+    legacyType === "Shukatsu" ? "Internship" :
+    "Other"
+  )) as Job["category"];
+  const socialLinks = normalizeSocialLinks(row.social_links);
   return {
     id: row.id,
-    company: row.company,
-    role: row.role,
-    type: row.type,
+    organization: (row as any).organization ?? row.company,
+    title: (row as any).title ?? row.role,
+    category,
     location: row.location,
+    mode: ((row as any).mode ?? (row.location?.toLowerCase().includes("remote") ? "Online" : "In-Person")) as Job["mode"],
+    deadline: normalizeOpportunityDeadline((row as any).deadline),
+    description: (row as any).description ?? undefined,
+    eligibility: (row as any).eligibility ?? undefined,
+    applicationUrl: (row as any).application_url ?? socialLinks.website ?? undefined,
     tags: row.tags ?? [],
     emoji: row.emoji,
-    socialLinks: normalizeSocialLinks(row.social_links),
+    socialLinks,
   };
 }
 
@@ -268,8 +282,8 @@ export function getDealHandle(deal: Pick<Deal, "id" | "title">) {
   return slug ? `${slug}-${suffix}` : deal.id;
 }
 
-export function getJobHandle(job: Pick<Job, "id" | "company" | "role">) {
-  return toSlug(`${job.company}-${job.role}`) || job.id;
+export function getJobHandle(job: Pick<Job, "id" | "organization" | "title">) {
+  return toSlug(`${job.organization}-${job.title}`) || job.id;
 }
 
 export function getGuideHandle(guide: Pick<Guide, "id" | "title">) {
@@ -289,7 +303,7 @@ export async function getDeals(): Promise<Deal[]> {
 }
 
 export async function getJobs(): Promise<Job[]> {
-  return fromSupabase("jobs", jobs, mapJob);
+  return fromSupabase("opportunities", jobs, mapJob);
 }
 
 export async function getGuides(): Promise<Guide[]> {
@@ -1142,24 +1156,67 @@ export async function rejectImportCandidate(id: string, adminId: string, reason?
 }
 
 export async function addJob(input: Omit<Job, "id">) {
+  const deadline = normalizeOpportunityDeadline(input.deadline);
   return insertSupabase(
-    "jobs",
-    {
+    "opportunities",
+    ({
       id: newId("job"),
-      company: input.company,
-      role: input.role,
-      type: input.type,
+      company: input.organization,
+      role: input.title,
+      type: input.category === "Part-time Job" ? "Baito" : input.category === "Internship" ? "Shukatsu" : "Opportunity",
+      organization: input.organization,
+      title: input.title,
+      category: input.category,
       location: input.location,
+      mode: input.mode,
+      description: input.description ?? "",
+      eligibility: input.eligibility ?? "",
+      application_url: input.applicationUrl ?? input.socialLinks?.website ?? "",
       tags: input.tags,
       emoji: input.emoji,
-      social_links: input.socialLinks ?? {},
-    },
+      social_links: input.socialLinks ?? (input.applicationUrl ? { website: input.applicationUrl } : {}),
+      ...(deadline ? { deadline } : {}),
+    }) as any,
     mapJob,
   );
 }
 
+export async function updateJob(id: string, input: Partial<Omit<Job, "id">>) {
+  const values: Record<string, unknown> = {};
+  if (input.organization !== undefined) {
+    values.organization = input.organization;
+    values.company = input.organization;
+  }
+  if (input.title !== undefined) {
+    values.title = input.title;
+    values.role = input.title;
+  }
+  if (input.category !== undefined) {
+    values.category = input.category;
+    values.type = input.category === "Part-time Job" ? "Baito" : input.category === "Internship" ? "Shukatsu" : "Opportunity";
+  }
+  if (input.location !== undefined) values.location = input.location;
+  if (input.mode !== undefined) values.mode = input.mode;
+  if (input.deadline !== undefined) values.deadline = normalizeOpportunityDeadline(input.deadline) ?? null;
+  if (input.description !== undefined) values.description = input.description ?? "";
+  if (input.eligibility !== undefined) values.eligibility = input.eligibility ?? "";
+  if (input.applicationUrl !== undefined) values.application_url = input.applicationUrl ?? "";
+  if (input.tags !== undefined) values.tags = input.tags;
+  if (input.emoji !== undefined) values.emoji = input.emoji;
+  if (input.socialLinks !== undefined) values.social_links = input.socialLinks;
+  return updateSupabase("opportunities", id, values as any, mapJob);
+}
+
 export async function deleteJob(id: string) {
-  return deleteSupabase("jobs", id);
+  return deleteSupabase("opportunities", id);
+}
+
+export async function deleteAllJobs() {
+  const client = assertSupabase();
+  console.log("[db] delete all opportunities");
+  const { error } = await (client.from("opportunities").delete().neq("id", "") as any);
+  if (error) { console.error("[db] delete all opportunities ✗", error); throw new Error(error.message); }
+  console.log("[db] delete all opportunities ✓");
 }
 
 export async function addGuide(input: Omit<Guide, "id">) {

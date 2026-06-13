@@ -165,7 +165,7 @@ function EventSkeleton() {
 
 export const Route = createFileRoute("/events_/$eventHandle")({
   loader: ({ params }) => getEventByHandle(params.eventHandle),
-  staleTime: 30_000,
+  staleTime: 0,
   pendingComponent: EventSkeleton,
   component: EventDetailPage,
 });

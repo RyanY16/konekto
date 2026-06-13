@@ -4,6 +4,7 @@ const ja = {
     circles: "サークル",
     events: "イベント",
     deals: "お得情報",
+    opportunities: "チャンス",
     profile: "プロフィール",
     settings: "設定",
     about: "について",
@@ -470,9 +471,11 @@ const ja = {
   },
 
   careers: {
-    eyebrow: "キャリア",
+    eyebrow: "チャンス",
     title: "学生向けチャンス",
-    subtitle: "日本国内のインターン・アルバイト・奨学金情報。",
+    subtitle: "奨学金、アルバイト、インターン、留学プログラムなど。",
+    searchPlaceholder: "タイトル、団体、場所、タグで検索…",
+    noResults: "条件に合う募集がありません。",
   },
 
   moderation: {

@@ -15,7 +15,7 @@ export const Route = createFileRoute("/japan-life")({
       { name: "description", content: "Practical guides for student life in Japan: housing, admin, and daily essentials." },
     ],
   }),
-  staleTime: 30_000,
+  staleTime: 0,
   loader: async () => {
     try {
       return { guides: await getGuides() };

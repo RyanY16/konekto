@@ -34,6 +34,7 @@ import { Route as DiscountsDealHandleRouteImport } from './routes/discounts_.$de
 import { Route as DealsDealHandleRouteImport } from './routes/deals_.$dealHandle'
 import { Route as CirclesNewRouteImport } from './routes/circles_.new'
 import { Route as CirclesCircleHandleRouteImport } from './routes/circles_.$circleHandle'
+import { Route as CareersNewRouteImport } from './routes/careers_.new'
 import { Route as CareersJobHandleRouteImport } from './routes/careers_.$jobHandle'
 
 const SignupRoute = SignupRouteImport.update({
@@ -161,6 +162,11 @@ const CirclesCircleHandleRoute = CirclesCircleHandleRouteImport.update({
   path: '/circles/$circleHandle',
   getParentRoute: () => rootRouteImport,
 } as any)
+const CareersNewRoute = CareersNewRouteImport.update({
+  id: '/careers_/new',
+  path: '/careers/new',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const CareersJobHandleRoute = CareersJobHandleRouteImport.update({
   id: '/careers_/$jobHandle',
   path: '/careers/$jobHandle',
@@ -185,6 +191,7 @@ export interface FileRoutesByFullPath {
   '/settings': typeof SettingsRoute
   '/signup': typeof SignupRoute
   '/careers/$jobHandle': typeof CareersJobHandleRoute
+  '/careers/new': typeof CareersNewRoute
   '/circles/$circleHandle': typeof CirclesCircleHandleRoute
   '/circles/new': typeof CirclesNewRoute
   '/deals/$dealHandle': typeof DealsDealHandleRoute
@@ -213,6 +220,7 @@ export interface FileRoutesByTo {
   '/settings': typeof SettingsRoute
   '/signup': typeof SignupRoute
   '/careers/$jobHandle': typeof CareersJobHandleRoute
+  '/careers/new': typeof CareersNewRoute
   '/circles/$circleHandle': typeof CirclesCircleHandleRoute
   '/circles/new': typeof CirclesNewRoute
   '/deals/$dealHandle': typeof DealsDealHandleRoute
@@ -242,6 +250,7 @@ export interface FileRoutesById {
   '/settings': typeof SettingsRoute
   '/signup': typeof SignupRoute
   '/careers_/$jobHandle': typeof CareersJobHandleRoute
+  '/careers_/new': typeof CareersNewRoute
   '/circles_/$circleHandle': typeof CirclesCircleHandleRoute
   '/circles_/new': typeof CirclesNewRoute
   '/deals_/$dealHandle': typeof DealsDealHandleRoute
@@ -272,6 +281,7 @@ export interface FileRouteTypes {
     | '/settings'
     | '/signup'
     | '/careers/$jobHandle'
+    | '/careers/new'
     | '/circles/$circleHandle'
     | '/circles/new'
     | '/deals/$dealHandle'
@@ -300,6 +310,7 @@ export interface FileRouteTypes {
     | '/settings'
     | '/signup'
     | '/careers/$jobHandle'
+    | '/careers/new'
     | '/circles/$circleHandle'
     | '/circles/new'
     | '/deals/$dealHandle'
@@ -328,6 +339,7 @@ export interface FileRouteTypes {
     | '/settings'
     | '/signup'
     | '/careers_/$jobHandle'
+    | '/careers_/new'
     | '/circles_/$circleHandle'
     | '/circles_/new'
     | '/deals_/$dealHandle'
@@ -357,6 +369,7 @@ export interface RootRouteChildren {
   SettingsRoute: typeof SettingsRoute
   SignupRoute: typeof SignupRoute
   CareersJobHandleRoute: typeof CareersJobHandleRoute
+  CareersNewRoute: typeof CareersNewRoute
   CirclesCircleHandleRoute: typeof CirclesCircleHandleRoute
   CirclesNewRoute: typeof CirclesNewRoute
   DealsDealHandleRoute: typeof DealsDealHandleRoute
@@ -545,6 +558,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof CirclesCircleHandleRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/careers_/new': {
+      id: '/careers_/new'
+      path: '/careers/new'
+      fullPath: '/careers/new'
+      preLoaderRoute: typeof CareersNewRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/careers_/$jobHandle': {
       id: '/careers_/$jobHandle'
       path: '/careers/$jobHandle'
@@ -573,6 +593,7 @@ const rootRouteChildren: RootRouteChildren = {
   SettingsRoute: SettingsRoute,
   SignupRoute: SignupRoute,
   CareersJobHandleRoute: CareersJobHandleRoute,
+  CareersNewRoute: CareersNewRoute,
   CirclesCircleHandleRoute: CirclesCircleHandleRoute,
   CirclesNewRoute: CirclesNewRoute,
   DealsDealHandleRoute: DealsDealHandleRoute,

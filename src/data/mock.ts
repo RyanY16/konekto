@@ -83,12 +83,18 @@ export type Deal = {
 
 export type Job = {
   id: string;
-  company: string;
-  role: string;
-  type: "Shukatsu" | "Baito" | "Opportunity";
+  organization: string;
+  title: string;
+  category: "Scholarship" | "Part-time Job" | "Internship" | "Study Abroad" | "Research" | "Competition" | "Grant" | "Volunteer" | "Career Event" | "Other";
   location: string;
+  mode: "Online" | "In-Person" | "Hybrid";
+  deadline?: string; // ISO date: yyyy-MM-dd
+  description?: string;
+  eligibility?: string;
+  applicationUrl?: string;
   tags: string[];
   emoji: string;
+  socialLinks?: SocialLinks;
 };
 
 export type Guide = {
@@ -136,12 +142,13 @@ export const deals: Deal[] = [
 ];
 
 export const jobs: Job[] = [
-  { id: "j1", company: "Mercari", role: "Software Engineer Intern", type: "Shukatsu", location: "Roppongi · Hybrid", tags: ["tech", "internship", "english-ok"], emoji: "🛍️" },
-  { id: "j2", company: "Rakuten", role: "Product Management New Grad", type: "Shukatsu", location: "Setagaya", tags: ["product", "newgrad"], emoji: "🛒" },
-  { id: "j3", company: "Starbucks Roppongi", role: "Barista (Evenings)", type: "Baito", location: "Roppongi", tags: ["english-ok", "flexible"], emoji: "☕" },
-  { id: "j4", company: "GaijinPot", role: "Content Writer (Part-time)", type: "Baito", location: "Remote", tags: ["english", "writing"], emoji: "✍️" },
-  { id: "j5", company: "MEXT", role: "Scholarship for International Students", type: "Opportunity", location: "Nationwide", tags: ["scholarship", "international"], emoji: "🎓" },
-  { id: "j6", company: "TechCrunch Tokyo", role: "Student Pitch Competition", type: "Opportunity", location: "Shibuya", tags: ["startup", "prize"], emoji: "🏆" },
+  { id: "j1", organization: "Mercari", title: "Software Engineer Intern", category: "Internship", location: "Roppongi", mode: "Hybrid", description: "Build production features with Mercari's engineering teams during a student-friendly internship.", eligibility: "University students with software development experience.", applicationUrl: "https://www.mercari.com/careers/", tags: ["Computer Science", "Career and Networking"], emoji: "🛍️" },
+  { id: "j2", organization: "Rakuten", title: "Product Management New Grad", category: "Internship", location: "Setagaya", mode: "In-Person", description: "Explore product strategy and marketplace operations through Rakuten's student recruiting track.", eligibility: "Students graduating within the next recruitment cycle.", applicationUrl: "https://corp.rakuten.co.jp/careers/", tags: ["Marketing", "Career and Networking"], emoji: "🛒" },
+  { id: "j3", organization: "Starbucks Roppongi", title: "Barista Evenings", category: "Part-time Job", location: "Roppongi", mode: "In-Person", description: "Evening shifts for students who want customer-facing work in central Tokyo.", eligibility: "Valid work permission and conversational Japanese preferred.", tags: ["Food and Drink", "Learn Japanese"], emoji: "☕" },
+  { id: "j4", organization: "GaijinPot", title: "Content Writer", category: "Part-time Job", location: "Remote", mode: "Online", description: "Write student-focused articles about living, working, and studying in Japan.", eligibility: "Strong English writing samples required.", tags: ["Content Creation", "Literature and Writing"], emoji: "✍️" },
+  { id: "j5", organization: "MEXT", title: "Scholarship for International Students", category: "Scholarship", location: "Japan", mode: "Hybrid", description: "Government scholarship support for international students pursuing study or research in Japan.", eligibility: "Eligibility varies by country, program, and degree level.", applicationUrl: "https://www.mext.go.jp/en/", tags: ["Education", "Cultural Exchange"], emoji: "🎓" },
+  { id: "j6", organization: "TechCrunch Tokyo", title: "Student Pitch Competition", category: "Competition", location: "Shibuya", mode: "In-Person", deadline: "2026-09-30", description: "Pitch a startup idea to mentors and investors for feedback, prizes, and community exposure.", eligibility: "Student-led teams with an early-stage idea or prototype.", tags: ["Startups", "Career and Networking"], emoji: "🏆" },
+  { id: "j7", organization: "Waseda University", title: "Short-term Exchange Program", category: "Study Abroad", location: "Seoul", mode: "In-Person", deadline: "2026-10-15", description: "A semester exchange opportunity for students who want to study abroad through a partner university.", eligibility: "Enrolled students in good academic standing.", tags: ["Travel", "Cultural Exchange"], emoji: "✈️" },
 ];
 
 export const guides: Guide[] = [

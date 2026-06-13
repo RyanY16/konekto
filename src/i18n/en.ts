@@ -5,6 +5,7 @@ const en = {
     circles: "Circles",
     events: "Events",
     deals: "Deals",
+    opportunities: "Opportunities",
     profile: "Profile",
     settings: "Settings",
     about: "About",
@@ -483,9 +484,11 @@ const en = {
 
   // ── Careers ──────────────────────────────────────────────────────────────────
   careers: {
-    eyebrow: "Careers",
+    eyebrow: "Opportunities",
     title: "Opportunities for students.",
-    subtitle: "Internships, part-time jobs, and scholarships across Japan.",
+    subtitle: "Scholarships, part-time jobs, internships, study abroad programs, and more.",
+    searchPlaceholder: "Search by title, organization, location, or tag…",
+    noResults: "No opportunities match your filters.",
   },
 
   // ── Moderation ───────────────────────────────────────────────────────────────

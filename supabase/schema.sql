@@ -122,12 +122,27 @@ create table if not exists public.deals (
   created_at timestamptz not null default now()
 );
 
-create table if not exists public.jobs (
+do $$
+begin
+  if to_regclass('public.jobs') is not null and to_regclass('public.opportunities') is null then
+    alter table public.jobs rename to opportunities;
+  end if;
+end $$;
+
+create table if not exists public.opportunities (
   id text primary key,
   company text not null,
   role text not null,
   type text not null check (type in ('Shukatsu', 'Baito', 'Opportunity')),
+  organization text not null default '',
+  title text not null default '',
+  category text not null default 'Other' check (category in ('Scholarship', 'Part-time Job', 'Internship', 'Study Abroad', 'Research', 'Competition', 'Grant', 'Volunteer', 'Career Event', 'Other')),
   location text not null,
+  mode text not null default 'In-Person' check (mode in ('Online', 'In-Person', 'Hybrid')),
+  deadline date,
+  description text not null default '',
+  eligibility text not null default '',
+  application_url text not null default '',
   tags text[] not null default '{}',
   emoji text not null,
   social_links jsonb not null default '{}'::jsonb,
@@ -277,7 +292,49 @@ returns void language sql security definer as $$
   update public.events set going = greatest(going - 1, 0) where id = p_event_id;
 $$;
 alter table public.deals add column if not exists social_links jsonb not null default '{}'::jsonb;
-alter table public.jobs add column if not exists social_links jsonb not null default '{}'::jsonb;
+alter table public.opportunities add column if not exists social_links jsonb not null default '{}'::jsonb;
+alter table public.opportunities add column if not exists organization text not null default '';
+alter table public.opportunities add column if not exists title text not null default '';
+alter table public.opportunities add column if not exists category text not null default 'Other';
+alter table public.opportunities add column if not exists mode text not null default 'In-Person';
+alter table public.opportunities add column if not exists deadline date;
+alter table public.opportunities
+  alter column deadline drop default,
+  alter column deadline drop not null,
+  alter column deadline type date using (
+    case
+      when deadline::text ~ '^\d{4}-\d{2}-\d{2}$' then deadline::text::date
+      else null
+    end
+  );
+alter table public.opportunities add column if not exists description text not null default '';
+alter table public.opportunities add column if not exists eligibility text not null default '';
+alter table public.opportunities add column if not exists application_url text not null default '';
+alter table public.opportunities drop constraint if exists opportunities_category_check;
+update public.opportunities
+set category = 'Competition'
+where category = 'Competition / Grant';
+alter table public.opportunities
+  add constraint opportunities_category_check
+  check (category in ('Scholarship', 'Part-time Job', 'Internship', 'Study Abroad', 'Research', 'Competition', 'Grant', 'Volunteer', 'Career Event', 'Other'));
+alter table public.opportunities drop constraint if exists opportunities_mode_check;
+alter table public.opportunities
+  add constraint opportunities_mode_check
+  check (mode in ('Online', 'In-Person', 'Hybrid'));
+update public.opportunities set
+  organization = case when organization = '' then company else organization end,
+  title = case when title = '' then role else title end,
+  category = case
+    when category <> 'Other' then category
+    when type = 'Baito' then 'Part-time Job'
+    when type = 'Shukatsu' then 'Internship'
+    else 'Other'
+  end,
+  mode = case
+    when lower(location) like '%remote%' then 'Online'
+    when lower(location) like '%hybrid%' then 'Hybrid'
+    else mode
+  end;
 alter table public.guides add column if not exists social_links jsonb not null default '{}'::jsonb;
 
 alter table public.circles drop constraint if exists circles_commitment_check;
@@ -288,7 +345,7 @@ alter table public.circles
 alter table public.circles enable row level security;
 alter table public.events enable row level security;
 alter table public.deals enable row level security;
-alter table public.jobs enable row level security;
+alter table public.opportunities enable row level security;
 alter table public.guides enable row level security;
 
 drop policy if exists "Public read circles" on public.circles;
@@ -334,14 +391,21 @@ create policy "Admin update deals" on public.deals for update using (public.is_a
 drop policy if exists "Public delete deals" on public.deals;
 create policy "Admin delete deals" on public.deals for delete using (public.is_admin());
 
-drop policy if exists "Public read jobs" on public.jobs;
-create policy "Public read jobs" on public.jobs for select using (true);
-drop policy if exists "Public insert jobs" on public.jobs;
-create policy "Admin insert jobs" on public.jobs for insert with check (public.is_admin());
-drop policy if exists "Public update jobs" on public.jobs;
-create policy "Admin update jobs" on public.jobs for update using (public.is_admin()) with check (public.is_admin());
-drop policy if exists "Public delete jobs" on public.jobs;
-create policy "Admin delete jobs" on public.jobs for delete using (public.is_admin());
+drop policy if exists "Public read jobs" on public.opportunities;
+drop policy if exists "Public read opportunities" on public.opportunities;
+create policy "Public read opportunities" on public.opportunities for select using (true);
+drop policy if exists "Public insert jobs" on public.opportunities;
+drop policy if exists "Admin insert jobs" on public.opportunities;
+drop policy if exists "Admin insert opportunities" on public.opportunities;
+create policy "Admin insert opportunities" on public.opportunities for insert with check (public.is_admin());
+drop policy if exists "Public update jobs" on public.opportunities;
+drop policy if exists "Admin update jobs" on public.opportunities;
+drop policy if exists "Admin update opportunities" on public.opportunities;
+create policy "Admin update opportunities" on public.opportunities for update using (public.is_admin()) with check (public.is_admin());
+drop policy if exists "Public delete jobs" on public.opportunities;
+drop policy if exists "Admin delete jobs" on public.opportunities;
+drop policy if exists "Admin delete opportunities" on public.opportunities;
+create policy "Admin delete opportunities" on public.opportunities for delete using (public.is_admin());
 
 drop policy if exists "Public read guides" on public.guides;
 create policy "Public read guides" on public.guides for select using (true);
@@ -385,18 +449,27 @@ on conflict (id) do update set
   area = excluded.area,
   emoji = excluded.emoji;
 
-insert into public.jobs (id, company, role, type, location, tags, emoji) values
-  ('j1', 'Mercari', 'Software Engineer Intern', 'Shukatsu', 'Roppongi · Hybrid', array['tech', 'internship', 'english-ok'], '🛍️'),
-  ('j2', 'Rakuten', 'Product Management New Grad', 'Shukatsu', 'Setagaya', array['product', 'newgrad'], '🛒'),
-  ('j3', 'Starbucks Roppongi', 'Barista (Evenings)', 'Baito', 'Roppongi', array['english-ok', 'flexible'], '☕'),
-  ('j4', 'GaijinPot', 'Content Writer (Part-time)', 'Baito', 'Remote', array['english', 'writing'], '✍️'),
-  ('j5', 'MEXT', 'Scholarship for International Students', 'Opportunity', 'Nationwide', array['scholarship', 'international'], '🎓'),
-  ('j6', 'TechCrunch Tokyo', 'Student Pitch Competition', 'Opportunity', 'Shibuya', array['startup', 'prize'], '🏆')
+insert into public.opportunities (id, company, role, type, organization, title, category, location, mode, deadline, description, eligibility, application_url, tags, emoji) values
+  ('j1', 'Mercari', 'Software Engineer Intern', 'Shukatsu', 'Mercari', 'Software Engineer Intern', 'Internship', 'Roppongi', 'Hybrid', null, 'Build production features with Mercari engineering teams during a student-friendly internship.', 'University students with software development experience.', 'https://www.mercari.com/careers/', array['Computer Science', 'Career and Networking'], '🛍️'),
+  ('j2', 'Rakuten', 'Product Management New Grad', 'Shukatsu', 'Rakuten', 'Product Management New Grad', 'Internship', 'Setagaya', 'In-Person', null, 'Explore product strategy and marketplace operations through Rakuten student recruiting.', 'Students graduating within the next recruitment cycle.', 'https://corp.rakuten.co.jp/careers/', array['Marketing', 'Career and Networking'], '🛒'),
+  ('j3', 'Starbucks Roppongi', 'Barista Evenings', 'Baito', 'Starbucks Roppongi', 'Barista Evenings', 'Part-time Job', 'Roppongi', 'In-Person', null, 'Evening shifts for students who want customer-facing work in central Tokyo.', 'Valid work permission and conversational Japanese preferred.', '', array['Food and Drink', 'Learn Japanese'], '☕'),
+  ('j4', 'GaijinPot', 'Content Writer', 'Baito', 'GaijinPot', 'Content Writer', 'Part-time Job', 'Remote', 'Online', null, 'Write student-focused articles about living, working, and studying in Japan.', 'Strong English writing samples required.', '', array['Content Creation', 'Literature and Writing'], '✍️'),
+  ('j5', 'MEXT', 'Scholarship for International Students', 'Opportunity', 'MEXT', 'Scholarship for International Students', 'Scholarship', 'Japan', 'Hybrid', null, 'Government scholarship support for international students pursuing study or research in Japan.', 'Eligibility varies by country, program, and degree level.', 'https://www.mext.go.jp/en/', array['Education', 'Cultural Exchange'], '🎓'),
+  ('j6', 'TechCrunch Tokyo', 'Student Pitch Competition', 'Opportunity', 'TechCrunch Tokyo', 'Student Pitch Competition', 'Competition', 'Shibuya', 'In-Person', '2026-09-30', 'Pitch a startup idea to mentors and investors for feedback, prizes, and community exposure.', 'Student-led teams with an early-stage idea or prototype.', '', array['Startups', 'Career and Networking'], '🏆'),
+  ('j7', 'Waseda University', 'Short-term Exchange Program', 'Opportunity', 'Waseda University', 'Short-term Exchange Program', 'Study Abroad', 'Seoul', 'In-Person', '2026-10-15', 'A semester exchange opportunity for students who want to study abroad through a partner university.', 'Enrolled students in good academic standing.', '', array['Travel', 'Cultural Exchange'], '✈️')
 on conflict (id) do update set
   company = excluded.company,
   role = excluded.role,
   type = excluded.type,
+  organization = excluded.organization,
+  title = excluded.title,
+  category = excluded.category,
   location = excluded.location,
+  mode = excluded.mode,
+  deadline = excluded.deadline,
+  description = excluded.description,
+  eligibility = excluded.eligibility,
+  application_url = excluded.application_url,
   tags = excluded.tags,
   emoji = excluded.emoji;
 

@@ -4,7 +4,7 @@ import { useNavigate } from "@tanstack/react-router";
 import { useAuth } from "@/components/AuthProvider";
 import { useSaves } from "@/lib/saves";
 
-export function SaveButton({ itemId, itemType }: { itemId?: string; itemType?: "circle" | "event" | "deal" }) {
+export function SaveButton({ itemId, itemType }: { itemId?: string; itemType?: "circle" | "event" | "deal" | "opportunity" }) {
   const navigate = useNavigate();
   const { user, loading } = useAuth();
   const { isSaved, toggle } = useSaves(user?.id);

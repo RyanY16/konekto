@@ -36,7 +36,7 @@ export const Route = createFileRoute("/circles")({
     ],
   }),
   loaderDeps: () => ({}),
-  staleTime: 30_000,
+  staleTime: 0,
   loader: async () => {
     try {
       const [cs, userInterests] = await Promise.all([getCircles(), getCurrentUserInterests().catch(() => [])]);

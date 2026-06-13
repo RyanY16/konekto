@@ -86,7 +86,7 @@ function CircleLoadingskeleton() {
 
 export const Route = createFileRoute("/circles_/$circleHandle")({
   loader: ({ params }) => getCircleByHandle(params.circleHandle),
-  staleTime: 30_000,
+  staleTime: 0,
   pendingComponent: CircleLoadingskeleton,
   component: CircleDetailPage,
 });
@@ -538,7 +538,8 @@ function CircleDetailPage() {
       </Link>
 
       <PageHeader
-        eyebrow="Circles"
+        eyebrow={editing ? draft.category || circle.category : circle.category}
+        eyebrowVariant="chip"
         title={editing ? draft.name || circle.name : circle.name}
       />
       {!editing && circle.description && (

@@ -65,6 +65,19 @@ export const EVENT_CATEGORIES = [
   "Travel",
 ] as const;
 
+export const OPPORTUNITY_CATEGORIES = [
+  "Scholarship",
+  "Part-time Job",
+  "Internship",
+  "Study Abroad",
+  "Research",
+  "Competition",
+  "Grant",
+  "Volunteer",
+  "Career Event",
+  "Other",
+] as const;
+
 export const CIRCLE_CATEGORIES = [
   "Technology",
   "Business / Career",
@@ -94,6 +107,17 @@ export const CATEGORY_EMOJI: Record<string, string> = {
   "Workshop":                          "🛠️",
   "Casual":                            "🌸",
   "Travel":                            "✈️",
+  // Opportunity categories
+  "Scholarship":                       "🎓",
+  "Part-time Job":                     "💼",
+  "Internship":                        "🧭",
+  "Study Abroad":                      "✈️",
+  "Research":                          "🔬",
+  "Competition":                       "🏆",
+  "Grant":                             "💸",
+  "Volunteer":                         "🤝",
+  "Career Event":                      "💼",
+  "Other":                             "✨",
 };
 
 export const ACTIVITY_LEVELS = ["Daily", "Weekly", "Monthly", "Occasionally"] as const;

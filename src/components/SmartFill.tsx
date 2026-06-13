@@ -34,9 +34,14 @@ export interface SmartFillResult {
   studentOnly?: boolean | null;
   mode?: string | null;
   url?: string | null;
+  // Opportunity fields
+  organization?: string | null;
+  deadline?: string | null; // yyyy-MM-dd
+  eligibility?: string | null;
+  applicationUrl?: string | null;
 }
 
-export type SmartFillType = "circle" | "event" | "deal";
+export type SmartFillType = "circle" | "event" | "deal" | "opportunity";
 type SmartFillLanguage = "en" | "ja" | "both";
 
 interface Props {
@@ -49,6 +54,7 @@ const HINTS: Record<SmartFillType, string> = {
   circle: "Works best with club websites — Instagram may only get name and bio.",
   event:  "Works best with event pages and Luma links.",
   deal:   "Paste the deal or brand page and we'll extract the details.",
+  opportunity: "Paste the scholarship, job, internship, study abroad, or application page.",
 };
 
 const LANGUAGE_OPTIONS: { value: SmartFillLanguage; label: string }[] = [
