@@ -4,7 +4,7 @@ const ja = {
     circles: "サークル",
     events: "イベント",
     deals: "お得情報",
-    opportunities: "チャンス",
+    opportunities: "機会",
     test: "テスト",
     test2: "テスト2",
     profile: "プロフィール",
@@ -68,7 +68,7 @@ const ja = {
   home: {
     eyebrow: "日本の学生のために",
     tagline: "キャンパスライフを、\nもっと充実に。",
-    subtitle: "Konektoで、日本全国の大学のサークル・イベント・チャンスをまとめてチェック。すべてが一か所に。",
+    subtitle: "Konektoで、日本全国の大学のサークル・イベント・機会をまとめてチェック。すべてが一か所に。",
     getStarted: "無料で始める",
     welcomeBack: "おかえり",
     dashboard: {
@@ -82,7 +82,7 @@ const ja = {
       noCircles: "サークルはまだありません。",
       browseAll: "すべて見る",
       tagline: "キャンパスライフを、もっと充実に。",
-      desc: "サークル・イベント・お得情報・チャンスをまとめてチェック。すべてが一か所に。",
+      desc: "サークル・イベント・お得情報・機会をまとめてチェック。すべてが一か所に。",
       exploreCircles: "サークルを探す",
       browseEvents: "イベントを見る",
       feedError: "フィードを読み込めませんでした。接続を確認してください。",
@@ -473,8 +473,8 @@ const ja = {
   },
 
   careers: {
-    eyebrow: "チャンス",
-    title: "学生向けチャンス",
+    eyebrow: "機会",
+    title: "学生向けの機会",
     subtitle: "奨学金、アルバイト、インターン、留学プログラムなど。",
     searchPlaceholder: "タイトル、団体、場所、タグで検索…",
     noResults: "条件に合う募集がありません。",

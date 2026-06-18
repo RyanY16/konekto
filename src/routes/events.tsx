@@ -17,6 +17,7 @@ import { BatchAddDialog } from "@/components/BatchAddDialog";
 import { tagClass } from "@/lib/tag-class";
 import { OwnerBadge } from "@/components/OwnerBadge";
 import { ListingCardHeader } from "@/components/ListingCardHeader";
+import { categoryLabel } from "@/lib/category-label";
 
 function relativeTime(iso: string | undefined): string | null {
   if (!iso) return null;
@@ -147,7 +148,7 @@ function EventCard({ event: e, ownerMap }: { event: EventItem; ownerMap: Record<
 
         <div className="flex flex-col flex-1 min-w-0 py-0.5">
           <ListingCardHeader
-            category={e.category}
+            category={categoryLabel(e.category, i18n.language)}
             title={e.title}
             badges={e.recurrence === "weekly" ? (
               <span className="chip bg-violet-100 text-violet-700 dark:bg-violet-900/40 dark:text-violet-400">{t("events.card.weekly")}</span>
@@ -215,7 +216,7 @@ function EventsSkeleton() {
 }
 
 function EventsPage() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { user, isAdmin, loading: authLoading } = useAuth();
   const { events: allEvents, ownerMap } = Route.useLoaderData();
   const router = useRouter();
@@ -271,13 +272,13 @@ function EventsPage() {
 
   return (
     <div>
-      <div className="flex items-start justify-between mb-0">
+      <div className="flex flex-col gap-3 mb-0 sm:flex-row sm:items-start sm:justify-between">
         <PageHeader
           eyebrow={t("events.eyebrow")}
           title={t("events.title")}
           subtitle={t("events.subtitle")}
         />
-        <div className="mt-1 shrink-0 flex items-center gap-2">
+        <div className="flex w-full flex-wrap items-center gap-2 sm:mt-1 sm:w-auto sm:shrink-0 sm:justify-end">
           {!authLoading && isAdmin && (
             <AlertDialog>
               <AlertDialogTrigger asChild>
@@ -310,7 +311,7 @@ function EventsPage() {
           {!authLoading && isAdmin && <BatchAddDialog type="event" />}
           <Link
             to={user ? "/events/new" : "/signup"}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-semibold bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
+            className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-full bg-primary px-3 py-1.5 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90 sm:flex-none"
           >
             {t("events.addEvent")}
           </Link>
@@ -328,21 +329,15 @@ function EventsPage() {
           />
         </div>
         <div className="flex flex-wrap gap-2">
-          {cats.map((c) => (
-            <button
-              key={c}
-              onClick={() => setCat(c)}
-              className={`px-3.5 py-1.5 rounded-full text-sm font-medium border transition-colors ${
-                cat === c
-                  ? "bg-foreground text-background border-foreground"
-                  : "bg-card border-border hover:bg-muted"
-              }`}
-            >
-              {c}
-            </button>
-          ))}
-        </div>
-        <div className="flex flex-wrap gap-2">
+          <NativeSelect
+            wrapperClassName="w-full sm:w-64"
+            value={cat}
+            onChange={(e) => setCat(e.target.value as (typeof cats)[number])}
+            className="h-9 rounded-full border border-border bg-card text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+            aria-label="Filter events by category"
+          >
+            {cats.map((c) => <option key={c} value={c}>{categoryLabel(c, i18n.language)}</option>)}
+          </NativeSelect>
           {TIME_FILTERS.map((f) => (
             <button
               key={f.value}

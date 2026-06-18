@@ -15,6 +15,7 @@ import { OwnerBadge } from "@/components/OwnerBadge";
 import { NativeSelect } from "@/components/ui/native-select";
 import { BatchAddDialog } from "@/components/BatchAddDialog";
 import { ListingCardHeader } from "@/components/ListingCardHeader";
+import { categoryLabel } from "@/lib/category-label";
 
 function relativeTime(iso: string | undefined): string | null {
   if (!iso) return null;
@@ -155,13 +156,13 @@ function CirclesPage() {
 
   return (
     <div>
-      <div className="flex items-start justify-between mb-0">
+      <div className="flex flex-col gap-3 mb-0 sm:flex-row sm:items-start sm:justify-between">
         <PageHeader
           eyebrow={t("circles.eyebrow")}
           title={t("circles.title")}
           subtitle={t("circles.subtitle")}
         />
-        <div className="mt-1 shrink-0 flex items-center gap-2">
+        <div className="flex w-full flex-wrap items-center gap-2 sm:mt-1 sm:w-auto sm:shrink-0 sm:justify-end">
           {!authLoading && isAdmin && (
             <AlertDialog>
               <AlertDialogTrigger asChild>
@@ -194,7 +195,7 @@ function CirclesPage() {
           {!authLoading && isAdmin && <BatchAddDialog type="circle" />}
           <Link
             to={user ? "/circles/new" : "/signup"}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-semibold bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
+            className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-full bg-primary px-3 py-1.5 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90 sm:flex-none"
           >
             {t("circles.addCircle")}
           </Link>
@@ -212,24 +213,17 @@ function CirclesPage() {
             className="w-full pl-10 pr-4 h-11 rounded-full border border-border bg-card text-sm focus:outline-none focus:ring-2 focus:ring-ring"
           />
         </div>
-        {/* Category pills */}
-        <div className="flex flex-wrap items-center gap-2">
-          {categories.map((c) => (
-            <button
-              key={c}
-              onClick={() => setCat(c)}
-              className={`px-3.5 py-1.5 rounded-full text-sm font-medium border transition-colors ${
-                cat === c
-                  ? "bg-foreground text-background border-foreground"
-                  : "bg-card text-foreground border-border hover:bg-muted"
-              }`}
-            >
-              {c}
-            </button>
-          ))}
-        </div>
         {/* Sort + secondary filters */}
         <div className="flex flex-wrap items-center gap-2">
+          <NativeSelect
+            wrapperClassName="w-full sm:w-64"
+            value={cat}
+            onChange={(e) => setCat(e.target.value)}
+            className="h-9 rounded-full border border-border bg-card text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+            aria-label="Filter circles by category"
+          >
+            {categories.map((c) => <option key={c} value={c}>{categoryLabel(c, i18n.language)}</option>)}
+          </NativeSelect>
           <div className="relative flex items-center">
             <ArrowUpDown className="absolute left-3 z-10 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
             <NativeSelect
@@ -296,7 +290,7 @@ function CirclesPage() {
               {/* Text */}
               <div className="flex flex-col flex-1 min-w-0 py-0.5">
                 <ListingCardHeader
-                  category={c.category}
+                  category={categoryLabel(c.category, i18n.language)}
                   title={c.name}
                   action={<SaveButton itemId={c.id} itemType="circle" />}
                 />

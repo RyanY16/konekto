@@ -5,6 +5,7 @@ import { BriefcaseBusiness, Calendar, MapPin, Search, Trash2 } from "lucide-reac
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { BatchAddDialog } from "@/components/BatchAddDialog";
+import { NativeSelect } from "@/components/ui/native-select";
 import { PageHeader } from "@/components/PageHeader";
 import { SaveButton } from "@/components/SaveButton";
 import { getJobHandle, getJobs, deleteAllJobs } from "@/data/backend";
@@ -15,6 +16,7 @@ import { tagClass } from "@/lib/tag-class";
 import { opportunityGradient } from "@/lib/placeholders";
 import { formatOpportunityDeadline } from "@/lib/opportunity-deadline";
 import { ListingCardHeader } from "@/components/ListingCardHeader";
+import { categoryLabel } from "@/lib/category-label";
 import type { Job } from "@/data/mock";
 
 export const Route = createFileRoute("/careers")({
@@ -57,7 +59,7 @@ function OpportunitiesSkeleton() {
 }
 
 function OpportunitiesPage() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const router = useRouter();
   const { isAdmin, loading: authLoading } = useAuth();
   const { opportunities } = Route.useLoaderData();
@@ -90,14 +92,14 @@ function OpportunitiesPage() {
 
   return (
     <div>
-      <div className="flex items-start justify-between gap-3 mb-0">
+      <div className="flex flex-col gap-3 mb-0 sm:flex-row sm:items-start sm:justify-between">
         <PageHeader
           eyebrow={t("careers.eyebrow")}
           title={t("careers.title")}
           subtitle={t("careers.subtitle")}
         />
         {!authLoading && isAdmin && (
-          <div className="mt-1 shrink-0 flex items-center gap-2">
+          <div className="flex w-full flex-wrap items-center gap-2 sm:mt-1 sm:w-auto sm:shrink-0 sm:justify-end">
             <AlertDialog>
               <AlertDialogTrigger asChild>
                 <Button variant="destructive" size="sm" className="gap-1.5">
@@ -130,7 +132,7 @@ function OpportunitiesPage() {
             <BatchAddDialog type="opportunity" />
             <Link
               to="/careers/new"
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-semibold bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
+              className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-full bg-primary px-3 py-1.5 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90 sm:flex-none"
             >
               Add opportunity
             </Link>
@@ -150,20 +152,15 @@ function OpportunitiesPage() {
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
-          {categories.map((item) => (
-            <button
-              key={item}
-              onClick={() => setCategory(item)}
-              className={`px-3.5 py-1.5 rounded-full text-sm font-medium border transition-colors ${
-                category === item ? "bg-foreground text-background border-foreground" : "bg-card text-foreground border-border hover:bg-muted"
-              }`}
-            >
-              {item}
-            </button>
-          ))}
-        </div>
-
-        <div className="flex flex-wrap items-center gap-2">
+          <NativeSelect
+            wrapperClassName="w-full sm:w-64"
+            value={category}
+            onChange={(event) => setCategory(event.target.value as (typeof categories)[number])}
+            className="h-9 rounded-full border border-border bg-card text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+            aria-label="Filter opportunities by category"
+          >
+            {categories.map((item) => <option key={item} value={item}>{categoryLabel(item, i18n.language)}</option>)}
+          </NativeSelect>
           {modes.map((item) => (
             <button
               key={item}
@@ -208,7 +205,7 @@ function OpportunityCard({ item }: { item: Job }) {
 
         <div className="flex flex-col flex-1 min-w-0 py-0.5">
           <ListingCardHeader
-            category={item.category}
+            category={categoryLabel(item.category, i18n.language)}
             title={item.title}
             subtitle={item.organization}
             badges={<span className="chip">{item.mode}</span>}

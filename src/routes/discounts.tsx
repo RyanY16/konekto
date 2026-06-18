@@ -4,14 +4,16 @@ import { useTranslation } from "react-i18next";
 import { Search, Trash2 } from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
 import { SaveButton } from "@/components/SaveButton";
+import { NativeSelect } from "@/components/ui/native-select";
 import { Button } from "@/components/ui/button";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { getDeals, getDealHandle, deleteAllDeals } from "@/data/backend";
 import { useAuth } from "@/components/AuthProvider";
-import { DEAL_CATEGORY_EMOJI } from "@/data/profile-options";
+import { DEAL_CATEGORIES, DEAL_CATEGORY_EMOJI } from "@/data/profile-options";
 import { dealGradient } from "@/lib/placeholders";
 import { BatchAddDialog } from "@/components/BatchAddDialog";
 import { ListingCardHeader } from "@/components/ListingCardHeader";
+import { categoryLabel } from "@/lib/category-label";
 
 export const Route = createFileRoute("/discounts")({
   head: () => ({
@@ -45,10 +47,10 @@ function DiscountsSkeleton() {
   );
 }
 
-const CATEGORIES = ["All", "Food & Drink", "Fashion", "Tech", "Entertainment", "Transport", "Lifestyle"] as const;
+const CATEGORIES = ["All", ...DEAL_CATEGORIES] as const;
 
 function DiscountsPage() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { user, isAdmin, loading: authLoading } = useAuth();
   const { deals } = Route.useLoaderData();
   const router = useRouter();
@@ -73,13 +75,13 @@ function DiscountsPage() {
 
   return (
     <div>
-      <div className="flex items-start justify-between mb-0">
+      <div className="flex flex-col gap-3 mb-0 sm:flex-row sm:items-start sm:justify-between">
         <PageHeader
           eyebrow={t("discounts.eyebrow")}
           title={t("discounts.title")}
           subtitle={t("discounts.subtitle")}
         />
-        <div className="mt-1 shrink-0 flex items-center gap-2">
+        <div className="flex w-full flex-wrap items-center gap-2 sm:mt-1 sm:w-auto sm:shrink-0 sm:justify-end">
           {!authLoading && isAdmin && (
             <AlertDialog>
               <AlertDialogTrigger asChild>
@@ -113,7 +115,7 @@ function DiscountsPage() {
           {user && (
             <Link
               to="/discounts/new"
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-semibold bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
+              className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-full bg-primary px-3 py-1.5 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90 sm:flex-none"
             >
               {t("discounts.addDeal")}
             </Link>
@@ -132,19 +134,15 @@ function DiscountsPage() {
           />
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          {CATEGORIES.map((c) => (
-            <button
-              key={c}
-              onClick={() => setCat(c)}
-              className={`px-3.5 py-1.5 rounded-full text-sm font-medium border transition-colors ${
-                cat === c ? "bg-foreground text-background border-foreground" : "bg-card text-foreground border-border hover:bg-muted"
-              }`}
-            >
-              {c}
-            </button>
-          ))}
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
+          <NativeSelect
+            wrapperClassName="w-full sm:w-64"
+            value={cat}
+            onChange={(e) => setCat(e.target.value)}
+            className="h-9 rounded-full border border-border bg-card text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+            aria-label="Filter discounts by category"
+          >
+            {CATEGORIES.map((c) => <option key={c} value={c}>{categoryLabel(c, i18n.language)}</option>)}
+          </NativeSelect>
           {(["All", "Online", "In-Person", "Both"] as const).map((m) => (
             <button
               key={m}
@@ -188,7 +186,7 @@ function DiscountsPage() {
               {/* Text content */}
               <div className="flex flex-col flex-1 min-w-0 py-0.5">
                 <ListingCardHeader
-                  category={d.category}
+                  category={categoryLabel(d.category, i18n.language)}
                   title={d.title}
                   subtitle={d.brand}
                   action={<SaveButton itemId={d.id} itemType="deal" />}
