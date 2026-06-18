@@ -6,6 +6,8 @@ const en = {
     events: "Events",
     deals: "Deals",
     opportunities: "Opportunities",
+    test: "Test",
+    test2: "Test 2",
     profile: "Profile",
     settings: "Settings",
     about: "About",

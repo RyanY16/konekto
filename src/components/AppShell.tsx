@@ -30,6 +30,7 @@ function I18nSync() {
 }
 
 type NavItem = { to: string; labelKey: string; icon: ComponentType<{ className?: string }> };
+const shellWidthClass = "max-w-[92rem]";
 
 const navItems: NavItem[] = [
   { to: "/", labelKey: "nav.home", icon: Home },
@@ -39,6 +40,8 @@ const navItems: NavItem[] = [
   { to: "/careers", labelKey: "nav.opportunities", icon: BriefcaseBusiness },
   { to: "/profile", labelKey: "nav.profile", icon: User },
 ];
+
+const bottomNavItems = navItems.filter((item) => !item.to.startsWith("/test") && item.to !== "/profile");
 
 // Routes that manage their own full-screen layout (no app shell chrome)
 const BARE_ROUTES = ["/login", "/signup"];
@@ -86,13 +89,13 @@ export function AppShell() {
           <div className="min-h-screen bg-background">
             {/* Top bar */}
             <header className="sticky top-0 z-40 border-b border-border bg-background/80 backdrop-blur-md">
-              <div className="mx-auto max-w-7xl px-4 h-14 flex items-center gap-2 min-w-0">
+              <div className={`mx-auto ${shellWidthClass} px-4 h-14 flex items-center gap-2 min-w-0`}>
                 <Logo />
-                <div className="hidden sm:flex md:hidden lg:flex flex-1 min-w-0 mx-2">
+                <div className="hidden lg:flex w-[280px] xl:w-[320px] min-w-0 mx-2">
                   <GlobalSearch />
                 </div>
-                <div className="flex items-center gap-1 shrink-0">
-                  <AuthNav isActive={isActive} />
+                <AuthNav isActive={isActive} />
+                <div className="ml-auto flex items-center gap-1 shrink-0">
                   <NotificationsButton />
                   <AdminButton />
                   <LanguageToggle />
@@ -110,13 +113,13 @@ export function AppShell() {
               </div>
             </header>
 
-            <main className="mx-auto max-w-7xl px-4 py-6 md:pb-10 animate-fade-up" style={{ paddingBottom: "calc(6rem + env(safe-area-inset-bottom))" }}>
+            <main className={`mx-auto ${shellWidthClass} px-4 py-6 md:pb-10 animate-fade-up`} style={{ paddingBottom: "calc(6rem + env(safe-area-inset-bottom))" }}>
               <Outlet />
             </main>
 
             {/* Footer */}
             <footer className="hidden md:block border-t border-border bg-background">
-              <div className="mx-auto max-w-7xl px-4 py-4 flex items-center justify-between text-xs text-muted-foreground">
+              <div className={`mx-auto ${shellWidthClass} px-4 py-4 flex items-center justify-between text-xs text-muted-foreground`}>
                 <span suppressHydrationWarning>© {new Date().getFullYear()} Konekto</span>
                 <div className="flex items-center gap-3">
                   <a
@@ -169,8 +172,9 @@ export function AppShell() {
 
 function AuthNav({ isActive }: { isActive: (to: string) => boolean }) {
   const { t } = useTranslation();
+
   return (
-    <nav className="hidden md:flex items-center gap-1">
+    <nav className="no-scrollbar hidden min-w-0 flex-1 items-center gap-1 overflow-x-auto md:flex">
       {navItems.map((item) => {
         const Icon = item.icon;
         const active = isActive(item.to);
@@ -178,7 +182,7 @@ function AuthNav({ isActive }: { isActive: (to: string) => boolean }) {
           <Link
             key={item.to}
             to={item.to}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+            className={`flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-lg px-3 py-1.5 text-sm font-medium transition-colors ${
               active ? "bg-primary-soft text-primary" : "text-muted-foreground hover:text-foreground hover:bg-muted"
             }`}
           >
@@ -199,7 +203,7 @@ function AuthBottomNav({ isActive }: { isActive: (to: string) => boolean }) {
       style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
     >
       <div className="grid grid-cols-5 h-16">
-        {navItems.map((item) => {
+        {bottomNavItems.map((item) => {
           const Icon = item.icon;
           const active = isActive(item.to);
           return (

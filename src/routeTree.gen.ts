@@ -9,6 +9,8 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as Test2RouteImport } from './routes/test2'
+import { Route as TestRouteImport } from './routes/test'
 import { Route as SignupRouteImport } from './routes/signup'
 import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as SavedRouteImport } from './routes/saved'
@@ -37,6 +39,16 @@ import { Route as CirclesCircleHandleRouteImport } from './routes/circles_.$circ
 import { Route as CareersNewRouteImport } from './routes/careers_.new'
 import { Route as CareersJobHandleRouteImport } from './routes/careers_.$jobHandle'
 
+const Test2Route = Test2RouteImport.update({
+  id: '/test2',
+  path: '/test2',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const TestRoute = TestRouteImport.update({
+  id: '/test',
+  path: '/test',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const SignupRoute = SignupRouteImport.update({
   id: '/signup',
   path: '/signup',
@@ -190,6 +202,8 @@ export interface FileRoutesByFullPath {
   '/saved': typeof SavedRoute
   '/settings': typeof SettingsRoute
   '/signup': typeof SignupRoute
+  '/test': typeof TestRoute
+  '/test2': typeof Test2Route
   '/careers/$jobHandle': typeof CareersJobHandleRoute
   '/careers/new': typeof CareersNewRoute
   '/circles/$circleHandle': typeof CirclesCircleHandleRoute
@@ -219,6 +233,8 @@ export interface FileRoutesByTo {
   '/saved': typeof SavedRoute
   '/settings': typeof SettingsRoute
   '/signup': typeof SignupRoute
+  '/test': typeof TestRoute
+  '/test2': typeof Test2Route
   '/careers/$jobHandle': typeof CareersJobHandleRoute
   '/careers/new': typeof CareersNewRoute
   '/circles/$circleHandle': typeof CirclesCircleHandleRoute
@@ -249,6 +265,8 @@ export interface FileRoutesById {
   '/saved': typeof SavedRoute
   '/settings': typeof SettingsRoute
   '/signup': typeof SignupRoute
+  '/test': typeof TestRoute
+  '/test2': typeof Test2Route
   '/careers_/$jobHandle': typeof CareersJobHandleRoute
   '/careers_/new': typeof CareersNewRoute
   '/circles_/$circleHandle': typeof CirclesCircleHandleRoute
@@ -280,6 +298,8 @@ export interface FileRouteTypes {
     | '/saved'
     | '/settings'
     | '/signup'
+    | '/test'
+    | '/test2'
     | '/careers/$jobHandle'
     | '/careers/new'
     | '/circles/$circleHandle'
@@ -309,6 +329,8 @@ export interface FileRouteTypes {
     | '/saved'
     | '/settings'
     | '/signup'
+    | '/test'
+    | '/test2'
     | '/careers/$jobHandle'
     | '/careers/new'
     | '/circles/$circleHandle'
@@ -338,6 +360,8 @@ export interface FileRouteTypes {
     | '/saved'
     | '/settings'
     | '/signup'
+    | '/test'
+    | '/test2'
     | '/careers_/$jobHandle'
     | '/careers_/new'
     | '/circles_/$circleHandle'
@@ -368,6 +392,8 @@ export interface RootRouteChildren {
   SavedRoute: typeof SavedRoute
   SettingsRoute: typeof SettingsRoute
   SignupRoute: typeof SignupRoute
+  TestRoute: typeof TestRoute
+  Test2Route: typeof Test2Route
   CareersJobHandleRoute: typeof CareersJobHandleRoute
   CareersNewRoute: typeof CareersNewRoute
   CirclesCircleHandleRoute: typeof CirclesCircleHandleRoute
@@ -383,6 +409,20 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/test2': {
+      id: '/test2'
+      path: '/test2'
+      fullPath: '/test2'
+      preLoaderRoute: typeof Test2RouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/test': {
+      id: '/test'
+      path: '/test'
+      fullPath: '/test'
+      preLoaderRoute: typeof TestRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/signup': {
       id: '/signup'
       path: '/signup'
@@ -592,6 +632,8 @@ const rootRouteChildren: RootRouteChildren = {
   SavedRoute: SavedRoute,
   SettingsRoute: SettingsRoute,
   SignupRoute: SignupRoute,
+  TestRoute: TestRoute,
+  Test2Route: Test2Route,
   CareersJobHandleRoute: CareersJobHandleRoute,
   CareersNewRoute: CareersNewRoute,
   CirclesCircleHandleRoute: CirclesCircleHandleRoute,

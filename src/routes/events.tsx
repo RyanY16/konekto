@@ -16,6 +16,7 @@ import { useAuth } from "@/components/AuthProvider";
 import { BatchAddDialog } from "@/components/BatchAddDialog";
 import { tagClass } from "@/lib/tag-class";
 import { OwnerBadge } from "@/components/OwnerBadge";
+import { ListingCardHeader } from "@/components/ListingCardHeader";
 
 function relativeTime(iso: string | undefined): string | null {
   if (!iso) return null;
@@ -145,17 +146,14 @@ function EventCard({ event: e, ownerMap }: { event: EventItem; ownerMap: Record<
         </div>
 
         <div className="flex flex-col flex-1 min-w-0 py-0.5">
-          <div className="flex items-start justify-between gap-2">
-            <div className="min-w-0 flex items-center gap-1.5 flex-wrap">
-              <span className="chip chip-primary">{e.category}</span>
-              {e.recurrence === "weekly" && (
-                <span className="chip bg-violet-100 text-violet-700 dark:bg-violet-900/40 dark:text-violet-400">{t("events.card.weekly")}</span>
-              )}
-            </div>
-            <SaveButton itemId={e.id} itemType="event" />
-          </div>
-
-          <h3 className="mt-1.5 font-semibold leading-snug">{e.title}</h3>
+          <ListingCardHeader
+            category={e.category}
+            title={e.title}
+            badges={e.recurrence === "weekly" ? (
+              <span className="chip bg-violet-100 text-violet-700 dark:bg-violet-900/40 dark:text-violet-400">{t("events.card.weekly")}</span>
+            ) : undefined}
+            action={<SaveButton itemId={e.id} itemType="event" />}
+          />
 
           <div className="mt-1 space-y-0.5 text-xs text-muted-foreground">
             <p className="flex items-center gap-1">

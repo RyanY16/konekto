@@ -14,6 +14,7 @@ import { filterValidTags, tagLabel } from "@/data/tags";
 import { tagClass } from "@/lib/tag-class";
 import { opportunityGradient } from "@/lib/placeholders";
 import { formatOpportunityDeadline } from "@/lib/opportunity-deadline";
+import { ListingCardHeader } from "@/components/ListingCardHeader";
 import type { Job } from "@/data/mock";
 
 export const Route = createFileRoute("/careers")({
@@ -206,16 +207,13 @@ function OpportunityCard({ item }: { item: Job }) {
         </div>
 
         <div className="flex flex-col flex-1 min-w-0 py-0.5">
-          <div className="flex items-start justify-between gap-2">
-            <div className="min-w-0 flex items-center gap-1.5 flex-wrap">
-              <span className="chip chip-primary">{item.category}</span>
-              <span className="chip">{item.mode}</span>
-            </div>
-            <SaveButton itemId={item.id} itemType="opportunity" />
-          </div>
-
-          <h3 className="mt-1.5 font-semibold leading-snug">{item.title}</h3>
-          <p className="text-xs text-muted-foreground">{item.organization}</p>
+          <ListingCardHeader
+            category={item.category}
+            title={item.title}
+            subtitle={item.organization}
+            badges={<span className="chip">{item.mode}</span>}
+            action={<SaveButton itemId={item.id} itemType="opportunity" />}
+          />
 
           <div className="mt-1 space-y-0.5 text-xs text-muted-foreground">
             <p className="flex items-center gap-1">

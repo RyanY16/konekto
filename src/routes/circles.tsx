@@ -14,6 +14,7 @@ import { tagClass } from "@/lib/tag-class";
 import { OwnerBadge } from "@/components/OwnerBadge";
 import { NativeSelect } from "@/components/ui/native-select";
 import { BatchAddDialog } from "@/components/BatchAddDialog";
+import { ListingCardHeader } from "@/components/ListingCardHeader";
 
 function relativeTime(iso: string | undefined): string | null {
   if (!iso) return null;
@@ -294,13 +295,11 @@ function CirclesPage() {
 
               {/* Text */}
               <div className="flex flex-col flex-1 min-w-0 py-0.5">
-                <div className="flex items-start justify-between gap-2">
-                  <div className="min-w-0">
-                    <p className="text-xs text-muted-foreground">{c.category}</p>
-                    <h3 className="font-semibold leading-snug">{c.name}</h3>
-                  </div>
-                  <SaveButton itemId={c.id} itemType="circle" />
-                </div>
+                <ListingCardHeader
+                  category={c.category}
+                  title={c.name}
+                  action={<SaveButton itemId={c.id} itemType="circle" />}
+                />
 
                 {c.description && (
                   <p className="mt-1 text-sm text-muted-foreground line-clamp-2">{c.description}</p>

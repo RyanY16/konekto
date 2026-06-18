@@ -1,8 +1,10 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useState, useEffect, useCallback } from "react";
-import { Shield, RefreshCw, Trash2, ExternalLink, ChevronDown, ChevronUp, AlertTriangle, CheckCircle, Loader2, Clock, History, Check, X, Search, Plus } from "lucide-react";
+import { Shield, RefreshCw, Trash2, ExternalLink, ChevronDown, ChevronUp, AlertTriangle, CheckCircle, Loader2, Clock, History, Check, X, Search, Plus, FlaskConical, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/components/AuthProvider";
+import { TestFeedShowcase } from "@/routes/test";
+import { TestProfileShowcase } from "@/routes/test2";
 import {
   getCircles,
   getEvents,
@@ -250,7 +252,7 @@ function PostCard({
   );
 }
 
-type AdminTab = "queue" | "imports" | "analysis" | "history";
+type AdminTab = "queue" | "imports" | "analysis" | "history" | "test-feed" | "test-profile";
 
 export default function AdminPage() {
   const { user, isAdmin, loading, refreshUser } = useAuth();
@@ -603,6 +605,8 @@ export default function AdminPage() {
           { id: "imports", label: "Imports", icon: <Search className="h-3.5 w-3.5" /> },
           { id: "analysis", label: "AI Analysis", icon: <Shield className="h-3.5 w-3.5" /> },
           { id: "history", label: "History", icon: <History className="h-3.5 w-3.5" /> },
+          { id: "test-feed", label: "Test Feed", icon: <FlaskConical className="h-3.5 w-3.5" /> },
+          { id: "test-profile", label: "Test Profile", icon: <User className="h-3.5 w-3.5" /> },
         ] as { id: AdminTab; label: string; icon: React.ReactNode }[]).map((t) => (
           <button
             key={t.id}
@@ -1003,6 +1007,12 @@ export default function AdminPage() {
           ))}
         </div>
       )}
+
+      {/* ── Test Feed tab ─────────────────────────────────────────────── */}
+      {tab === "test-feed" && <TestFeedShowcase />}
+
+      {/* ── Test Profile tab ──────────────────────────────────────────── */}
+      {tab === "test-profile" && <TestProfileShowcase />}
 
       {/* ── AI Analysis tab ───────────────────────────────────────────── */}
       {tab === "analysis" && (<>

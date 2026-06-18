@@ -5,6 +5,8 @@ const ja = {
     events: "イベント",
     deals: "お得情報",
     opportunities: "チャンス",
+    test: "テスト",
+    test2: "テスト2",
     profile: "プロフィール",
     settings: "設定",
     about: "について",

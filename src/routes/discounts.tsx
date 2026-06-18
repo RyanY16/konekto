@@ -11,6 +11,7 @@ import { useAuth } from "@/components/AuthProvider";
 import { DEAL_CATEGORY_EMOJI } from "@/data/profile-options";
 import { dealGradient } from "@/lib/placeholders";
 import { BatchAddDialog } from "@/components/BatchAddDialog";
+import { ListingCardHeader } from "@/components/ListingCardHeader";
 
 export const Route = createFileRoute("/discounts")({
   head: () => ({
@@ -186,13 +187,12 @@ function DiscountsPage() {
 
               {/* Text content */}
               <div className="flex flex-col flex-1 min-w-0 py-0.5">
-                <div className="flex items-start justify-between gap-2">
-                  <div className="min-w-0">
-                    <p className="text-xs text-muted-foreground">{d.brand}</p>
-                    <h3 className="font-semibold leading-snug">{d.title}</h3>
-                  </div>
-                  <SaveButton itemId={d.id} itemType="deal" />
-                </div>
+                <ListingCardHeader
+                  category={d.category}
+                  title={d.title}
+                  subtitle={d.brand}
+                  action={<SaveButton itemId={d.id} itemType="deal" />}
+                />
 
                 {(d.originalPrice || d.newPrice) && (
                   <div className="mt-1.5 flex items-center gap-2">
@@ -209,7 +209,6 @@ function DiscountsPage() {
                   {d.studentOnly && <span className="chip bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-400">{t("discounts.card.studentOnly")}</span>}
                   <span className="chip">{d.mode === "Online" ? `🌐 ${t("common.online")}` : d.mode === "In-Person" ? `📍 ${t("common.inPerson")}` : `🌐📍 ${t("common.both")}`}</span>
                   {d.saleEnd && <span className="chip">{t("discounts.card.endsOn")} {d.saleEnd}</span>}
-                  <span className="chip">{d.category}</span>
                 </div>
               </div>
             </div>
