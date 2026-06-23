@@ -150,6 +150,135 @@ function isLumaUrl(value: unknown): value is string {
   }
 }
 
+function decodeHtml(value: string): string {
+  return value
+    .replace(/&amp;/g, "&")
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">");
+}
+
+function absoluteUrl(value: string, base: string): string | null {
+  const cleaned = decodeHtml(value.trim());
+  if (!cleaned || cleaned.startsWith("data:") || cleaned.startsWith("blob:")) return null;
+  try {
+    const url = new URL(cleaned, base);
+    return url.protocol === "http:" || url.protocol === "https:" ? url.toString() : null;
+  } catch {
+    return null;
+  }
+}
+
+function attr(tag: string, name: string): string | null {
+  const match = tag.match(new RegExp(`\\s${name}\\s*=\\s*("([^"]*)"|'([^']*)'|([^\\s>]+))`, "i"));
+  return match ? (match[2] ?? match[3] ?? match[4] ?? null) : null;
+}
+
+function candidateScore(url: string, priority: number, context = "", type = ""): number {
+  const lower = url.toLowerCase();
+  const lowerContext = context.toLowerCase();
+  let score = priority;
+  if (/favicon|apple-touch-icon|mask-icon|sprite|1x1|pixel|tracking/.test(lower)) score -= 80;
+  if (/\.(svg|ico)(\?|#|$)/.test(lower)) score -= 25;
+  if (/logo|brand|wp-title-img/.test(`${lower} ${lowerContext}`)) score += type === "circle" ? 55 : -10;
+  if (/hero|main|banner|cover|featured/.test(`${lower} ${lowerContext}`)) score += type === "circle" ? 5 : 18;
+  const dimensionMatch = lower.match(/(?:^|[^\d])(\d{2,4})[x_-](\d{2,4})(?:[^\d]|$)/);
+  if (dimensionMatch) {
+    const width = Number(dimensionMatch[1]);
+    const height = Number(dimensionMatch[2]);
+    if (width >= 300 && height >= 160) score += 12;
+    if (width < 120 || height < 120) score -= 25;
+  }
+  return score;
+}
+
+function extractBestImage(html: string, markdown: string, base: string, type: string): string | null {
+  const candidates: { url: string; score: number; order: number }[] = [];
+  const seen = new Set<string>();
+
+  function add(value: string | null | undefined, priority: number, order: number, context = "") {
+    if (!value) return;
+    const url = absoluteUrl(value, base);
+    if (!url || seen.has(url)) return;
+    seen.add(url);
+    candidates.push({ url, score: candidateScore(url, priority, context, type), order });
+  }
+
+  let order = 0;
+  for (const match of html.matchAll(/<meta\b[^>]*>/gi)) {
+    const tag = match[0];
+    const key = (attr(tag, "property") ?? attr(tag, "name") ?? "").toLowerCase();
+    const content = attr(tag, "content");
+    if (["og:image", "og:image:secure_url"].includes(key)) add(content, 110, order++);
+    if (["twitter:image", "twitter:image:src"].includes(key)) add(content, 100, order++);
+  }
+
+  for (const match of html.matchAll(/<link\b[^>]*>/gi)) {
+    const tag = match[0];
+    const rel = (attr(tag, "rel") ?? "").toLowerCase();
+    if (/\b(image_src|preload)\b/.test(rel) && (!/\bpreload\b/.test(rel) || (attr(tag, "as") ?? "").toLowerCase() === "image")) {
+      add(attr(tag, "href"), 85, order++);
+    }
+  }
+
+  for (const match of html.matchAll(/<img\b[^>]*>/gi)) {
+    const tag = match[0];
+    const context = [
+      attr(tag, "class"),
+      attr(tag, "id"),
+      attr(tag, "alt"),
+      attr(tag, "title"),
+    ].filter(Boolean).join(" ");
+    add(attr(tag, "src"), 70, order++, context);
+  }
+
+  for (const match of html.matchAll(/background-image\s*:\s*url\((["']?)([^"')]+)\1\)/gi)) {
+    add(match[2], 64, order++, "background image");
+  }
+
+  for (const match of html.matchAll(/<script\b[^>]*type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi)) {
+    try {
+      const value = JSON.parse(decodeHtml(match[1].trim()));
+      const stack = Array.isArray(value) ? [...value] : [value];
+      while (stack.length) {
+        const item = stack.shift();
+        if (!item || typeof item !== "object") continue;
+        const image = (item as Record<string, unknown>).image;
+        if (typeof image === "string") add(image, 95, order++);
+        if (Array.isArray(image)) image.forEach((url) => typeof url === "string" && add(url, 95, order++));
+        if (image && typeof image === "object") add(String((image as Record<string, unknown>).url ?? ""), 95, order++);
+        Object.values(item as Record<string, unknown>).forEach((child) => {
+          if (child && typeof child === "object") stack.push(child);
+        });
+      }
+    } catch {
+      // Ignore malformed JSON-LD. Plenty of pages ship invalid blocks.
+    }
+  }
+
+  for (const match of markdown.matchAll(/!\[[^\]]*]\(([^)\s]+)(?:\s+"[^"]*")?\)/g)) {
+    add(match[1], 55, order++);
+  }
+
+  candidates.sort((a, b) => b.score - a.score || a.order - b.order);
+  return candidates[0]?.score > 0 ? candidates[0].url : null;
+}
+
+function firstPriceLikeValue(value: string): string {
+  const normalized = value.replace(/\s+/g, " ").trim();
+  const currencyMatch = normalized.match(/(?:¥|￥|\$|€|£)\s*\d[\d,]*(?:\.\d+)?|\d[\d,]*(?:\.\d+)?\s*(?:円|yen|jpy|usd|eur|gbp|dollars?)/i);
+  if (currencyMatch) return currencyMatch[0].replace(/\s+/g, "");
+  const numberMatch = normalized.match(/\d[\d,]*(?:\.\d+)?/);
+  return numberMatch?.[0] ?? normalized;
+}
+
+function normalizeDealPriceNumber(value: unknown): string | null {
+  if (typeof value !== "string" || !value.trim()) return null;
+  const number = firstPriceLikeValue(value).replace(/[^\d.]/g, "");
+  return number || null;
+}
+
 async function handleRequest(req: Request, openaiKey: string, body: unknown, url: string, type: string, outputLanguage: unknown): Promise<Response> {
   try {
     if (!url || typeof url !== "string") return json({ error: "url is required" }, 400);
@@ -170,6 +299,18 @@ async function handleRequest(req: Request, openaiKey: string, body: unknown, url
     const jinaKey = Deno.env.get("JINA_API_KEY");
     const jinaUrl = `https://r.jina.ai/${normalised}`;
     let pageContent = "";
+    const htmlPromise = fetch(normalised, {
+      headers: {
+        "Accept": "text/html,application/xhtml+xml",
+        "User-Agent": "Mozilla/5.0 (compatible; KonektoSmartFill/1.0)",
+      },
+      signal: AbortSignal.timeout(6_000),
+    })
+      .then(async (res) => res.ok ? (await res.text()).slice(0, 200_000) : "")
+      .catch((e) => {
+        console.warn("[smart-fill] direct HTML fetch failed:", e);
+        return "";
+      });
     const fetchStart = Date.now();
     try {
       const jinaHeaders: Record<string, string> = {
@@ -202,6 +343,10 @@ async function handleRequest(req: Request, openaiKey: string, body: unknown, url
     if (!pageContent) {
       return json({ error: "Could not fetch page content. The site may be private or unavailable." }, 422);
     }
+
+    const pageHtml = await htmlPromise;
+    const imageUrl = extractBestImage(pageHtml, pageContent, normalised, type);
+    if (imageUrl) console.log("[smart-fill] selected image:", imageUrl);
 
     // ── Step 2: build prompt based on form type ──────────────────────────────
     const systemPrompt =
@@ -266,8 +411,8 @@ async function handleRequest(req: Request, openaiKey: string, body: unknown, url
         `- brand: brand or store name (MUST follow language output rules; for Both include an English/Japanese pair when possible)\n` +
         `- title: the deal title, e.g. "20% off with student ID" (MUST follow language output rules)\n` +
         `- description: how to redeem, conditions, details, 2-4 sentences (MUST follow language output rules)\n` +
-        `- originalPrice: e.g. "¥1,200"\n` +
-        `- newPrice: discounted price e.g. "¥960"\n` +
+        `- originalPrice: regular/list price before discount as a number only, with no currency symbol, commas, units, or words, e.g. "1200"; do not put discount percentages or campaign text here\n` +
+        `- newPrice: discounted/current price as a number only, with no currency symbol, commas, units, or words, e.g. "960"\n` +
         `- studentOnly: true if this is exclusively for students\n` +
         `- mode: must be exactly one of: In-Person, Online, Both\n` +
         `- url: the deal or brand page URL`;
@@ -411,6 +556,27 @@ async function handleRequest(req: Request, openaiKey: string, body: unknown, url
       }
       if (extracted.website === extracted.luma) extracted.website = null;
     }
+
+    if (type === "deal") {
+      extracted.originalPrice = normalizeDealPriceNumber(extracted.originalPrice);
+      extracted.newPrice = normalizeDealPriceNumber(extracted.newPrice);
+    }
+
+    if (type === "opportunity") {
+      const applicationUrl = extracted.applicationUrl
+        || extracted.applicationURL
+        || extracted.application_url
+        || extracted.applyUrl
+        || extracted.apply_url
+        || extracted.url
+        || extracted.website
+        || normalised;
+      if (typeof applicationUrl === "string" && applicationUrl.trim()) {
+        extracted.applicationUrl = applicationUrl.trim();
+      }
+    }
+
+    if (imageUrl && !extracted.imageUrl) extracted.imageUrl = imageUrl;
 
     return json({ data: extracted });
 

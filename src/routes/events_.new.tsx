@@ -1,6 +1,6 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useState, type FormEvent } from "react";
-import { Globe, Ticket, MapPin, ExternalLink, CalendarIcon, CalendarPlus } from "lucide-react";
+import { useRef, useState, type FormEvent } from "react";
+import { Globe, Ticket, MapPin, ExternalLink, CalendarIcon, CalendarPlus, ImageIcon, ImagePlus, Link2, Trash2 } from "lucide-react";
 import { SmartFill, type SmartFillResult } from "@/components/SmartFill";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -11,7 +11,7 @@ import TagPicker from "@/components/TagPicker";
 import { CIRCLE_TAG_GROUPS, filterValidTags, inferRelevantTags } from "@/data/tags";
 import EventCircleCollabPicker from "@/components/EventCircleCollabPicker";
 import { isLumaUrl } from "@/lib/social-links";
-import { addEvent, setEventCircleCollaborations, getEventHandle } from "@/data/backend";
+import { addEvent, setEventCircleCollaborations, getEventHandle, uploadEventImage } from "@/data/backend";
 import { useAuth } from "@/components/AuthProvider";
 import { CATEGORY_EMOJI, EVENT_CATEGORIES, LANGUAGES } from "@/data/profile-options";
 import { format } from "date-fns";
@@ -74,6 +74,10 @@ function NewEventPage() {
   const [howToJoin, setHowToJoin] = useState("");
   const [lumaUrl, setLumaUrl] = useState("");
   const [websiteUrl, setWebsiteUrl] = useState("");
+  const [imageUrl, setImageUrl] = useState("");
+  const [pendingImage, setPendingImage] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [imageLinkOpen, setImageLinkOpen] = useState(false);
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [selectedCircleIds, setSelectedCircleIds] = useState<string[]>([]);
   const [invitedCircleIds, setInvitedCircleIds] = useState<string[]>([]);
@@ -90,6 +94,7 @@ function NewEventPage() {
   const [endTime, setEndTime] = useState("9:00 PM");
   const [startDatePickerOpen, setStartDatePickerOpen] = useState(false);
   const [endDatePickerOpen, setEndDatePickerOpen] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const dateDisabled = isAdmin ? undefined : { before: new Date() };
 
   if (!user) {
@@ -126,28 +131,35 @@ function NewEventPage() {
   }
 
   function handleSmartFill(data: SmartFillResult, sourceUrl: string) {
-    if (data.title) setTitle(data.title);
-    if (data.description) setDescription(data.description);
-    if (data.cost) setCost(data.cost);
-    if (data.howToJoin) setHowToJoin(data.howToJoin);
+    setTitle(data.title ?? "");
+    setDescription(data.description ?? "");
+    setCost(data.cost ?? "");
+    setHowToJoin(data.howToJoin ?? "");
     const lumaLink = data.luma || (isLumaUrl(data.website) ? data.website : null) || (isLumaUrl(sourceUrl) ? sourceUrl : null);
-    if (lumaLink) {
-      setLumaUrl(lumaLink);
-    }
+    setLumaUrl(lumaLink ?? "");
     setWebsiteUrl(data.website && data.website !== lumaLink ? data.website : (!lumaLink ? sourceUrl : ""));
-    if (data.location) setLocation(data.location);
-    if (data.online != null) setOnline(data.online);
+    setLocation(data.location ?? "");
+    if (imagePreview) URL.revokeObjectURL(imagePreview);
+    setPendingImage(null);
+    setImagePreview(null);
+    setImageUrl(data.imageUrl ?? "");
+    setImageLinkOpen(false);
+    setOnline(data.online ?? false);
     if (data.primaryLanguage) {
       const match = LANGUAGES.find((l) => l.name.toLowerCase() === data.primaryLanguage!.toLowerCase());
-      if (match) setPrimaryLanguage(match.name);
+      setPrimaryLanguage(match?.name ?? "");
+    } else {
+      setPrimaryLanguage("");
     }
-    if (data.category && EVENT_CATEGORIES.includes(data.category as any)) setCategory(data.category);
+    setCategory(data.category && EVENT_CATEGORIES.includes(data.category as any) ? data.category : EVENT_CATEGORIES[0]);
     const validTags = inferRelevantTags({
       tags: data.tags,
       text: [data.title, data.description, data.category, data.location],
       limit: 4,
     });
-    if (validTags.length > 0) setSelectedTags((prev) => filterValidTags([...new Set([...prev, ...validTags])]));
+    setSelectedTags(filterValidTags(validTags));
+    setApprovalRequired(false);
+    setIsWeekly(false);
 
     // Date/time from ISO strings (e.g. Luma JSON-LD)
     let startD: Date | null = null;
@@ -171,7 +183,20 @@ function NewEventPage() {
     if (startD) {
       setStartDate(startD);
       setEndDate(endD && endD > startD ? endD : startD);
+    } else {
+      setStartDate(undefined);
+      setEndDate(undefined);
+      setStartTime("7:00 PM");
+      setEndTime("9:00 PM");
     }
+  }
+
+  function handleImageFile(file: File) {
+    if (imagePreview) URL.revokeObjectURL(imagePreview);
+    setPendingImage(file);
+    setImagePreview(URL.createObjectURL(file));
+    setImageUrl("");
+    setImageLinkOpen(false);
   }
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
@@ -211,7 +236,16 @@ function NewEventPage() {
       }
 
       const trimmedTitle = title.trim();
+      const eventIdForCreate = `event-${crypto.randomUUID()}`;
+      let finalImageUrl = imageUrl.trim() || undefined;
+      if (pendingImage) {
+        finalImageUrl = await uploadEventImage(eventIdForCreate, pendingImage);
+        if (imagePreview) URL.revokeObjectURL(imagePreview);
+        setPendingImage(null);
+        setImagePreview(null);
+      }
       const eventId = await addEvent({
+        id: eventIdForCreate,
         title: trimmedTitle,
         description: description.trim() || undefined,
         category: cat as (typeof EVENT_CATEGORIES)[number],
@@ -229,6 +263,7 @@ function NewEventPage() {
         startDate: startDateIso,
         recurrence: isWeekly ? "weekly" : undefined,
         howToJoin: howToJoin.trim() || undefined,
+        imageUrl: finalImageUrl,
         isAdmin,
       } as any);
 
@@ -261,6 +296,7 @@ function NewEventPage() {
   const field = "space-y-1.5";
   const req = <span className="text-destructive ml-0.5">*</span>;
   const opt = <span className="font-normal text-muted-foreground/60 ml-1">(optional)</span>;
+  const displayImage = imagePreview ?? imageUrl.trim();
 
   if (pendingId) {
     return (
@@ -474,6 +510,58 @@ function NewEventPage() {
           <div className={field}>
             <label className={lbl}>Tags {opt}</label>
             <TagPicker value={selectedTags} onChange={setSelectedTags} groups={CIRCLE_TAG_GROUPS} />
+          </div>
+
+          <div className={field}>
+            <label className={lbl}>Event image {opt}</label>
+            <div className="flex items-center gap-4">
+              <div className="h-32 w-32 shrink-0 rounded-xl border-2 border-dashed border-border overflow-hidden flex items-center justify-center bg-muted">
+                {displayImage
+                  ? <img src={displayImage} alt="Event preview" className="h-full w-full object-cover" />
+                  : <span className="text-3xl">{CATEGORY_EMOJI[category] || "📅"}</span>
+                }
+              </div>
+              <div className="text-sm text-muted-foreground space-y-2">
+                <p className="font-medium text-foreground">Choose the image shown for this event</p>
+                <p className="text-xs">PNG, JPG · Max 5 MB</p>
+                <div className="flex flex-wrap gap-2 pt-1">
+                  <Button type="button" size="sm" className="w-8 px-0 sm:w-auto sm:px-3" aria-label="New pic" title="New pic" onClick={() => fileInputRef.current?.click()}>
+                    <ImagePlus className="h-4 w-4" />
+                    <span className="hidden sm:inline">New pic</span>
+                  </Button>
+                  <Button type="button" variant="outline" size="sm" className="w-8 px-0 sm:w-auto sm:px-3" aria-label="From link" title="From link" onClick={() => setImageLinkOpen((open) => !open)}>
+                    <Link2 className="h-4 w-4" />
+                    <span className="hidden sm:inline">From link</span>
+                  </Button>
+                  {displayImage && (
+                    <Button type="button" variant="destructive" size="sm" className="w-8 px-0 sm:w-auto sm:px-3" aria-label="Remove image" title="Remove image" onClick={() => { if (imagePreview) URL.revokeObjectURL(imagePreview); setPendingImage(null); setImagePreview(null); setImageUrl(""); setImageLinkOpen(false); }}>
+                      <Trash2 className="h-4 w-4" />
+                      <span className="hidden sm:inline">Remove</span>
+                    </Button>
+                  )}
+                </div>
+              </div>
+            </div>
+            {imageLinkOpen && (
+              <Input
+                type="url"
+                value={imageUrl}
+                onChange={(e) => {
+                  if (imagePreview) URL.revokeObjectURL(imagePreview);
+                  setPendingImage(null);
+                  setImagePreview(null);
+                  setImageUrl(e.target.value.trim());
+                }}
+                placeholder="Paste image link"
+              />
+            )}
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={(e) => { const file = e.target.files?.[0]; if (file) handleImageFile(file); e.target.value = ""; }}
+            />
           </div>
 
           {/* Circles */}

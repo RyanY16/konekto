@@ -76,6 +76,7 @@ create policy "Users can insert own profile" on public.users for insert with che
 
 create table if not exists public.circles (
   id text primary key,
+  slug text,
   name text not null,
   category text not null,
   description text not null,
@@ -94,6 +95,7 @@ create table if not exists public.circles (
 
 create table if not exists public.events (
   id text primary key,
+  slug text,
   title text not null,
   category text not null check (category in ('Social', 'Career', 'Hackathon', 'Workshop', 'Casual', 'Travel')),
   date text not null,
@@ -112,6 +114,7 @@ alter table public.events add constraint events_category_check
 
 create table if not exists public.deals (
   id text primary key,
+  slug text,
   brand text not null,
   title text not null,
   category text not null check (category in ('Food', 'Fashion', 'Lifestyle')),
@@ -131,6 +134,7 @@ end $$;
 
 create table if not exists public.opportunities (
   id text primary key,
+  slug text,
   company text not null,
   role text not null,
   type text not null check (type in ('Shukatsu', 'Baito', 'Opportunity')),
@@ -145,6 +149,7 @@ create table if not exists public.opportunities (
   application_url text not null default '',
   tags text[] not null default '{}',
   emoji text not null,
+  image_url text,
   social_links jsonb not null default '{}'::jsonb,
   created_at timestamptz not null default now()
 );
@@ -165,6 +170,9 @@ alter table public.users add column if not exists social_links jsonb not null de
 alter table public.users add column if not exists nationality text not null default '';
 alter table public.users add column if not exists languages jsonb not null default '[]'::jsonb;
 alter table public.circles add column if not exists icon_url text;
+alter table public.circles add column if not exists slug text;
+update public.circles set slug = lower(regexp_replace(regexp_replace(regexp_replace(name, '[^[:alnum:][:space:]-]+', '', 'g'), '[[:space:]-]+', '-', 'g'), '(^-|-$)', '', 'g')) where slug is null or slug = '';
+create unique index if not exists circles_slug_unique on public.circles (slug) where slug is not null and slug <> '';
 alter table public.circles add column if not exists university text not null default '';
 alter table public.circles add column if not exists primary_language text not null default '';
 alter table public.circles add column if not exists recruiting boolean not null default false;
@@ -182,6 +190,10 @@ alter table public.events add column if not exists circle_ids text[] not null de
 alter table public.events add column if not exists online boolean not null default false;
 alter table public.events add column if not exists approval_required boolean not null default false;
 alter table public.events add column if not exists start_date timestamptz;
+alter table public.events add column if not exists image_url text;
+alter table public.events add column if not exists slug text;
+update public.events set slug = lower(regexp_replace(regexp_replace(regexp_replace(title, '[^[:alnum:][:space:]-]+', '', 'g'), '[[:space:]-]+', '-', 'g'), '(^-|-$)', '', 'g')) where slug is null or slug = '';
+create unique index if not exists events_slug_unique on public.events (slug) where slug is not null and slug <> '';
 
 -- Event/circle collaborations. Approved rows are mirrored into events.circle_ids
 -- for compatibility with existing event cards and detail pages.
@@ -292,6 +304,9 @@ returns void language sql security definer as $$
   update public.events set going = greatest(going - 1, 0) where id = p_event_id;
 $$;
 alter table public.deals add column if not exists social_links jsonb not null default '{}'::jsonb;
+alter table public.deals add column if not exists slug text;
+update public.deals set slug = lower(regexp_replace(regexp_replace(regexp_replace(title, '[^[:alnum:][:space:]-]+', '', 'g'), '[[:space:]-]+', '-', 'g'), '(^-|-$)', '', 'g')) where slug is null or slug = '';
+create unique index if not exists deals_slug_unique on public.deals (slug) where slug is not null and slug <> '';
 alter table public.opportunities add column if not exists social_links jsonb not null default '{}'::jsonb;
 alter table public.opportunities add column if not exists organization text not null default '';
 alter table public.opportunities add column if not exists title text not null default '';
@@ -310,6 +325,10 @@ alter table public.opportunities
 alter table public.opportunities add column if not exists description text not null default '';
 alter table public.opportunities add column if not exists eligibility text not null default '';
 alter table public.opportunities add column if not exists application_url text not null default '';
+alter table public.opportunities add column if not exists image_url text;
+alter table public.opportunities add column if not exists slug text;
+update public.opportunities set slug = lower(regexp_replace(regexp_replace(regexp_replace(coalesce(nullif(organization, ''), company) || '-' || coalesce(nullif(title, ''), role), '[^[:alnum:][:space:]-]+', '', 'g'), '[[:space:]-]+', '-', 'g'), '(^-|-$)', '', 'g')) where slug is null or slug = '';
+create unique index if not exists opportunities_slug_unique on public.opportunities (slug) where slug is not null and slug <> '';
 alter table public.opportunities drop constraint if exists opportunities_category_check;
 update public.opportunities
 set category = 'Competition'

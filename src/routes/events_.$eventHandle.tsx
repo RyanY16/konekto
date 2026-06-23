@@ -1,7 +1,7 @@
 import { Link, createFileRoute, useRouter, useNavigate } from "@tanstack/react-router";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
-import { Globe, MapPin, ExternalLink, CalendarIcon, CalendarPlus, Ticket } from "lucide-react";
+import { Globe, MapPin, ExternalLink, CalendarIcon, CalendarPlus, ImagePlus, Link2, Ticket, Trash2 } from "lucide-react";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { format, parse } from "date-fns";
@@ -13,8 +13,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import TagPicker from "@/components/TagPicker";
-import { CIRCLE_TAG_GROUPS, filterValidTags, tagLabel } from "@/data/tags";
+import { CIRCLE_TAG_GROUPS, filterValidTags, inferRelevantTags, tagLabel } from "@/data/tags";
 import EventCircleCollabPicker from "@/components/EventCircleCollabPicker";
+import { SmartFill, type SmartFillResult } from "@/components/SmartFill";
+import { isLumaUrl } from "@/lib/social-links";
 import { DeleteRecordButton } from "@/components/DeleteRecordButton";
 import { OwnerBadge } from "@/components/OwnerBadge";
 import { ShareButton } from "@/components/ShareButton";
@@ -40,6 +42,7 @@ import {
   getEventAttendees,
   updateAttendeeStatus,
   cancelEventOccurrence,
+  uploadEventImage,
 } from "@/data/backend";
 import type { Circle } from "@/data/mock";
 import type { AttendeeStatus, EventAttendee, EventCircleLink } from "@/data/backend";
@@ -188,6 +191,7 @@ type Draft = {
   isWeekly: boolean;
   recurringDay: number;
   howToJoin: string;
+  imageUrl: string;
 };
 
 function toDraft(e: EventItem): Draft {
@@ -210,6 +214,7 @@ function toDraft(e: EventItem): Draft {
     isWeekly: e.recurrence === "weekly",
     recurringDay: e.startDate ? new Date(e.startDate).getDay() : 0,
     howToJoin: e.howToJoin ?? "",
+    imageUrl: e.imageUrl ?? "",
   };
 }
 
@@ -227,6 +232,9 @@ function EventDetailPage() {
   const [invitedCircleIds, setInvitedCircleIds] = useState<string[]>([]);
   const [collabActionId, setCollabActionId] = useState<string | null>(null);
   const [draft, setDraft] = useState<Draft>(event ? toDraft(event) : {} as Draft);
+  const [pendingImage, setPendingImage] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [imageLinkOpen, setImageLinkOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [editDateRange, setEditDateRange] = useState<DateRange | undefined>(undefined);
@@ -240,10 +248,32 @@ function EventDetailPage() {
   const [attendeesLoaded, setAttendeesLoaded] = useState(false);
   const [cancellingDate, setCancellingDate] = useState<string | null>(null);
   const [localCancelledDates, setLocalCancelledDates] = useState<string[]>(event?.cancelledDates ?? []);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const isOwner = !!(user && event?.ownerId && user.id === event.ownerId);
   const canEdit = isOwner || isAdmin;
   const canManageOccurrences = canEdit || linkedCircles.some((c) => myEditableCircleIds.has(c.id));
+
+  function isoToTimeStr(iso: string): string {
+    const d = new Date(iso);
+    if (isNaN(d.getTime())) return "";
+    const h = d.getHours();
+    const m = d.getMinutes();
+    const hour12 = h % 12 === 0 ? 12 : h % 12;
+    const ampm = h < 12 ? "AM" : "PM";
+    return `${hour12}:${String(m).padStart(2, "0")} ${ampm}`;
+  }
+
+  function snapToTimeOption(timeStr: string): string {
+    if (!timeStr) return "";
+    const match = TIME_OPTIONS.find((t) => t === timeStr);
+    if (match) return match;
+    const d = new Date(`1970-01-01T${timeStr}`);
+    if (isNaN(d.getTime())) return timeStr;
+    const snapped = new Date(d);
+    snapped.setMinutes(d.getMinutes() < 15 ? 0 : d.getMinutes() < 45 ? 30 : 60, 0, 0);
+    return isoToTimeStr(snapped.toISOString());
+  }
 
   useEffect(() => {
     if (!event?.ownerId) return;
@@ -307,7 +337,11 @@ function EventDetailPage() {
 
   function startEditing() {
     const d = toDraft(event!);
+    if (imagePreview) URL.revokeObjectURL(imagePreview);
     setDraft(d);
+    setPendingImage(null);
+    setImagePreview(null);
+    setImageLinkOpen(false);
     setInvitedCircleIds(circleLinks.filter((link) => link.status === "pending").map((link) => link.circleId));
     const parsed = parseDateString(d.date);
     setEditDateRange(parsed.range);
@@ -323,7 +357,81 @@ function EventDetailPage() {
   }
 
   function cancelEditing() {
+    if (imagePreview) URL.revokeObjectURL(imagePreview);
+    setPendingImage(null);
+    setImagePreview(null);
+    setImageLinkOpen(false);
     setEditing(false);
+  }
+
+  function handleImageFile(file: File) {
+    if (imagePreview) URL.revokeObjectURL(imagePreview);
+    setPendingImage(file);
+    setImagePreview(URL.createObjectURL(file));
+    setImageLinkOpen(false);
+    setDraft((d) => ({ ...d, imageUrl: "" }));
+  }
+
+  function handleSmartFill(data: SmartFillResult, sourceUrl: string) {
+    const lumaLink = data.luma || (isLumaUrl(data.website) ? data.website : null) || (isLumaUrl(sourceUrl) ? sourceUrl : null);
+    const category = data.category && EVENT_CATEGORIES.includes(data.category as any) ? data.category : EVENT_CATEGORIES[0];
+    const language = data.primaryLanguage
+      ? LANGUAGES.find((l) => l.name.toLowerCase() === data.primaryLanguage!.toLowerCase())?.name ?? ""
+      : "";
+
+    setDraft((d) => ({
+      ...d,
+      title: data.title ?? "",
+      description: data.description ?? "",
+      category,
+      location: data.location ?? "",
+      online: data.online ?? false,
+      cost: data.cost ?? "",
+      primaryLanguage: language,
+      tags: filterValidTags(inferRelevantTags({
+        tags: data.tags,
+        text: [data.title, data.description, data.category, data.location],
+        limit: 4,
+      })),
+      website: data.website && data.website !== lumaLink ? data.website : (!lumaLink ? sourceUrl : ""),
+      luma: lumaLink ?? "",
+      tickets: "",
+      isWeekly: false,
+      howToJoin: data.howToJoin ?? "",
+      imageUrl: data.imageUrl ?? "",
+    }));
+    if (imagePreview) URL.revokeObjectURL(imagePreview);
+    setPendingImage(null);
+    setImagePreview(null);
+    setImageLinkOpen(false);
+
+    let startD: Date | null = null;
+    let endD: Date | null = null;
+    if (data.startDate) {
+      const d = new Date(data.startDate);
+      if (!isNaN(d.getTime())) {
+        startD = d;
+        const t = snapToTimeOption(isoToTimeStr(data.startDate));
+        if (t) setEditStartTime(t);
+      }
+    }
+    if (data.endDate) {
+      const d = new Date(data.endDate);
+      if (!isNaN(d.getTime())) {
+        endD = d;
+        const t = snapToTimeOption(isoToTimeStr(data.endDate));
+        if (t) setEditEndTime(t);
+      }
+    }
+    if (startD) {
+      setEditDateRange({ from: startD, to: endD && endD > startD ? endD : undefined });
+      setEditMultiDay(!!(endD && endD.toDateString() !== startD.toDateString()));
+    } else {
+      setEditDateRange(undefined);
+      setEditMultiDay(false);
+      setEditStartTime("7:00 PM");
+      setEditEndTime("9:00 PM");
+    }
   }
 
   async function save() {
@@ -348,6 +456,13 @@ function EventDetailPage() {
         return d.toISOString();
       })() : undefined;
     }
+    let imageUrl = draft.imageUrl || undefined;
+    if (pendingImage) {
+      imageUrl = await uploadEventImage(event!.id, pendingImage);
+      if (imagePreview) URL.revokeObjectURL(imagePreview);
+      setPendingImage(null);
+      setImagePreview(null);
+    }
     await updateEvent(event!.id, {
         title: draft.title,
         description: draft.description,
@@ -369,6 +484,7 @@ function EventDetailPage() {
         },
         recurrence: draft.isWeekly ? "weekly" : undefined,
         howToJoin: draft.howToJoin || undefined,
+        imageUrl,
       } as any);
       if (user) {
         await setEventCircleCollaborations({
@@ -382,7 +498,7 @@ function EventDetailPage() {
       }
       await refreshCircleLinks();
       setEditing(false);
-      const newHandle = getEventHandle({ id: event!.id, title: draft.title });
+      const newHandle = getEventHandle({ id: event!.id, title: draft.title, slug: event!.slug });
       await navigate({ to: "/events/$eventHandle", params: { eventHandle: newHandle }, replace: true });
       router.invalidate();
     } catch (err) {
@@ -446,6 +562,7 @@ function EventDetailPage() {
   const myApprovedCircleIds = draft.circleIds?.filter((id) => myEditableCircleIds.has(id)) ?? [];
   const approvedOtherCircleIds = draft.circleIds?.filter((id) => !myEditableCircleIds.has(id)) ?? [];
   const actionablePendingLinks = circleLinks.filter((link) => link.status === "pending" && myEditableCircleIds.has(link.circleId));
+  const editImage = imagePreview ?? draft.imageUrl;
 
   return (
     <div>
@@ -464,6 +581,88 @@ function EventDetailPage() {
       <section className="card-base p-6 space-y-5 relative pb-16">
         {editing ? (
           <div className="space-y-4">
+            <SmartFill type="event" onFill={handleSmartFill} />
+
+            <div className="space-y-1">
+              <label className="text-xs font-medium text-muted-foreground">Event image</label>
+              <div className="flex items-center gap-4">
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  className="relative group h-32 w-32 shrink-0 rounded-xl border-2 border-dashed border-border hover:border-primary transition-colors overflow-hidden flex items-center justify-center bg-muted"
+                >
+                  {editImage ? (
+                    <>
+                      <img src={editImage} alt="Event image" className="w-full h-full object-cover" />
+                      <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                        <span className="text-white text-xl">📷</span>
+                      </div>
+                    </>
+                  ) : (
+                    <span className="text-3xl group-hover:scale-110 transition-transform">{CATEGORY_EMOJI[draft.category] || "📅"}</span>
+                  )}
+                </button>
+                <div className="text-sm text-muted-foreground space-y-2">
+                  <p className="font-medium text-foreground">Choose the image shown for this event</p>
+                  <p className="text-xs">PNG, JPG · Max 5 MB</p>
+                  <div className="flex flex-wrap gap-2 pt-1">
+                    <Button type="button" size="sm" className="w-8 px-0 sm:w-auto sm:px-3" aria-label="New pic" title="New pic" onClick={() => fileInputRef.current?.click()}>
+                      <ImagePlus className="h-4 w-4" />
+                      <span className="hidden sm:inline">New pic</span>
+                    </Button>
+                    <Button type="button" variant="outline" size="sm" className="w-8 px-0 sm:w-auto sm:px-3" aria-label="From link" title="From link" onClick={() => setImageLinkOpen((open) => !open)}>
+                      <Link2 className="h-4 w-4" />
+                      <span className="hidden sm:inline">From link</span>
+                    </Button>
+                    {editImage && (
+                      <Button
+                        type="button"
+                        variant="destructive"
+                        size="sm"
+                        className="w-8 px-0 sm:w-auto sm:px-3"
+                        aria-label="Remove image"
+                        title="Remove image"
+                        onClick={() => {
+                          if (imagePreview) URL.revokeObjectURL(imagePreview);
+                          setPendingImage(null);
+                          setImagePreview(null);
+                          setImageLinkOpen(false);
+                          setDraft((d) => ({ ...d, imageUrl: "" }));
+                        }}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                        <span className="hidden sm:inline">Remove</span>
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              </div>
+              {imageLinkOpen && (
+                <Input
+                  type="url"
+                  value={imagePreview ? "" : draft.imageUrl}
+                  onChange={(e) => {
+                    if (imagePreview) URL.revokeObjectURL(imagePreview);
+                    setPendingImage(null);
+                    setImagePreview(null);
+                    setDraft((d) => ({ ...d, imageUrl: e.target.value.trim() }));
+                  }}
+                  placeholder="Paste image link"
+                />
+              )}
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) handleImageFile(file);
+                  e.target.value = "";
+                }}
+              />
+            </div>
+
             <div className="space-y-1">
               <label className="text-xs font-medium text-muted-foreground">Title</label>
               <Input
@@ -718,6 +917,14 @@ function EventDetailPage() {
           </div>
         ) : (
           <>
+            {event.imageUrl && (
+              <img
+                src={event.imageUrl}
+                alt={`${event.title} image`}
+                className="w-24 h-24 rounded-xl object-cover border border-border"
+              />
+            )}
+
             <div className="flex items-center gap-4">
               <div className="w-16 h-16 rounded-xl bg-gradient-to-br from-primary-soft to-accent-soft flex items-center justify-center text-4xl shrink-0">
                 {CATEGORY_EMOJI[event.category] || "📅"}

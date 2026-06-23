@@ -11,6 +11,7 @@ import { DEAL_CATEGORY_EMOJI, CATEGORY_EMOJI } from "@/data/profile-options";
 import { SaveButton } from "@/components/SaveButton";
 import { useOgImage } from "@/hooks/useOgImage";
 import { eventGradient, dealGradient } from "@/lib/placeholders";
+import { formatYenPrice } from "@/lib/deal-price";
 import { useEffect, useState } from "react";
 
 export const Route = createFileRoute("/")({
@@ -287,7 +288,7 @@ function Dashboard() {
               <div className="flex-1 min-w-0">
                 <p className="text-xs text-muted-foreground">{d.brand}</p>
                 <h3 className="font-semibold truncate">{d.title}</h3>
-                {d.newPrice && <p className="mt-1 text-sm font-semibold text-primary">{d.newPrice}</p>}
+                {d.newPrice && <p className="mt-1 text-sm font-semibold text-primary">{formatYenPrice(d.newPrice)}</p>}
                 {d.studentOnly && <span className="chip mt-2">{t("common.studentOnly")}</span>}
               </div>
             </article>

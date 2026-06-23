@@ -1,6 +1,6 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useState, useRef, type FormEvent } from "react";
-import { Globe, Instagram, Linkedin, MessageCircle } from "lucide-react";
+import { Globe, ImagePlus, Instagram, Link2, Linkedin, MessageCircle, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -49,6 +49,8 @@ function NewCirclePage() {
   const [openAccess, setOpenAccess] = useState(false);
   const [pendingIcon, setPendingIcon] = useState<File | null>(null);
   const [iconPreview, setIconPreview] = useState<string | null>(null);
+  const [remoteIconUrl, setRemoteIconUrl] = useState<string | null>(null);
+  const [iconLinkOpen, setIconLinkOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   if (!user) {
@@ -64,34 +66,55 @@ function NewCirclePage() {
     if (iconPreview) URL.revokeObjectURL(iconPreview);
     setPendingIcon(file);
     setIconPreview(URL.createObjectURL(file));
+    setRemoteIconUrl(null);
+    setIconLinkOpen(false);
   }
 
   function handleSmartFill(data: SmartFillResult, sourceUrl: string) {
-    if (data.name) setName(data.name);
-    if (data.description) setDescription(data.description);
-    if (data.instagram) setInstagram(data.instagram.replace(/^@/, ""));
+    setName(data.name ?? "");
+    setDescription(data.description ?? "");
+    setInstagram(data.instagram?.replace(/^@/, "") ?? "");
     setWebsite(data.website || sourceUrl);
-    if (data.recruitingPeriod) setRecruitingPeriod(data.recruitingPeriod);
-    if (data.membershipFee) setMembershipFee(data.membershipFee);
-    if (data.howToJoin) setHowToJoin(data.howToJoin);
-    if (data.university) setUniversity(data.university);
-    if (data.englishFriendly != null) setEnglishFriendly(data.englishFriendly);
-    if (data.recruiting != null) setRecruiting(data.recruiting);
+    setRecruitingPeriod(data.recruitingPeriod ?? "");
+    setRecruitingConditions("");
+    setMembershipFee(data.membershipFee ?? "");
+    setHowToJoin(data.howToJoin ?? "");
+    setUniversity(data.university ?? "");
+    setEnglishFriendly(data.englishFriendly ?? false);
+    setRecruiting(data.recruiting ?? false);
     const smartTags = inferRelevantTags({
       tags: data.tags,
       text: [data.name, data.description, data.category, data.university],
       limit: 5,
     });
-    if (smartTags.length > 0) {
-      setSelectedTags((prev) => filterValidTags([...new Set([...prev, ...smartTags])]));
-    }
+    setSelectedTags(filterValidTags(smartTags));
     if (data.category && CIRCLE_CATEGORIES.includes(data.category as any)) {
       setCategory(data.category);
       setEmoji(CATEGORY_EMOJI[data.category] ?? "👥");
+    } else {
+      setCategory(CIRCLE_CATEGORIES[0]);
+      setEmoji(CATEGORY_EMOJI[CIRCLE_CATEGORIES[0]] ?? "👥");
     }
     if (data.primaryLanguage) {
       const match = LANGUAGES.find((l) => l.name.toLowerCase() === data.primaryLanguage!.toLowerCase());
-      if (match) setPrimaryLanguage(match.name);
+      setPrimaryLanguage(match?.name ?? "");
+    } else {
+      setPrimaryLanguage("");
+    }
+    setVibe("Casual");
+    setOpenAccess(false);
+    if (data.imageUrl) {
+      if (iconPreview) URL.revokeObjectURL(iconPreview);
+      setPendingIcon(null);
+      setIconPreview(null);
+      setRemoteIconUrl(data.imageUrl);
+      setIconLinkOpen(false);
+    } else {
+      if (iconPreview) URL.revokeObjectURL(iconPreview);
+      setPendingIcon(null);
+      setIconPreview(null);
+      setRemoteIconUrl(null);
+      setIconLinkOpen(false);
     }
   }
 
@@ -103,7 +126,7 @@ function NewCirclePage() {
     try {
       const circleId = `circle-${crypto.randomUUID()}`;
 
-      let iconUrl: string | undefined;
+      let iconUrl: string | undefined = remoteIconUrl ?? undefined;
       if (pendingIcon) {
         iconUrl = await uploadCircleIcon(circleId, pendingIcon);
       }
@@ -151,6 +174,7 @@ function NewCirclePage() {
   const field = "space-y-1.5";
   const req = <span className="text-destructive ml-0.5">*</span>;
   const opt = <span className="font-normal text-muted-foreground/60 ml-1">(optional)</span>;
+  const currentIcon = iconPreview ?? remoteIconUrl;
 
   if (pendingId) {
     return (
@@ -189,11 +213,11 @@ function NewCirclePage() {
               <button
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
-                className="relative group w-20 h-20 rounded-xl border-2 border-dashed border-border hover:border-primary transition-colors overflow-hidden flex items-center justify-center bg-muted shrink-0"
+                className="relative group h-32 w-32 shrink-0 rounded-xl border-2 border-dashed border-border hover:border-primary transition-colors overflow-hidden flex items-center justify-center bg-muted"
               >
-                {iconPreview ? (
+                {currentIcon ? (
                   <>
-                    <img src={iconPreview} alt="Preview" className="w-full h-full object-cover" />
+                    <img src={currentIcon} alt="Preview" className="w-full h-full object-cover" />
                     <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
                       <span className="text-white text-xl">📷</span>
                     </div>
@@ -204,20 +228,48 @@ function NewCirclePage() {
                   </span>
                 )}
               </button>
-              <div className="text-xs text-muted-foreground space-y-1">
-                <p className="font-medium text-foreground">Upload an icon</p>
-                <p>PNG or JPG · Max 2 MB</p>
-                {iconPreview && (
-                  <button
-                    type="button"
-                    className="text-destructive hover:underline"
-                    onClick={() => { if (iconPreview) URL.revokeObjectURL(iconPreview); setPendingIcon(null); setIconPreview(null); }}
-                  >
-                    Remove
-                  </button>
-                )}
+              <div className="text-sm text-muted-foreground space-y-2">
+                <p className="font-medium text-foreground">Choose the image shown for this circle</p>
+                <p className="text-xs">PNG, JPG · Max 2 MB</p>
+                <div className="flex flex-wrap gap-2 pt-1">
+                  <Button type="button" size="sm" className="w-8 px-0 sm:w-auto sm:px-3" aria-label="New pic" title="New pic" onClick={() => fileInputRef.current?.click()}>
+                    <ImagePlus className="h-4 w-4" />
+                    <span className="hidden sm:inline">New pic</span>
+                  </Button>
+                  <Button type="button" variant="outline" size="sm" className="w-8 px-0 sm:w-auto sm:px-3" aria-label="From link" title="From link" onClick={() => setIconLinkOpen((open) => !open)}>
+                    <Link2 className="h-4 w-4" />
+                    <span className="hidden sm:inline">From link</span>
+                  </Button>
+                  {currentIcon && (
+                    <Button
+                      type="button"
+                      variant="destructive"
+                      size="sm"
+                      className="w-8 px-0 sm:w-auto sm:px-3"
+                      aria-label="Remove image"
+                      title="Remove image"
+                      onClick={() => { if (iconPreview) URL.revokeObjectURL(iconPreview); setPendingIcon(null); setIconPreview(null); setRemoteIconUrl(null); setIconLinkOpen(false); }}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                      <span className="hidden sm:inline">Remove</span>
+                    </Button>
+                  )}
+                </div>
               </div>
             </div>
+            {iconLinkOpen && (
+              <Input
+                type="url"
+                value={remoteIconUrl ?? ""}
+                onChange={(e) => {
+                  if (iconPreview) URL.revokeObjectURL(iconPreview);
+                  setPendingIcon(null);
+                  setIconPreview(null);
+                  setRemoteIconUrl(e.target.value.trim() || null);
+                }}
+                placeholder="Paste image link"
+              />
+            )}
             <input
               ref={fileInputRef}
               type="file"

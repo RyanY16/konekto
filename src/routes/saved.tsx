@@ -11,6 +11,7 @@ import { tagClass } from "@/lib/tag-class";
 import { useAuth } from "@/components/AuthProvider";
 import { CATEGORY_EMOJI, DEAL_CATEGORY_EMOJI } from "@/data/profile-options";
 import { formatOpportunityDeadline } from "@/lib/opportunity-deadline";
+import { formatYenPrice } from "@/lib/deal-price";
 import type { Circle, EventItem, Deal, Job } from "@/data/mock";
 
 export const Route = createFileRoute("/saved")({
@@ -209,7 +210,7 @@ function SavedPage() {
                     <div className="flex-1 min-w-0">
                       <p className="font-semibold text-sm truncate">{d.title}</p>
                       <p className="text-xs text-muted-foreground">{d.brand} · {d.category}</p>
-                      {d.newPrice && <p className="text-xs font-semibold text-primary mt-0.5">{d.newPrice}</p>}
+                      {d.newPrice && <p className="text-xs font-semibold text-primary mt-0.5">{formatYenPrice(d.newPrice)}</p>}
                     </div>
                     <div className="relative z-10 shrink-0">
                       <SaveButton itemId={d.id} itemType="deal" />

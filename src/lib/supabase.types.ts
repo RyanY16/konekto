@@ -148,6 +148,7 @@ export type Database = {
       events: {
         Row: {
           id: string;
+          slug: string | null;
           title: string;
           category: "Social" | "Career" | "Hackathon" | "Workshop" | "Casual" | "Travel";
           date: string;
@@ -178,6 +179,7 @@ export type Database = {
       deals: {
         Row: {
           id: string;
+          slug: string | null;
           brand: string;
           title: string;
           category: "Food & Drink" | "Technology" | "Fashion" | "Travel" | "Entertainment" | "Education" | "Beauty & Wellness" | "Lifestyle" | "Services" | "Careers" | "Other";
@@ -199,6 +201,7 @@ export type Database = {
       opportunities: {
         Row: {
           id: string;
+          slug: string | null;
           company: string;
           role: string;
           type: "Shukatsu" | "Baito" | "Opportunity";
@@ -213,6 +216,7 @@ export type Database = {
           application_url: string;
           tags: string[];
           emoji: string;
+          image_url: string | null;
           social_links: Json;
           created_at: string;
         };

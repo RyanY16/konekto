@@ -15,6 +15,7 @@ export type SocialLinksVisibility = {
 
 export type Circle = {
   id: string;
+  slug?: string;
   name: string;
   category: string;
   description: string;
@@ -38,10 +39,12 @@ export type Circle = {
   socialLinksVisibility?: SocialLinksVisibility;
   status?: "pending" | "approved" | "declined";
   openAccess?: boolean;
+  iconUrl?: string;
 };
 
 export type EventItem = {
   id: string;
+  slug?: string;
   title: string;
   category: "Social" | "Career" | "Hackathon" | "Workshop" | "Casual" | "Travel";
   date: string;
@@ -68,6 +71,7 @@ export type EventItem = {
 
 export type Deal = {
   id: string;
+  slug?: string;
   brand: string;
   title: string;
   category: "Food & Drink" | "Technology" | "Fashion" | "Travel" | "Entertainment" | "Education" | "Beauty & Wellness" | "Lifestyle" | "Services" | "Careers" | "Other";
@@ -83,6 +87,7 @@ export type Deal = {
 
 export type Job = {
   id: string;
+  slug?: string;
   organization: string;
   title: string;
   category: "Scholarship" | "Part-time Job" | "Internship" | "Study Abroad" | "Research" | "Competition" | "Grant" | "Volunteer" | "Career Event" | "Other";
@@ -95,6 +100,7 @@ export type Job = {
   tags: string[];
   emoji: string;
   socialLinks?: SocialLinks;
+  imageUrl?: string;
 };
 
 export type Guide = {

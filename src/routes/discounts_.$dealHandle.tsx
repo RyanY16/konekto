@@ -1,6 +1,6 @@
 import { Link, createFileRoute, useRouter } from "@tanstack/react-router";
 import { useState, useRef } from "react";
-import { Globe, CalendarIcon } from "lucide-react";
+import { CalendarIcon, Globe, ImagePlus, Link2, Trash2 } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { format } from "date-fns";
@@ -14,11 +14,12 @@ import { useAuth } from "@/components/AuthProvider";
 import { getDealByHandle, updateDeal, deleteDeal, uploadDealImage } from "@/data/backend";
 import { anyContainsSlur } from "@/lib/profanity";
 import { checkBeforePost } from "@/lib/moderation";
-import { CropDialog } from "@/components/CropDialog";
+import { formatYenPrice, normalizeDealPriceNumber } from "@/lib/deal-price";
 import { ShareButton } from "@/components/ShareButton";
 import { SaveButton } from "@/components/SaveButton";
 import { DEAL_CATEGORIES, DEAL_CATEGORY_EMOJI } from "@/data/profile-options";
 import { NativeSelect } from "@/components/ui/native-select";
+import { SmartFill, type SmartFillResult } from "@/components/SmartFill";
 import type { Deal } from "@/data/mock";
 
 export const Route = createFileRoute("/discounts_/$dealHandle")({
@@ -64,24 +65,11 @@ function DealDetailPage() {
   const [error, setError] = useState("");
   const [pendingImage, setPendingImage] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
-  const [cropFile, setCropFile] = useState<File | null>(null);
-  const [fetchingCrop, setFetchingCrop] = useState(false);
+  const [remoteImageUrl, setRemoteImageUrl] = useState<string | null>(null);
+  const [imageRemoved, setImageRemoved] = useState(false);
+  const [imageLinkOpen, setImageLinkOpen] = useState(false);
   const [saleEndOpen, setSaleEndOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const cameraInputRef = useRef<HTMLInputElement>(null);
-
-  async function openCropForExisting() {
-    const src = imagePreview ?? deal.imageUrl;
-    if (!src) return;
-    setFetchingCrop(true);
-    try {
-      const res = await fetch(src);
-      const blob = await res.blob();
-      setCropFile(new File([blob], "deal.jpg", { type: blob.type }));
-    } finally {
-      setFetchingCrop(false);
-    }
-  }
 
   if (!deal) {
     return (
@@ -96,6 +84,9 @@ function DealDetailPage() {
     if (deal) setDraft(toDraft(deal));
     setPendingImage(null);
     setImagePreview(null);
+    setRemoteImageUrl(null);
+    setImageRemoved(false);
+    setImageLinkOpen(false);
     setError("");
     setEditing(true);
   }
@@ -104,6 +95,40 @@ function DealDetailPage() {
     if (imagePreview) URL.revokeObjectURL(imagePreview);
     setPendingImage(file);
     setImagePreview(URL.createObjectURL(file));
+    setRemoteImageUrl(null);
+    setImageRemoved(false);
+    setImageLinkOpen(false);
+  }
+
+  function handleSmartFill(data: SmartFillResult, sourceUrl: string) {
+    const rawCat = data.category ?? "";
+    setDraft({
+      brand: data.brand ?? "",
+      title: data.title ?? "",
+      category: (DEAL_CATEGORIES as readonly string[]).includes(rawCat) ? rawCat as Deal["category"] : DEAL_CATEGORIES[0],
+      originalPrice: normalizeDealPriceNumber(data.originalPrice),
+      newPrice: normalizeDealPriceNumber(data.newPrice),
+      saleEnd: draft.saleEnd,
+      description: data.description ?? "",
+      studentOnly: data.studentOnly ?? true,
+      mode: data.mode && ["In-Person", "Online", "Both"].includes(data.mode) ? data.mode as Deal["mode"] : "In-Person",
+      url: data.url || sourceUrl,
+    });
+    if (data.imageUrl) {
+      if (imagePreview) URL.revokeObjectURL(imagePreview);
+      setPendingImage(null);
+      setImagePreview(null);
+      setRemoteImageUrl(data.imageUrl);
+      setImageRemoved(false);
+      setImageLinkOpen(false);
+    } else {
+      if (imagePreview) URL.revokeObjectURL(imagePreview);
+      setPendingImage(null);
+      setImagePreview(null);
+      setRemoteImageUrl(null);
+      setImageRemoved(true);
+      setImageLinkOpen(false);
+    }
   }
 
   async function save() {
@@ -123,7 +148,7 @@ function DealDetailPage() {
       return;
     }
     try {
-      let imageUrl = deal.imageUrl;
+      let imageUrl: string | undefined = imageRemoved ? "" : (remoteImageUrl ?? deal.imageUrl);
       if (pendingImage) {
         imageUrl = await uploadDealImage(deal.id, pendingImage);
       }
@@ -157,7 +182,7 @@ function DealDetailPage() {
   const field = "space-y-1.5";
   const sel = "h-10 w-full rounded-md border border-input bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring";
 
-  const displayImage = imagePreview ?? deal.imageUrl;
+  const displayImage = imagePreview ?? remoteImageUrl ?? (!imageRemoved ? deal.imageUrl : null);
 
   return (
     <div>
@@ -168,49 +193,64 @@ function DealDetailPage() {
       {editing ? (
         <div className="max-w-2xl space-y-5">
           <PageHeader eyebrow="Discounts" title="Edit deal" />
+          <SmartFill type="deal" onFill={handleSmartFill} />
 
           {/* Image */}
-          {cropFile && (
-            <CropDialog
-              file={cropFile}
-              onCrop={(cropped) => { setCropFile(null); handleImageFile(cropped); }}
-              onCancel={() => setCropFile(null)}
-            />
-          )}
           <div className={field}>
-            <label className={lbl}>Photo (optional)</label>
-            <div className="flex gap-4">
-              <div className="w-28 shrink-0 aspect-[3/4] rounded-xl border-2 border-border overflow-hidden flex items-center justify-center bg-muted">
-                {displayImage
-                  ? <img src={displayImage} alt="Preview" className="w-full h-full object-cover" />
-                  : <span className="text-4xl">{DEAL_CATEGORY_EMOJI[draft.category] ?? "🏷️"}</span>
-                }
-              </div>
-              <div className="flex flex-col gap-2 justify-center">
-                <p className="text-xs text-muted-foreground">Photo of the deal — receipt, menu, sign, etc.</p>
-                <div className="flex flex-wrap gap-1.5">
-                  <button type="button" onClick={() => cameraInputRef.current?.click()} className="text-xs font-medium text-primary hover:text-primary/80 border border-primary/30 hover:border-primary/60 rounded-full px-3 py-1 transition-colors">
-                    📸 Take photo
-                  </button>
-                  <button type="button" onClick={() => fileInputRef.current?.click()} className="text-xs font-medium text-muted-foreground hover:text-foreground border border-border rounded-full px-3 py-1 transition-colors">
-                    {displayImage ? "Replace" : "Upload"}
-                  </button>
+            <label className={lbl}>Deal image</label>
+            <div className="flex items-center gap-4">
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                className="relative group h-32 w-32 shrink-0 rounded-xl border-2 border-dashed border-border hover:border-primary transition-colors overflow-hidden flex items-center justify-center bg-muted"
+              >
+                {displayImage ? (
+                  <>
+                    <img src={displayImage} alt="Deal image" className="w-full h-full object-cover" />
+                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                      <span className="text-white text-xl">📷</span>
+                    </div>
+                  </>
+                ) : (
+                  <span className="text-3xl group-hover:scale-110 transition-transform">{DEAL_CATEGORY_EMOJI[draft.category] ?? "🏷️"}</span>
+                )}
+              </button>
+              <div className="text-sm text-muted-foreground space-y-2">
+                <p className="font-medium text-foreground">Choose the image shown for this deal</p>
+                <p className="text-xs">PNG, JPG · Max 5 MB</p>
+                <div className="flex flex-wrap gap-2 pt-1">
+                  <Button type="button" size="sm" className="w-8 px-0 sm:w-auto sm:px-3" aria-label="New pic" title="New pic" onClick={() => fileInputRef.current?.click()}>
+                    <ImagePlus className="h-4 w-4" />
+                    <span className="hidden sm:inline">New pic</span>
+                  </Button>
+                  <Button type="button" variant="outline" size="sm" className="w-8 px-0 sm:w-auto sm:px-3" aria-label="From link" title="From link" onClick={() => setImageLinkOpen((open) => !open)}>
+                    <Link2 className="h-4 w-4" />
+                    <span className="hidden sm:inline">From link</span>
+                  </Button>
                   {displayImage && (
-                    <button type="button" onClick={openCropForExisting} disabled={fetchingCrop} className="text-xs font-medium text-primary hover:text-primary/80 border border-primary/30 hover:border-primary/60 rounded-full px-3 py-1 transition-colors disabled:opacity-50">
-                      {fetchingCrop ? "Loading…" : "Edit photo"}
-                    </button>
-                  )}
-                  {displayImage && (
-                    <button type="button" className="text-xs font-medium text-destructive hover:text-destructive/80 border border-destructive/30 rounded-full px-3 py-1 transition-colors" onClick={() => { if (imagePreview) URL.revokeObjectURL(imagePreview); setPendingImage(null); setImagePreview(null); }}>
-                      Remove
-                    </button>
+                    <Button type="button" variant="destructive" size="sm" className="w-8 px-0 sm:w-auto sm:px-3" aria-label="Remove image" title="Remove image" onClick={() => { if (imagePreview) URL.revokeObjectURL(imagePreview); setPendingImage(null); setImagePreview(null); setRemoteImageUrl(null); setImageRemoved(true); setImageLinkOpen(false); }}>
+                      <Trash2 className="h-4 w-4" />
+                      <span className="hidden sm:inline">Remove</span>
+                    </Button>
                   )}
                 </div>
-                <p className="text-xs text-muted-foreground">PNG or JPG · Max 5 MB</p>
               </div>
             </div>
-            <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) setCropFile(f); e.target.value = ""; }} />
-            <input ref={cameraInputRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) setCropFile(f); e.target.value = ""; }} />
+            {imageLinkOpen && (
+              <Input
+                type="url"
+                value={imagePreview ? "" : remoteImageUrl ?? ""}
+                onChange={(e) => {
+                  if (imagePreview) URL.revokeObjectURL(imagePreview);
+                  setPendingImage(null);
+                  setImagePreview(null);
+                  setRemoteImageUrl(e.target.value.trim() || null);
+                  setImageRemoved(false);
+                }}
+                placeholder="Paste image link"
+              />
+            )}
+            <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) handleImageFile(f); e.target.value = ""; }} />
           </div>
 
           {/* Brand */}
@@ -237,11 +277,17 @@ function DealDetailPage() {
           <div className="grid grid-cols-2 gap-3">
             <div className={field}>
               <label className={lbl}>Original price</label>
-              <Input value={draft.originalPrice} onChange={(e) => setDraft((d) => ({ ...d, originalPrice: e.target.value }))} placeholder="e.g. ¥1,200" />
+              <div className="relative">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground pointer-events-none">¥</span>
+                <Input inputMode="decimal" value={draft.originalPrice} onChange={(e) => setDraft((d) => ({ ...d, originalPrice: normalizeDealPriceNumber(e.target.value) }))} placeholder="1200" className="pl-7" />
+              </div>
             </div>
             <div className={field}>
               <label className={lbl}>New price</label>
-              <Input value={draft.newPrice} onChange={(e) => setDraft((d) => ({ ...d, newPrice: e.target.value }))} placeholder="e.g. ¥960" />
+              <div className="relative">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground pointer-events-none">¥</span>
+                <Input inputMode="decimal" value={draft.newPrice} onChange={(e) => setDraft((d) => ({ ...d, newPrice: normalizeDealPriceNumber(e.target.value) }))} placeholder="960" className="pl-7" />
+              </div>
             </div>
           </div>
 
@@ -303,7 +349,7 @@ function DealDetailPage() {
 
           <div className="flex gap-3 pt-2">
             <Button onClick={save} disabled={saving}>{saving ? "Saving…" : "Save"}</Button>
-            <Button variant="outline" onClick={() => { setEditing(false); if (deal) setDraft(toDraft(deal)); setPendingImage(null); setImagePreview(null); }}>Cancel</Button>
+            <Button variant="outline" onClick={() => { setEditing(false); if (deal) setDraft(toDraft(deal)); setPendingImage(null); setImagePreview(null); setRemoteImageUrl(null); setImageRemoved(false); setImageLinkOpen(false); }}>Cancel</Button>
           </div>
         </div>
       ) : (
@@ -332,8 +378,8 @@ function DealDetailPage() {
           <section className="card-base p-6 space-y-4">
             {(deal.originalPrice || deal.newPrice) && (
               <div className="flex items-center gap-3">
-                {deal.newPrice && <span className="text-2xl font-bold text-primary">{deal.newPrice}</span>}
-                {deal.originalPrice && <span className="text-base text-muted-foreground line-through">{deal.originalPrice}</span>}
+                {deal.newPrice && <span className="text-2xl font-bold text-primary">{formatYenPrice(deal.newPrice)}</span>}
+                {deal.originalPrice && <span className="text-base text-muted-foreground line-through">{formatYenPrice(deal.originalPrice)}</span>}
               </div>
             )}
 

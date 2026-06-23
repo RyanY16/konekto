@@ -200,7 +200,10 @@ function OpportunityCard({ item }: { item: Job }) {
       />
       <div className="flex gap-4 p-4 items-center">
         <div className={`w-32 h-32 shrink-0 rounded-xl overflow-hidden flex items-center justify-center text-5xl bg-gradient-to-br ${opportunityGradient(item.category)}`}>
-          {item.emoji || CATEGORY_EMOJI[item.category] || <BriefcaseBusiness className="h-9 w-9" />}
+          {item.imageUrl
+            ? <img src={item.imageUrl} alt={item.title} className="w-full h-full object-cover" />
+            : (item.emoji || CATEGORY_EMOJI[item.category] || <BriefcaseBusiness className="h-9 w-9" />)
+          }
         </div>
 
         <div className="flex flex-col flex-1 min-w-0 py-0.5">

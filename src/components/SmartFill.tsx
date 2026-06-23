@@ -5,6 +5,7 @@ import { Sparkles, Loader2 } from "lucide-react";
 // All fields optional/nullable — only populated fields are filled in the form.
 
 export interface SmartFillResult {
+  imageUrl?: string | null;
   // Circle fields
   name?: string | null;
   description?: string | null;
@@ -140,6 +141,20 @@ export function SmartFill({ type, onFill }: Props) {
       }
 
       const result: SmartFillResult = payload?.data ?? {};
+      if (type === "opportunity") {
+        const rawResult = result as SmartFillResult & Record<string, unknown>;
+        const applicationUrl = [
+          normalizedUrl,
+          rawResult.applicationUrl,
+          rawResult.applicationURL,
+          rawResult.application_url,
+          rawResult.applyUrl,
+          rawResult.apply_url,
+          rawResult.url,
+          rawResult.website,
+        ].find((value) => typeof value === "string" && value.trim());
+        result.applicationUrl = typeof applicationUrl === "string" ? applicationUrl.trim() : normalizedUrl;
+      }
       console.log("[smart-fill] extracted fields", result);
 
       // Count non-null/non-empty fields filled

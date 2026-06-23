@@ -11,6 +11,7 @@ import { getDeals, getDealHandle, deleteAllDeals } from "@/data/backend";
 import { useAuth } from "@/components/AuthProvider";
 import { DEAL_CATEGORIES, DEAL_CATEGORY_EMOJI } from "@/data/profile-options";
 import { dealGradient } from "@/lib/placeholders";
+import { formatYenPrice } from "@/lib/deal-price";
 import { BatchAddDialog } from "@/components/BatchAddDialog";
 import { ListingCardHeader } from "@/components/ListingCardHeader";
 import { categoryLabel } from "@/lib/category-label";
@@ -194,8 +195,8 @@ function DiscountsPage() {
 
                 {(d.originalPrice || d.newPrice) && (
                   <div className="mt-1.5 flex items-center gap-2">
-                    {d.newPrice && <span className="text-base font-bold text-primary">{d.newPrice}</span>}
-                    {d.originalPrice && <span className="text-sm text-muted-foreground line-through">{d.originalPrice}</span>}
+                    {d.newPrice && <span className="text-base font-bold text-primary">{formatYenPrice(d.newPrice)}</span>}
+                    {d.originalPrice && <span className="text-sm text-muted-foreground line-through">{formatYenPrice(d.originalPrice)}</span>}
                   </div>
                 )}
 

@@ -10,6 +10,7 @@ import { format } from "date-fns";
 import type { SmartFillResult, SmartFillType } from "@/components/SmartFill";
 import { isLumaUrl } from "@/lib/social-links";
 import { formatOpportunityDeadline, normalizeOpportunityDeadline } from "@/lib/opportunity-deadline";
+import { formatYenPrice, normalizeDealPriceNumber } from "@/lib/deal-price";
 import type { Job } from "@/data/mock";
 
 type SmartFillLanguage = "en" | "ja" | "both";
@@ -70,7 +71,7 @@ function buildEventParams(data: SmartFillResult, sourceUrl: string, ownerId: str
   }
   const lumaLink = data.luma || (isLumaUrl(data.website) ? data.website : undefined) || (isLumaUrl(sourceUrl) ? sourceUrl : undefined);
   const tags = filterValidTags(inferRelevantTags({ tags: data.tags, text: [data.title, data.description, data.category, data.location], limit: 4 }));
-  return { title, description: data.description?.trim() || undefined, category, date: dateStr, location: data.location?.trim() || "TBD", emoji, tags, cost: data.cost?.trim() || undefined, online: data.online ?? false, socialLinks: { luma: lumaLink, website: data.website && data.website !== lumaLink ? data.website : (!lumaLink ? sourceUrl : undefined) }, ownerId, startDate: startDateIso, isAdmin: true };
+  return { title, description: data.description?.trim() || undefined, category, date: dateStr, location: data.location?.trim() || "TBD", emoji, tags, cost: data.cost?.trim() || undefined, online: data.online ?? false, socialLinks: { luma: lumaLink, website: data.website && data.website !== lumaLink ? data.website : (!lumaLink ? sourceUrl : undefined) }, ownerId, startDate: startDateIso, imageUrl: data.imageUrl || undefined, isAdmin: true };
 }
 
 function buildCircleParams(data: SmartFillResult, sourceUrl: string, ownerId: string) {
@@ -80,20 +81,30 @@ function buildCircleParams(data: SmartFillResult, sourceUrl: string, ownerId: st
   const emoji = CATEGORY_EMOJI[category] || "👥";
   const tags = filterValidTags(inferRelevantTags({ tags: data.tags, text: [data.name, data.description, data.category, data.university], limit: 5 }));
   const id = `circle-${crypto.randomUUID()}`;
-  return { id, name, category, description: data.description?.trim() || "", activity: "Weekly" as any, englishFriendly: data.englishFriendly ?? false, emoji, tags, university: data.university?.trim() || undefined, primaryLanguage: undefined as string | undefined, recruiting: data.recruiting ?? false, recruitingPeriod: data.recruitingPeriod?.trim() || undefined, membershipFee: data.membershipFee?.trim() || undefined, howToJoin: data.howToJoin?.trim() || undefined, socialLinks: { instagram: data.instagram?.replace(/^@/, "") || undefined, website: data.website || sourceUrl } as any, ownerId, isAdmin: true };
+  return { id, name, category, description: data.description?.trim() || "", activity: "Weekly" as any, englishFriendly: data.englishFriendly ?? false, emoji, tags, university: data.university?.trim() || undefined, primaryLanguage: undefined as string | undefined, recruiting: data.recruiting ?? false, recruitingPeriod: data.recruitingPeriod?.trim() || undefined, membershipFee: data.membershipFee?.trim() || undefined, howToJoin: data.howToJoin?.trim() || undefined, socialLinks: { instagram: data.instagram?.replace(/^@/, "") || undefined, website: data.website || sourceUrl } as any, ownerId, iconUrl: data.imageUrl || undefined, isAdmin: true };
 }
 
 function buildDealParams(data: SmartFillResult, sourceUrl: string) {
   const rawCat = data.category ?? "";
   const category = (DEAL_CATEGORIES as readonly string[]).includes(rawCat) ? rawCat : "Other";
-  return { brand: data.brand?.trim() || "Unknown", title: data.title?.trim() || "Untitled Deal", category: category as any, description: data.description?.trim() || undefined, originalPrice: data.originalPrice?.trim() || undefined, newPrice: data.newPrice?.trim() || undefined, studentOnly: data.studentOnly ?? true, mode: (data.mode && ["In-Person", "Online", "Both"].includes(data.mode) ? data.mode : "Online") as any, socialLinks: { website: data.url || sourceUrl } as any };
+  return { brand: data.brand?.trim() || "Unknown", title: data.title?.trim() || "Untitled Deal", category: category as any, description: data.description?.trim() || undefined, originalPrice: normalizeDealPriceNumber(data.originalPrice) || undefined, newPrice: normalizeDealPriceNumber(data.newPrice) || undefined, studentOnly: data.studentOnly ?? true, mode: (data.mode && ["In-Person", "Online", "Both"].includes(data.mode) ? data.mode : "Online") as any, imageUrl: data.imageUrl || undefined, socialLinks: { website: data.url || sourceUrl } as any };
 }
 
 function buildOpportunityParams(data: SmartFillResult, sourceUrl: string): Omit<Job, "id"> {
   const rawCat = data.category ?? "";
   const category = ((OPPORTUNITY_CATEGORIES as readonly string[]).includes(rawCat) ? rawCat : "Other") as Job["category"];
   const mode = data.mode === "Online" || data.mode === "Hybrid" || data.mode === "In-Person" ? data.mode : "In-Person";
-  const applicationUrl = data.applicationUrl || data.url || data.website || sourceUrl;
+  const rawData = data as SmartFillResult & Record<string, unknown>;
+  const applicationUrl = ([
+    rawData.applicationUrl,
+    rawData.applicationURL,
+    rawData.application_url,
+    rawData.applyUrl,
+    rawData.apply_url,
+    rawData.url,
+    rawData.website,
+    sourceUrl,
+  ].find((value) => typeof value === "string" && value.trim()) as string).trim();
   const tags = filterValidTags(inferRelevantTags({ tags: data.tags, text: [data.title, data.organization, data.category, data.description, data.eligibility], limit: 4 }));
   return {
     title: data.title?.trim() || "Untitled Opportunity",
@@ -108,6 +119,7 @@ function buildOpportunityParams(data: SmartFillResult, sourceUrl: string): Omit<
     socialLinks: applicationUrl ? { website: applicationUrl } : {},
     tags,
     emoji: CATEGORY_EMOJI[category] || "✨",
+    imageUrl: data.imageUrl || undefined,
   };
 }
 
@@ -124,21 +136,24 @@ function EventPreview({ data, url }: { data: SmartFillResult; url: string }) {
   const cat = EVENT_CATEGORIES.includes(data.category as any) ? data.category : "Social";
   const emoji = CATEGORY_EMOJI[cat!] || "📅";
   return (
-    <div className="space-y-1">
-      <div className="flex items-center gap-1.5">
-        <span>{emoji}</span>
-        <span className="font-semibold text-sm">{data.title || "Untitled Event"}</span>
-        {cat && <span className="text-[10px] text-muted-foreground border border-border rounded px-1">{cat}</span>}
-      </div>
-      {data.startDate && <p className="text-xs text-muted-foreground flex items-center gap-1"><Calendar className="h-3 w-3" />{format(new Date(data.startDate), "EEE, MMM d · h:mm a")}</p>}
-      {data.location && <p className="text-xs text-muted-foreground flex items-center gap-1"><MapPin className="h-3 w-3" />{data.location}</p>}
-      {data.description && <p className="text-xs text-muted-foreground line-clamp-2">{data.description}</p>}
-      {data.tags && data.tags.length > 0 && (
-        <div className="flex items-center gap-1 flex-wrap">
-          <Tag className="h-3 w-3 text-muted-foreground shrink-0" />
-          {data.tags.slice(0, 4).map((t) => <span key={t} className="text-[10px] bg-muted rounded px-1.5 py-0.5">{t}</span>)}
+    <div className="flex gap-2">
+      {data.imageUrl && <img src={data.imageUrl} alt="" className="h-14 w-20 shrink-0 rounded-md object-cover bg-muted" />}
+      <div className="min-w-0 space-y-1">
+        <div className="flex items-center gap-1.5">
+          <span>{emoji}</span>
+          <span className="font-semibold text-sm">{data.title || "Untitled Event"}</span>
+          {cat && <span className="text-[10px] text-muted-foreground border border-border rounded px-1">{cat}</span>}
         </div>
-      )}
+        {data.startDate && <p className="text-xs text-muted-foreground flex items-center gap-1"><Calendar className="h-3 w-3" />{format(new Date(data.startDate), "EEE, MMM d · h:mm a")}</p>}
+        {data.location && <p className="text-xs text-muted-foreground flex items-center gap-1"><MapPin className="h-3 w-3" />{data.location}</p>}
+        {data.description && <p className="text-xs text-muted-foreground line-clamp-2">{data.description}</p>}
+        {data.tags && data.tags.length > 0 && (
+          <div className="flex items-center gap-1 flex-wrap">
+            <Tag className="h-3 w-3 text-muted-foreground shrink-0" />
+            {data.tags.slice(0, 4).map((t) => <span key={t} className="text-[10px] bg-muted rounded px-1.5 py-0.5">{t}</span>)}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
@@ -147,20 +162,23 @@ function CirclePreview({ data }: { data: SmartFillResult }) {
   const cat = CIRCLE_CATEGORIES.includes(data.category as any) ? data.category : null;
   const emoji = CATEGORY_EMOJI[cat!] || "👥";
   return (
-    <div className="space-y-1">
-      <div className="flex items-center gap-1.5">
-        <span>{emoji}</span>
-        <span className="font-semibold text-sm">{data.name || "Untitled Circle"}</span>
-        {cat && <span className="text-[10px] text-muted-foreground border border-border rounded px-1">{cat}</span>}
-      </div>
-      {data.university && <p className="text-xs text-muted-foreground">{data.university}</p>}
-      {data.description && <p className="text-xs text-muted-foreground line-clamp-2">{data.description}</p>}
-      {data.tags && data.tags.length > 0 && (
-        <div className="flex items-center gap-1 flex-wrap">
-          <Tag className="h-3 w-3 text-muted-foreground shrink-0" />
-          {data.tags.slice(0, 4).map((t) => <span key={t} className="text-[10px] bg-muted rounded px-1.5 py-0.5">{t}</span>)}
+    <div className="flex gap-2">
+      {data.imageUrl && <img src={data.imageUrl} alt="" className="h-12 w-12 shrink-0 rounded-lg object-cover bg-muted" />}
+      <div className="min-w-0 space-y-1">
+        <div className="flex items-center gap-1.5">
+          <span>{emoji}</span>
+          <span className="font-semibold text-sm">{data.name || "Untitled Circle"}</span>
+          {cat && <span className="text-[10px] text-muted-foreground border border-border rounded px-1">{cat}</span>}
         </div>
-      )}
+        {data.university && <p className="text-xs text-muted-foreground">{data.university}</p>}
+        {data.description && <p className="text-xs text-muted-foreground line-clamp-2">{data.description}</p>}
+        {data.tags && data.tags.length > 0 && (
+          <div className="flex items-center gap-1 flex-wrap">
+            <Tag className="h-3 w-3 text-muted-foreground shrink-0" />
+            {data.tags.slice(0, 4).map((t) => <span key={t} className="text-[10px] bg-muted rounded px-1.5 py-0.5">{t}</span>)}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
@@ -169,19 +187,22 @@ function DealPreview({ data }: { data: SmartFillResult }) {
   const cat = (DEAL_CATEGORIES as readonly string[]).includes(data.category ?? "") ? data.category : "Other";
   const emoji = DEAL_CATEGORY_EMOJI[cat!] || "🏷️";
   return (
-    <div className="space-y-1">
-      <div className="flex items-center gap-1.5">
-        <span>{emoji}</span>
-        <span className="font-semibold text-sm">{data.brand || "Unknown"} — {data.title || "Untitled Deal"}</span>
+    <div className="flex gap-2">
+      {data.imageUrl && <img src={data.imageUrl} alt="" className="h-14 w-11 shrink-0 rounded-md object-cover bg-muted" />}
+      <div className="min-w-0 space-y-1">
+        <div className="flex items-center gap-1.5">
+          <span>{emoji}</span>
+          <span className="font-semibold text-sm">{data.brand || "Unknown"} — {data.title || "Untitled Deal"}</span>
+        </div>
+        {cat && <span className="text-[10px] text-muted-foreground border border-border rounded px-1">{cat}</span>}
+        {(data.originalPrice || data.newPrice) && (
+          <p className="text-xs text-muted-foreground">
+            {data.newPrice && <span className="font-medium text-foreground">{formatYenPrice(data.newPrice)}</span>}
+            {data.originalPrice && <span className="line-through ml-1">{formatYenPrice(data.originalPrice)}</span>}
+          </p>
+        )}
+        {data.description && <p className="text-xs text-muted-foreground line-clamp-2">{data.description}</p>}
       </div>
-      {cat && <span className="text-[10px] text-muted-foreground border border-border rounded px-1">{cat}</span>}
-      {(data.originalPrice || data.newPrice) && (
-        <p className="text-xs text-muted-foreground">
-          {data.newPrice && <span className="font-medium text-foreground">{data.newPrice}</span>}
-          {data.originalPrice && <span className="line-through ml-1">{data.originalPrice}</span>}
-        </p>
-      )}
-      {data.description && <p className="text-xs text-muted-foreground line-clamp-2">{data.description}</p>}
     </div>
   );
 }
@@ -190,22 +211,25 @@ function OpportunityPreview({ data }: { data: SmartFillResult }) {
   const cat = (OPPORTUNITY_CATEGORIES as readonly string[]).includes(data.category ?? "") ? data.category : "Other";
   const emoji = CATEGORY_EMOJI[cat!] || "✨";
   return (
-    <div className="space-y-1">
-      <div className="flex items-center gap-1.5">
-        <span>{emoji}</span>
-        <span className="font-semibold text-sm">{data.title || "Untitled Opportunity"}</span>
-        {cat && <span className="text-[10px] text-muted-foreground border border-border rounded px-1">{cat}</span>}
-      </div>
-      {data.organization && <p className="text-xs text-muted-foreground">{data.organization}</p>}
-      {data.location && <p className="text-xs text-muted-foreground flex items-center gap-1"><MapPin className="h-3 w-3" />{data.location}</p>}
-      {normalizeOpportunityDeadline(data.deadline) && <p className="text-xs text-muted-foreground flex items-center gap-1"><Calendar className="h-3 w-3" />Deadline: {formatOpportunityDeadline(data.deadline)}</p>}
-      {data.description && <p className="text-xs text-muted-foreground line-clamp-2">{data.description}</p>}
-      {data.tags && data.tags.length > 0 && (
-        <div className="flex items-center gap-1 flex-wrap">
-          <Tag className="h-3 w-3 text-muted-foreground shrink-0" />
-          {data.tags.slice(0, 4).map((t) => <span key={t} className="text-[10px] bg-muted rounded px-1.5 py-0.5">{t}</span>)}
+    <div className="flex gap-2">
+      {data.imageUrl && <img src={data.imageUrl} alt="" className="h-14 w-14 shrink-0 rounded-md object-cover bg-muted" />}
+      <div className="min-w-0 space-y-1">
+        <div className="flex items-center gap-1.5">
+          <span>{emoji}</span>
+          <span className="font-semibold text-sm">{data.title || "Untitled Opportunity"}</span>
+          {cat && <span className="text-[10px] text-muted-foreground border border-border rounded px-1">{cat}</span>}
         </div>
-      )}
+        {data.organization && <p className="text-xs text-muted-foreground">{data.organization}</p>}
+        {data.location && <p className="text-xs text-muted-foreground flex items-center gap-1"><MapPin className="h-3 w-3" />{data.location}</p>}
+        {normalizeOpportunityDeadline(data.deadline) && <p className="text-xs text-muted-foreground flex items-center gap-1"><Calendar className="h-3 w-3" />Deadline: {formatOpportunityDeadline(data.deadline)}</p>}
+        {data.description && <p className="text-xs text-muted-foreground line-clamp-2">{data.description}</p>}
+        {data.tags && data.tags.length > 0 && (
+          <div className="flex items-center gap-1 flex-wrap">
+            <Tag className="h-3 w-3 text-muted-foreground shrink-0" />
+            {data.tags.slice(0, 4).map((t) => <span key={t} className="text-[10px] bg-muted rounded px-1.5 py-0.5">{t}</span>)}
+          </div>
+        )}
+      </div>
     </div>
   );
 }

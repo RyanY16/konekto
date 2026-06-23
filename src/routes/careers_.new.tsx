@@ -1,18 +1,20 @@
 import { createFileRoute, Link, useNavigate, useRouter } from "@tanstack/react-router";
-import { useState, type FormEvent } from "react";
-import { Globe } from "lucide-react";
+import { useRef, useState, type FormEvent } from "react";
+import { Globe, ImagePlus, Link2, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { NativeSelect } from "@/components/ui/native-select";
 import { Textarea } from "@/components/ui/textarea";
 import { PageHeader } from "@/components/PageHeader";
 import TagPicker from "@/components/TagPicker";
-import { addJob, getJobHandle } from "@/data/backend";
+import { addJob, getJobHandle, uploadOpportunityImage } from "@/data/backend";
 import { OPPORTUNITY_CATEGORIES, CATEGORY_EMOJI } from "@/data/profile-options";
 import { useAuth } from "@/components/AuthProvider";
 import { anyContainsSlur } from "@/lib/profanity";
 import { checkBeforePost } from "@/lib/moderation";
 import { normalizeOpportunityDeadline } from "@/lib/opportunity-deadline";
+import { SmartFill, type SmartFillResult } from "@/components/SmartFill";
+import { filterValidTags, inferRelevantTags } from "@/data/tags";
 import type { Job } from "@/data/mock";
 
 export const Route = createFileRoute("/careers_/new")({
@@ -29,6 +31,7 @@ type Draft = {
   description: string;
   eligibility: string;
   applicationUrl: string;
+  imageUrl: string;
 };
 
 const defaultDraft: Draft = {
@@ -41,6 +44,7 @@ const defaultDraft: Draft = {
   description: "",
   eligibility: "",
   applicationUrl: "",
+  imageUrl: "",
 };
 
 function NewOpportunityPage() {
@@ -51,6 +55,10 @@ function NewOpportunityPage() {
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const [pendingImage, setPendingImage] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [imageLinkOpen, setImageLinkOpen] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   if (loading) {
     return <div className="h-32 animate-pulse rounded-xl bg-muted" />;
@@ -95,7 +103,16 @@ function NewOpportunityPage() {
     }
 
     try {
+      const jobId = `job-${crypto.randomUUID()}`;
+      let imageUrl = draft.imageUrl.trim() || undefined;
+      if (pendingImage) {
+        imageUrl = await uploadOpportunityImage(jobId, pendingImage);
+        if (imagePreview) URL.revokeObjectURL(imagePreview);
+        setPendingImage(null);
+        setImagePreview(null);
+      }
       const created = await addJob({
+        id: jobId,
         organization: draft.organization.trim(),
         title: draft.title.trim(),
         category: draft.category,
@@ -108,6 +125,7 @@ function NewOpportunityPage() {
         socialLinks: draft.applicationUrl.trim() ? { website: draft.applicationUrl.trim() } : {},
         tags: selectedTags,
         emoji: CATEGORY_EMOJI[draft.category] || "✨",
+        imageUrl,
       });
       await router.invalidate();
       navigate({ to: "/careers/$jobHandle", params: { jobHandle: getJobHandle(created) } });
@@ -118,9 +136,62 @@ function NewOpportunityPage() {
     }
   }
 
+  function handleSmartFill(data: SmartFillResult, sourceUrl: string) {
+    const rawCategory = data.category ?? "";
+    const category = (OPPORTUNITY_CATEGORIES as readonly string[]).includes(rawCategory)
+      ? rawCategory as Job["category"]
+      : "Scholarship";
+    const mode = data.mode === "Online" || data.mode === "Hybrid" || data.mode === "In-Person"
+      ? data.mode
+      : "In-Person";
+    const rawData = data as SmartFillResult & Record<string, unknown>;
+    const applicationUrl = [
+      sourceUrl,
+      rawData.applicationUrl,
+      rawData.applicationURL,
+      rawData.application_url,
+      rawData.applyUrl,
+      rawData.apply_url,
+      rawData.url,
+      rawData.website,
+    ].find((value) => typeof value === "string" && value.trim()) as string;
+
+    setDraft(() => ({
+      organization: data.organization ?? data.brand ?? "",
+      title: data.title ?? "",
+      category,
+      location: data.location ?? "",
+      mode,
+      deadline: normalizeOpportunityDeadline(data.deadline) || "",
+      description: data.description ?? "",
+      eligibility: data.eligibility ?? "",
+      applicationUrl: applicationUrl.trim(),
+      imageUrl: data.imageUrl ?? "",
+    }));
+    if (imagePreview) URL.revokeObjectURL(imagePreview);
+    setPendingImage(null);
+    setImagePreview(null);
+    setImageLinkOpen(false);
+    setSelectedTags(filterValidTags(inferRelevantTags({
+      tags: data.tags,
+      text: [data.title, data.organization, data.category, data.description, data.eligibility],
+      limit: 4,
+    })));
+  }
+
+  function handleImageFile(file: File) {
+    if (imagePreview) URL.revokeObjectURL(imagePreview);
+    setPendingImage(file);
+    setImagePreview(URL.createObjectURL(file));
+    setImageLinkOpen(false);
+    setDraft((d) => ({ ...d, imageUrl: "" }));
+  }
+
   const lbl = "text-xs font-medium text-muted-foreground";
   const field = "space-y-1.5";
   const req = <span className="text-destructive ml-0.5">*</span>;
+  const opt = <span className="font-normal text-muted-foreground/60 ml-1">(optional)</span>;
+  const displayImage = imagePreview ?? draft.imageUrl;
 
   return (
     <div>
@@ -130,6 +201,88 @@ function NewOpportunityPage() {
       <PageHeader eyebrow="Opportunities" title="Add opportunity" />
 
       <form onSubmit={handleSubmit} className="max-w-2xl space-y-5">
+        <SmartFill type="opportunity" onFill={handleSmartFill} />
+
+        <div className={field}>
+          <label className={lbl}>Opportunity image {opt}</label>
+          <div className="flex items-center gap-4">
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              className="relative group h-32 w-32 shrink-0 rounded-xl border-2 border-dashed border-border hover:border-primary transition-colors overflow-hidden flex items-center justify-center bg-muted"
+            >
+              {displayImage ? (
+                <>
+                  <img src={displayImage} alt="Opportunity image" className="w-full h-full object-cover" />
+                  <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                    <span className="text-white text-xl">📷</span>
+                  </div>
+                </>
+              ) : (
+                <span className="text-3xl group-hover:scale-110 transition-transform">{CATEGORY_EMOJI[draft.category] ?? "✨"}</span>
+              )}
+            </button>
+            <div className="text-sm text-muted-foreground space-y-2">
+              <p className="font-medium text-foreground">Choose the image shown for this opportunity</p>
+              <p className="text-xs">PNG, JPG · Max 5 MB</p>
+              <div className="flex flex-wrap gap-2 pt-1">
+                <Button type="button" size="sm" className="w-8 px-0 sm:w-auto sm:px-3" aria-label="New pic" title="New pic" onClick={() => fileInputRef.current?.click()}>
+                  <ImagePlus className="h-4 w-4" />
+                  <span className="hidden sm:inline">New pic</span>
+                </Button>
+                <Button type="button" variant="outline" size="sm" className="w-8 px-0 sm:w-auto sm:px-3" aria-label="From link" title="From link" onClick={() => setImageLinkOpen((open) => !open)}>
+                  <Link2 className="h-4 w-4" />
+                  <span className="hidden sm:inline">From link</span>
+                </Button>
+                {displayImage && (
+                  <Button
+                    type="button"
+                    variant="destructive"
+                    size="sm"
+                    className="w-8 px-0 sm:w-auto sm:px-3"
+                    aria-label="Remove image"
+                    title="Remove image"
+                    onClick={() => {
+                      if (imagePreview) URL.revokeObjectURL(imagePreview);
+                      setPendingImage(null);
+                      setImagePreview(null);
+                      setImageLinkOpen(false);
+                      setDraft((d) => ({ ...d, imageUrl: "" }));
+                    }}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                    <span className="hidden sm:inline">Remove</span>
+                  </Button>
+                )}
+              </div>
+            </div>
+          </div>
+          {imageLinkOpen && (
+            <Input
+              type="url"
+              value={imagePreview ? "" : draft.imageUrl}
+              onChange={(event) => {
+                if (imagePreview) URL.revokeObjectURL(imagePreview);
+                setPendingImage(null);
+                setImagePreview(null);
+                setDraft((d) => ({ ...d, imageUrl: event.target.value.trim() }));
+              }}
+              placeholder="Paste image link"
+            />
+          )}
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            className="hidden"
+            onChange={(event) => {
+              const file = event.target.files?.[0];
+              if (file) handleImageFile(file);
+              event.target.value = "";
+            }}
+          />
+        </div>
+
         <div className={field}>
           <label className={lbl}>Category{req}</label>
           <NativeSelect value={draft.category} onChange={(event) => setDraft((d) => ({ ...d, category: event.target.value as Job["category"] }))}>

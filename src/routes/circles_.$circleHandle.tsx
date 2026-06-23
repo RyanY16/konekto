@@ -14,7 +14,7 @@ function relativeTime(iso: string | undefined): string | null {
   return `Updated ${Math.floor(months / 12)}y ago`;
 }
 
-import { Calendar, Globe, Instagram, Linkedin, MapPin, MessageCircle } from "lucide-react";
+import { Calendar, Globe, ImagePlus, Instagram, Link2, Linkedin, MapPin, MessageCircle, Trash2 } from "lucide-react";
 import { tagClass } from "@/lib/tag-class";
 import { PageHeader } from "@/components/PageHeader";
 import { SocialLinks } from "@/components/SocialLinks";
@@ -27,6 +27,7 @@ import { DeleteRecordButton } from "@/components/DeleteRecordButton";
 import { OwnerBadge } from "@/components/OwnerBadge";
 import { ShareButton } from "@/components/ShareButton";
 import { SaveButton } from "@/components/SaveButton";
+import { SmartFill, type SmartFillResult } from "@/components/SmartFill";
 import { useAuth } from "@/components/AuthProvider";
 import {
   deleteCircle,
@@ -63,7 +64,7 @@ import {
   type JoinRequestStatus,
 } from "@/data/backend";
 import { CIRCLE_CATEGORIES, ACTIVITY_LEVELS, CATEGORY_EMOJI, LANGUAGES } from "@/data/profile-options";
-import { CIRCLE_TAG_GROUPS, filterValidTags, tagLabel } from "@/data/tags";
+import { CIRCLE_TAG_GROUPS, filterValidTags, inferRelevantTags, tagLabel } from "@/data/tags";
 import { UniversityPicker } from "@/components/UniversityPicker";
 import type { Circle, EventItem } from "@/data/mock";
 import { NativeSelect } from "@/components/ui/native-select";
@@ -161,6 +162,9 @@ function CircleDetailPage() {
   const [draft, setDraft] = useState<Draft>(circle ? toDraft(circle) : {} as Draft);
   const [pendingIcon, setPendingIcon] = useState<File | null>(null);
   const [iconPreview, setIconPreview] = useState<string | null>(null);
+  const [remoteIconUrl, setRemoteIconUrl] = useState<string | null>(null);
+  const [iconRemoved, setIconRemoved] = useState(false);
+  const [iconLinkOpen, setIconLinkOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -438,6 +442,9 @@ function CircleDetailPage() {
     setDraft(d);
     setPendingIcon(null);
     setIconPreview(null);
+    setRemoteIconUrl(null);
+    setIconRemoved(false);
+    setIconLinkOpen(false);
     setSaveError(null);
     setEditing(true);
   }
@@ -446,6 +453,9 @@ function CircleDetailPage() {
     if (iconPreview) URL.revokeObjectURL(iconPreview);
     setPendingIcon(null);
     setIconPreview(null);
+    setRemoteIconUrl(null);
+    setIconRemoved(false);
+    setIconLinkOpen(false);
     setEditing(false);
   }
 
@@ -453,13 +463,61 @@ function CircleDetailPage() {
     if (iconPreview) URL.revokeObjectURL(iconPreview);
     setPendingIcon(file);
     setIconPreview(URL.createObjectURL(file));
+    setRemoteIconUrl(null);
+    setIconRemoved(false);
+    setIconLinkOpen(false);
+  }
+
+  function handleSmartFill(data: SmartFillResult, sourceUrl: string) {
+    const category = data.category && CIRCLE_CATEGORIES.includes(data.category as any) ? data.category : CIRCLE_CATEGORIES[0];
+    const language = data.primaryLanguage
+      ? LANGUAGES.find((l) => l.name.toLowerCase() === data.primaryLanguage!.toLowerCase())?.name ?? ""
+      : "";
+    setDraft((d) => ({
+      ...d,
+      name: data.name ?? "",
+      description: data.description ?? "",
+      category,
+      tags: filterValidTags(inferRelevantTags({
+        tags: data.tags,
+        text: [data.name, data.description, data.category, data.university],
+        limit: 5,
+      })),
+      university: data.university ?? "",
+      primaryLanguage: language,
+      vibe: "Casual",
+      englishFriendly: data.englishFriendly ?? false,
+      openAccess: false,
+      recruiting: data.recruiting ?? false,
+      recruitingPeriod: data.recruitingPeriod ?? "",
+      recruitingConditions: "",
+      membershipFee: data.membershipFee ?? "",
+      howToJoin: data.howToJoin ?? "",
+      website: data.website || sourceUrl,
+      instagram: data.instagram?.replace(/^@/, "") ?? "",
+    }));
+    if (data.imageUrl) {
+      if (iconPreview) URL.revokeObjectURL(iconPreview);
+      setPendingIcon(null);
+      setIconPreview(null);
+      setRemoteIconUrl(data.imageUrl);
+      setIconRemoved(false);
+      setIconLinkOpen(false);
+    } else {
+      if (iconPreview) URL.revokeObjectURL(iconPreview);
+      setPendingIcon(null);
+      setIconPreview(null);
+      setRemoteIconUrl(null);
+      setIconRemoved(true);
+      setIconLinkOpen(false);
+    }
   }
 
   async function save() {
     setSaving(true);
     setSaveError(null);
     try {
-      let newIconUrl: string | undefined = (circle as any).iconUrl;
+      let newIconUrl: string | undefined = iconRemoved ? undefined : (remoteIconUrl ?? (circle as any).iconUrl);
       if (pendingIcon) {
         newIconUrl = await uploadCircleIcon(circle!.id, pendingIcon);
         URL.revokeObjectURL(iconPreview!);
@@ -511,7 +569,7 @@ function CircleDetailPage() {
       }
 
       setEditing(false);
-      const newHandle = getCircleHandle({ id: circle!.id, name: draft.name });
+      const newHandle = getCircleHandle({ id: circle!.id, name: draft.name, slug: circle!.slug });
       await navigate({ to: "/circles/$circleHandle", params: { circleHandle: newHandle }, replace: true });
       router.invalidate();
     } catch (err) {
@@ -526,7 +584,9 @@ function CircleDetailPage() {
     router.navigate({ to: "/circles" });
   }
 
-  const currentIcon = iconPreview ?? (circle as any).iconUrl ?? null;
+  const currentIcon = editing
+    ? (iconPreview ?? remoteIconUrl ?? (!iconRemoved ? (circle as any).iconUrl : null) ?? null)
+    : (iconPreview ?? (circle as any).iconUrl ?? null);
 
   const sel = (cls: string) =>
     `h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring ${cls}`;
@@ -551,14 +611,16 @@ function CircleDetailPage() {
         {editing ? (
           /* ── Edit form ── */
           <div className="space-y-4">
+            <SmartFill type="circle" onFill={handleSmartFill} />
+
             {/* Icon uploader */}
             <div className="space-y-1">
-              <label className="text-xs font-medium text-muted-foreground">Circle Icon</label>
+              <label className="text-xs font-medium text-muted-foreground">Circle icon</label>
               <div className="flex items-center gap-4">
                 <button
                   type="button"
                   onClick={() => fileInputRef.current?.click()}
-                  className="relative group w-20 h-20 rounded-xl border-2 border-dashed border-border hover:border-primary transition-colors overflow-hidden flex items-center justify-center bg-muted"
+                  className="relative group h-32 w-32 shrink-0 rounded-xl border-2 border-dashed border-border hover:border-primary transition-colors overflow-hidden flex items-center justify-center bg-muted"
                 >
                   {currentIcon ? (
                     <>
@@ -571,24 +633,56 @@ function CircleDetailPage() {
                     <span className="text-3xl group-hover:scale-110 transition-transform">{circle.emoji || "📷"}</span>
                   )}
                 </button>
-                <div className="text-xs text-muted-foreground space-y-1">
-                  <p>Click to upload an icon image</p>
-                  <p>PNG, JPG · Max 2 MB</p>
-                  {currentIcon && (
-                    <button
-                      type="button"
-                      className="text-destructive hover:underline"
-                      onClick={() => {
-                        if (iconPreview) URL.revokeObjectURL(iconPreview);
-                        setPendingIcon(null);
-                        setIconPreview(null);
-                      }}
-                    >
-                      Remove
-                    </button>
-                  )}
+                <div className="text-sm text-muted-foreground space-y-2">
+                  <p className="font-medium text-foreground">Choose the image shown for this circle</p>
+                  <p className="text-xs">PNG, JPG · Max 2 MB</p>
+                  <div className="flex flex-wrap gap-2 pt-1">
+                    <Button type="button" size="sm" className="w-8 px-0 sm:w-auto sm:px-3" aria-label="New pic" title="New pic" onClick={() => fileInputRef.current?.click()}>
+                      <ImagePlus className="h-4 w-4" />
+                      <span className="hidden sm:inline">New pic</span>
+                    </Button>
+                    <Button type="button" variant="outline" size="sm" className="w-8 px-0 sm:w-auto sm:px-3" aria-label="From link" title="From link" onClick={() => setIconLinkOpen((open) => !open)}>
+                      <Link2 className="h-4 w-4" />
+                      <span className="hidden sm:inline">From link</span>
+                    </Button>
+                    {currentIcon && (
+                      <Button
+                        type="button"
+                        variant="destructive"
+                        size="sm"
+                        className="w-8 px-0 sm:w-auto sm:px-3"
+                        aria-label="Remove image"
+                        title="Remove image"
+                        onClick={() => {
+                          if (iconPreview) URL.revokeObjectURL(iconPreview);
+                          setPendingIcon(null);
+                          setIconPreview(null);
+                          setRemoteIconUrl(null);
+                          setIconRemoved(true);
+                          setIconLinkOpen(false);
+                        }}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                        <span className="hidden sm:inline">Remove</span>
+                      </Button>
+                    )}
+                  </div>
                 </div>
               </div>
+              {iconLinkOpen && (
+                <Input
+                  type="url"
+                  value={remoteIconUrl ?? ""}
+                  onChange={(e) => {
+                    if (iconPreview) URL.revokeObjectURL(iconPreview);
+                    setPendingIcon(null);
+                    setIconPreview(null);
+                    setRemoteIconUrl(e.target.value.trim() || null);
+                    setIconRemoved(false);
+                  }}
+                  placeholder="Paste image link"
+                />
+              )}
               <input
                 ref={fileInputRef}
                 type="file"

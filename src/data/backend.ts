@@ -141,6 +141,7 @@ function mapCircle(row: Row<"circles">): Circle {
   const vis = (rawLinks?._visibility ?? {}) as Record<string, string>;
   return {
     id: row.id,
+    slug: (row as any).slug ?? undefined,
     name: row.name,
     category: row.category,
     description: row.description,
@@ -175,6 +176,7 @@ function mapCircle(row: Row<"circles">): Circle {
 function mapEvent(row: Row<"events">): EventItem {
   return {
     id: row.id,
+    slug: (row as any).slug ?? undefined,
     title: row.title,
     category: row.category,
     date: row.date,
@@ -203,6 +205,7 @@ function mapEvent(row: Row<"events">): EventItem {
 function mapDeal(row: Row<"deals">): Deal {
   return {
     id: row.id,
+    slug: (row as any).slug ?? undefined,
     brand: row.brand,
     title: row.title,
     category: row.category,
@@ -228,6 +231,7 @@ function mapJob(row: Row<"opportunities">): Job {
   const socialLinks = normalizeSocialLinks(row.social_links);
   return {
     id: row.id,
+    slug: (row as any).slug ?? undefined,
     organization: (row as any).organization ?? row.company,
     title: (row as any).title ?? row.role,
     category,
@@ -240,6 +244,7 @@ function mapJob(row: Row<"opportunities">): Job {
     tags: row.tags ?? [],
     emoji: row.emoji,
     socialLinks,
+    imageUrl: (row as any).image_url ?? undefined,
   };
 }
 
@@ -264,25 +269,81 @@ function findByHandle<T>(
   return items.find((item) => getId(item) === handle || makeHandle(item) === handle);
 }
 
-export function getCircleHandle(circle: Pick<Circle, "id" | "name">) {
-  const slug = toSlug(circle.name);
-  const suffix = circle.id.replace(/^circle-/, "").slice(0, 8);
-  return slug ? `${slug}-${suffix}` : circle.id;
+function findByAnyHandle<T>(
+  items: T[],
+  handle: string,
+  getId: (item: T) => string,
+  makeHandles: Array<(item: T) => string>,
+) {
+  return items.find((item) => getId(item) === handle || makeHandles.some((makeHandle) => makeHandle(item) === handle));
 }
 
-export function getEventHandle(event: Pick<EventItem, "id" | "title">) {
-  const slug = toSlug(event.title);
-  const suffix = event.id.replace(/^event-/, "").slice(0, 8);
-  return slug ? `${slug}-${suffix}` : event.id;
+function legacyHandle(id: string, label: string, prefix: string) {
+  const slug = toSlug(label);
+  const suffix = id.replace(new RegExp(`^${prefix}-`), "").slice(0, 8);
+  return slug ? `${slug}-${suffix}` : id;
 }
 
-export function getDealHandle(deal: Pick<Deal, "id" | "title">) {
-  const slug = toSlug(deal.title);
-  const suffix = deal.id.replace(/^deal-/, "").slice(0, 8);
-  return slug ? `${slug}-${suffix}` : deal.id;
+async function getAvailableSlug(table: "circles" | "events" | "deals" | "opportunities", label: string, id: string) {
+  const baseSlug = toSlug(label) || id;
+  const client = assertSupabase();
+  const { data, error } = await (client.from(table) as any).select("id, slug");
+  if (error) return baseSlug;
+
+  const used = new Set(
+    (data ?? [])
+      .filter((row: any) => row.id !== id)
+      .map((row: any) => toSlug(row.slug ?? ""))
+      .filter(Boolean),
+  );
+
+  if (!used.has(baseSlug)) return baseSlug;
+  let index = 2;
+  let slug = `${baseSlug}-${index}`;
+  while (used.has(slug)) {
+    index += 1;
+    slug = `${baseSlug}-${index}`;
+  }
+  return slug;
 }
 
-export function getJobHandle(job: Pick<Job, "id" | "organization" | "title">) {
+export function getCircleHandle(circle: Pick<Circle, "id" | "name" | "slug">) {
+  const slug = toSlug(circle.slug ?? "");
+  if (slug) return slug;
+  return toSlug(circle.name) || circle.id;
+}
+
+function getLegacyCircleHandle(circle: Pick<Circle, "id" | "name">) {
+  return legacyHandle(circle.id, circle.name, "circle");
+}
+
+export function getEventHandle(event: Pick<EventItem, "id" | "title" | "slug">) {
+  const slug = toSlug(event.slug ?? "");
+  if (slug) return slug;
+  return toSlug(event.title) || event.id;
+}
+
+function getLegacyEventHandle(event: Pick<EventItem, "id" | "title">) {
+  return legacyHandle(event.id, event.title, "event");
+}
+
+export function getDealHandle(deal: Pick<Deal, "id" | "title" | "slug">) {
+  const slug = toSlug(deal.slug ?? "");
+  if (slug) return slug;
+  return toSlug(deal.title) || deal.id;
+}
+
+function getLegacyDealHandle(deal: Pick<Deal, "id" | "title">) {
+  return legacyHandle(deal.id, deal.title, "deal");
+}
+
+export function getJobHandle(job: Pick<Job, "id" | "organization" | "title" | "slug">) {
+  const slug = toSlug(job.slug ?? "");
+  if (slug) return slug;
+  return toSlug(`${job.organization}-${job.title}`) || job.id;
+}
+
+function getLegacyJobHandle(job: Pick<Job, "id" | "organization" | "title">) {
   return toSlug(`${job.organization}-${job.title}`) || job.id;
 }
 
@@ -314,8 +375,10 @@ export async function addCircle(
   input: Omit<Circle, "id" | "members" | "ownerId"> & { members?: number; ownerId?: string | null; id?: string; iconUrl?: string; isAdmin?: boolean; openAccess?: boolean },
 ) {
   const client = assertSupabase();
+  const id = input.id ?? newId("circle");
   const values = {
-    id: input.id ?? newId("circle"),
+    id,
+    slug: await getAvailableSlug("circles", input.slug ?? input.name, id),
     name: input.name,
     category: input.category,
     description: input.description,
@@ -419,6 +482,7 @@ export async function addEvent(
   const id = input.id ?? newId("event");
   const values = {
     id,
+    slug: await getAvailableSlug("events", input.slug ?? input.title, id),
     title: input.title,
     category: input.category,
     description: input.description ?? "",
@@ -754,11 +818,13 @@ export async function deleteAllEvents() {
   console.log("[db] delete all events ✓");
 }
 
-export async function addDeal(input: Omit<Deal, "id">) {
+export async function addDeal(input: Omit<Deal, "id"> & { id?: string }) {
+  const id = input.id ?? newId("deal");
   return insertSupabase(
     "deals",
     {
-      id: newId("deal"),
+      id,
+      slug: await getAvailableSlug("deals", input.slug ?? input.title, id),
       brand: input.brand,
       title: input.title,
       category: input.category,
@@ -1155,12 +1221,14 @@ export async function rejectImportCandidate(id: string, adminId: string, reason?
   if (error) throw new Error(error.message);
 }
 
-export async function addJob(input: Omit<Job, "id">) {
+export async function addJob(input: Omit<Job, "id"> & { id?: string }) {
   const deadline = normalizeOpportunityDeadline(input.deadline);
+  const id = input.id ?? newId("job");
   return insertSupabase(
     "opportunities",
     ({
-      id: newId("job"),
+      id,
+      slug: await getAvailableSlug("opportunities", input.slug ?? `${input.organization}-${input.title}`, id),
       company: input.organization,
       role: input.title,
       type: input.category === "Part-time Job" ? "Baito" : input.category === "Internship" ? "Shukatsu" : "Opportunity",
@@ -1174,6 +1242,7 @@ export async function addJob(input: Omit<Job, "id">) {
       application_url: input.applicationUrl ?? input.socialLinks?.website ?? "",
       tags: input.tags,
       emoji: input.emoji,
+      image_url: input.imageUrl ?? null,
       social_links: input.socialLinks ?? (input.applicationUrl ? { website: input.applicationUrl } : {}),
       ...(deadline ? { deadline } : {}),
     }) as any,
@@ -1203,6 +1272,7 @@ export async function updateJob(id: string, input: Partial<Omit<Job, "id">>) {
   if (input.applicationUrl !== undefined) values.application_url = input.applicationUrl ?? "";
   if (input.tags !== undefined) values.tags = input.tags;
   if (input.emoji !== undefined) values.emoji = input.emoji;
+  if (input.imageUrl !== undefined) values.image_url = input.imageUrl || null;
   if (input.socialLinks !== undefined) values.social_links = input.socialLinks;
   return updateSupabase("opportunities", id, values as any, mapJob);
 }
@@ -1648,6 +1718,17 @@ export async function uploadDealImage(dealId: string, file: File): Promise<strin
   return data.publicUrl;
 }
 
+export async function uploadOpportunityImage(jobId: string, file: File): Promise<string> {
+  const client = assertSupabase();
+  if (file.size > 5_000_000) throw new Error("Image must be under 5 MB.");
+  const ext = file.name.split(".").pop() ?? "jpg";
+  const path = `opportunities/${jobId}/image.${ext}`;
+  const { error } = await client.storage.from("event-images").upload(path, file, { upsert: true });
+  if (error) throw new Error(error.message);
+  const { data } = client.storage.from("event-images").getPublicUrl(path);
+  return data.publicUrl;
+}
+
 export async function uploadAvatar(userId: string, file: File): Promise<string> {
   const client = assertSupabase();
   if (file.size > 2_000_000) throw new Error("Avatar must be under 2 MB.");
@@ -1687,7 +1768,7 @@ export async function getCircleByHandle(handle: string) {
       ]) as { data: unknown[] | null; error: any };
       if (!error && all) {
         const items = all.map((r) => mapCircle(r as unknown as Row<"circles">));
-        return findByHandle(items, handle, getCircleHandle, (item) => item.id) ?? null;
+        return findByAnyHandle(items, handle, (item) => item.id, [getCircleHandle, getLegacyCircleHandle]) ?? null;
       }
     } catch (err) {
       console.error("[db] circle detail read failed", err);
@@ -1695,7 +1776,7 @@ export async function getCircleByHandle(handle: string) {
     }
   }
   const items = await getCircles();
-  return findByHandle(items, handle, getCircleHandle, (item) => item.id) ?? null;
+  return findByAnyHandle(items, handle, (item) => item.id, [getCircleHandle, getLegacyCircleHandle]) ?? null;
 }
 
 export async function getEventByHandle(handle: string) {
@@ -1712,7 +1793,7 @@ export async function getEventByHandle(handle: string) {
       ]) as { data: unknown[] | null; error: any };
       if (!error && all) {
         const items = all.map((r) => mapEvent(r as unknown as Row<"events">));
-        return findByHandle(items, handle, getEventHandle, (item) => item.id) ?? null;
+        return findByAnyHandle(items, handle, (item) => item.id, [getEventHandle, getLegacyEventHandle]) ?? null;
       }
     } catch (err) {
       console.error("[db] event detail read failed", err);
@@ -1720,17 +1801,17 @@ export async function getEventByHandle(handle: string) {
     }
   }
   const items = await getEvents().catch(() => []);
-  return findByHandle(items, handle, getEventHandle, (item) => item.id) ?? null;
+  return findByAnyHandle(items, handle, (item) => item.id, [getEventHandle, getLegacyEventHandle]) ?? null;
 }
 
 export async function getDealByHandle(handle: string) {
   const items = await getDeals();
-  return findByHandle(items, handle, getDealHandle, (item) => item.id);
+  return findByAnyHandle(items, handle, (item) => item.id, [getDealHandle, getLegacyDealHandle]);
 }
 
 export async function getJobByHandle(handle: string) {
   const items = await getJobs();
-  return findByHandle(items, handle, getJobHandle, (item) => item.id);
+  return findByAnyHandle(items, handle, (item) => item.id, [getJobHandle, getLegacyJobHandle]);
 }
 
 export async function getGuideByHandle(handle: string) {
@@ -1750,7 +1831,7 @@ export async function searchAll(q: string): Promise<SearchResult[]> {
     Promise.all([
       supabase
         .from("circles")
-        .select("id, name, category, emoji, icon_url, tags")
+        .select("id, name, category, emoji, icon_url, tags, slug")
         .or(`name.ilike.${ql},description.ilike.${ql}`)
         .limit(6),
       supabase
@@ -1769,7 +1850,7 @@ export async function searchAll(q: string): Promise<SearchResult[]> {
     category: r.category,
     emoji: r.emoji,
     iconUrl: r.icon_url ?? undefined,
-    handle: toSlug(r.name) || r.id,
+    handle: getCircleHandle({ id: r.id, name: r.name, slug: r.slug ?? undefined }),
   }));
 
   const people: SearchResult[] = (userRows ?? [])

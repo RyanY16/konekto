@@ -1,6 +1,6 @@
 import { Link, createFileRoute, useRouter } from "@tanstack/react-router";
-import { useState } from "react";
-import { BriefcaseBusiness, Globe, Sparkles } from "lucide-react";
+import { useRef, useState } from "react";
+import { BriefcaseBusiness, Globe, ImagePlus, Link2, Sparkles, Trash2 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -11,11 +11,12 @@ import { PageHeader } from "@/components/PageHeader";
 import { SaveButton } from "@/components/SaveButton";
 import { ShareButton } from "@/components/ShareButton";
 import { SocialLinks } from "@/components/SocialLinks";
+import { SmartFill, type SmartFillResult } from "@/components/SmartFill";
 import TagPicker from "@/components/TagPicker";
-import { deleteJob, getJobByHandle, updateJob } from "@/data/backend";
+import { deleteJob, getJobByHandle, updateJob, uploadOpportunityImage } from "@/data/backend";
 import { useAuth } from "@/components/AuthProvider";
 import { OPPORTUNITY_CATEGORIES, CATEGORY_EMOJI } from "@/data/profile-options";
-import { filterValidTags, tagLabel } from "@/data/tags";
+import { filterValidTags, inferRelevantTags, tagLabel } from "@/data/tags";
 import { tagClass } from "@/lib/tag-class";
 import { anyContainsSlur } from "@/lib/profanity";
 import { checkBeforePost } from "@/lib/moderation";
@@ -38,6 +39,7 @@ type Draft = {
   eligibility: string;
   applicationUrl: string;
   tags: string[];
+  imageUrl: string;
 };
 
 function toDraft(job: Job): Draft {
@@ -52,6 +54,7 @@ function toDraft(job: Job): Draft {
     eligibility: job.eligibility ?? "",
     applicationUrl: job.applicationUrl ?? job.socialLinks?.website ?? "",
     tags: filterValidTags(job.tags),
+    imageUrl: job.imageUrl ?? "",
   };
 }
 
@@ -72,18 +75,77 @@ function JobDetailPage() {
     eligibility: "",
     applicationUrl: "",
     tags: [],
+    imageUrl: "",
   });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const [pendingImage, setPendingImage] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [imageLinkOpen, setImageLinkOpen] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   if (!job) {
     return <NotFound name="opportunity" to="/careers" />;
   }
 
   function startEditing() {
+    if (imagePreview) URL.revokeObjectURL(imagePreview);
     setDraft(toDraft(job));
+    setPendingImage(null);
+    setImagePreview(null);
+    setImageLinkOpen(false);
     setError("");
     setEditing(true);
+  }
+
+  function handleImageFile(file: File) {
+    if (imagePreview) URL.revokeObjectURL(imagePreview);
+    setPendingImage(file);
+    setImagePreview(URL.createObjectURL(file));
+    setImageLinkOpen(false);
+    setDraft((d) => ({ ...d, imageUrl: "" }));
+  }
+
+  function handleSmartFill(data: SmartFillResult, sourceUrl: string) {
+    const rawCategory = data.category ?? "";
+    const category = (OPPORTUNITY_CATEGORIES as readonly string[]).includes(rawCategory)
+      ? rawCategory as Job["category"]
+      : "Scholarship";
+    const mode = data.mode === "Online" || data.mode === "Hybrid" || data.mode === "In-Person"
+      ? data.mode
+      : "In-Person";
+    const rawData = data as SmartFillResult & Record<string, unknown>;
+    const applicationUrl = [
+      sourceUrl,
+      rawData.applicationUrl,
+      rawData.applicationURL,
+      rawData.application_url,
+      rawData.applyUrl,
+      rawData.apply_url,
+      rawData.url,
+      rawData.website,
+    ].find((value) => typeof value === "string" && value.trim()) as string;
+    setDraft({
+      organization: data.organization ?? data.brand ?? "",
+      title: data.title ?? "",
+      category,
+      location: data.location ?? "",
+      mode,
+      deadline: normalizeOpportunityDeadline(data.deadline),
+      description: data.description ?? "",
+      eligibility: data.eligibility ?? "",
+      applicationUrl: applicationUrl.trim(),
+      tags: filterValidTags(inferRelevantTags({
+        tags: data.tags,
+        text: [data.title, data.organization, data.category, data.description, data.eligibility],
+        limit: 4,
+      })),
+      imageUrl: data.imageUrl ?? "",
+    });
+    if (imagePreview) URL.revokeObjectURL(imagePreview);
+    setPendingImage(null);
+    setImagePreview(null);
+    setImageLinkOpen(false);
   }
 
   async function save() {
@@ -114,6 +176,13 @@ function JobDetailPage() {
     }
 
     try {
+      let imageUrl = draft.imageUrl || undefined;
+      if (pendingImage) {
+        imageUrl = await uploadOpportunityImage(job.id, pendingImage);
+        if (imagePreview) URL.revokeObjectURL(imagePreview);
+        setPendingImage(null);
+        setImagePreview(null);
+      }
       await updateJob(job.id, {
         organization: draft.organization.trim(),
         title: draft.title.trim(),
@@ -127,6 +196,7 @@ function JobDetailPage() {
         socialLinks: { ...(job.socialLinks ?? {}), website: draft.applicationUrl.trim() || undefined },
         tags: draft.tags,
         emoji: CATEGORY_EMOJI[draft.category] || "✨",
+        imageUrl,
       });
       setEditing(false);
       await router.invalidate();
@@ -141,6 +211,7 @@ function JobDetailPage() {
   const lbl = "text-xs font-medium text-muted-foreground";
   const field = "space-y-1.5";
   const req = <span className="text-destructive ml-0.5">*</span>;
+  const editImage = imagePreview ?? draft.imageUrl;
 
   return (
     <div>
@@ -151,6 +222,87 @@ function JobDetailPage() {
       {editing ? (
         <div className="max-w-2xl space-y-5">
           <PageHeader eyebrow="Opportunities" title="Edit opportunity" />
+          <SmartFill type="opportunity" onFill={handleSmartFill} />
+
+          <div className={field}>
+            <label className={lbl}>Opportunity image</label>
+            <div className="flex items-center gap-4">
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                className="relative group h-32 w-32 shrink-0 rounded-xl border-2 border-dashed border-border hover:border-primary transition-colors overflow-hidden flex items-center justify-center bg-muted"
+              >
+                {editImage ? (
+                  <>
+                    <img src={editImage} alt="Opportunity image" className="w-full h-full object-cover" />
+                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                      <span className="text-white text-xl">📷</span>
+                    </div>
+                  </>
+                ) : (
+                  <span className="text-3xl group-hover:scale-110 transition-transform">{CATEGORY_EMOJI[draft.category] ?? "✨"}</span>
+                )}
+              </button>
+              <div className="text-sm text-muted-foreground space-y-2">
+                <p className="font-medium text-foreground">Choose the image shown for this opportunity</p>
+                <p className="text-xs">PNG, JPG · Max 5 MB</p>
+                <div className="flex flex-wrap gap-2 pt-1">
+                  <Button type="button" size="sm" className="w-8 px-0 sm:w-auto sm:px-3" aria-label="New pic" title="New pic" onClick={() => fileInputRef.current?.click()}>
+                    <ImagePlus className="h-4 w-4" />
+                    <span className="hidden sm:inline">New pic</span>
+                  </Button>
+                  <Button type="button" variant="outline" size="sm" className="w-8 px-0 sm:w-auto sm:px-3" aria-label="From link" title="From link" onClick={() => setImageLinkOpen((open) => !open)}>
+                    <Link2 className="h-4 w-4" />
+                    <span className="hidden sm:inline">From link</span>
+                  </Button>
+                  {editImage && (
+                    <Button
+                      type="button"
+                      variant="destructive"
+                      size="sm"
+                      className="w-8 px-0 sm:w-auto sm:px-3"
+                      aria-label="Remove image"
+                      title="Remove image"
+                      onClick={() => {
+                        if (imagePreview) URL.revokeObjectURL(imagePreview);
+                        setPendingImage(null);
+                        setImagePreview(null);
+                        setImageLinkOpen(false);
+                        setDraft((d) => ({ ...d, imageUrl: "" }));
+                      }}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                      <span className="hidden sm:inline">Remove</span>
+                    </Button>
+                  )}
+                </div>
+              </div>
+            </div>
+            {imageLinkOpen && (
+              <Input
+                type="url"
+                value={imagePreview ? "" : draft.imageUrl}
+                onChange={(event) => {
+                  if (imagePreview) URL.revokeObjectURL(imagePreview);
+                  setPendingImage(null);
+                  setImagePreview(null);
+                  setDraft((d) => ({ ...d, imageUrl: event.target.value.trim() }));
+                }}
+                placeholder="Paste image link"
+              />
+            )}
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={(event) => {
+                const file = event.target.files?.[0];
+                if (file) handleImageFile(file);
+                event.target.value = "";
+              }}
+            />
+          </div>
 
           <div className={field}>
             <label className={lbl}>Category{req}</label>
@@ -218,11 +370,19 @@ function JobDetailPage() {
 
           <div className="flex gap-3 pt-2">
             <Button onClick={save} disabled={saving}>{saving ? "Saving…" : "Save"}</Button>
-            <Button variant="outline" onClick={() => { setEditing(false); setDraft(toDraft(job)); setError(""); }}>Cancel</Button>
+            <Button variant="outline" onClick={() => { if (imagePreview) URL.revokeObjectURL(imagePreview); setPendingImage(null); setImagePreview(null); setImageLinkOpen(false); setEditing(false); setDraft(toDraft(job)); setError(""); }}>Cancel</Button>
           </div>
         </div>
       ) : (
         <div className="space-y-4">
+          {job.imageUrl && (
+            <img
+              src={job.imageUrl}
+              alt={`${job.title} image`}
+              className="w-24 h-24 rounded-xl object-cover border border-border"
+            />
+          )}
+
           <PageHeader
             eyebrow={job.category}
             eyebrowVariant="chip"
