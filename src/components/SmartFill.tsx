@@ -196,16 +196,16 @@ export function SmartFill({ type, onFill }: Props) {
           onKeyDown={handleKey}
           placeholder="https://..."
           disabled={loading}
-          className="min-w-0 flex-1 h-9 rounded-lg border border-input bg-background px-3 text-sm focus:outline-none focus:ring-1 focus:ring-ring disabled:opacity-50"
+          className="h-9 w-full min-w-0 rounded-lg border border-input bg-background px-3 text-sm focus:outline-none focus:ring-1 focus:ring-ring disabled:opacity-50 sm:flex-1"
         />
-        <div className="flex h-9 shrink-0 overflow-hidden rounded-lg border border-input bg-background">
+        <div className="grid h-9 w-full shrink-0 grid-cols-3 overflow-hidden rounded-lg border border-input bg-background sm:flex sm:w-auto">
           {LANGUAGE_OPTIONS.map((option) => (
             <button
               key={option.value}
               type="button"
               onClick={() => setLanguage(option.value)}
               disabled={loading}
-              className={`px-2.5 text-xs font-semibold transition-colors ${
+              className={`flex min-w-0 items-center justify-center px-2.5 text-xs font-semibold transition-colors sm:min-w-14 ${
                 language === option.value
                   ? "bg-primary text-primary-foreground"
                   : "text-muted-foreground hover:bg-muted hover:text-foreground"
@@ -219,7 +219,7 @@ export function SmartFill({ type, onFill }: Props) {
           type="button"
           onClick={handleFill}
           disabled={loading || !url.trim()}
-          className="inline-flex items-center gap-1.5 px-3 h-9 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-colors disabled:opacity-50 shrink-0"
+          className="inline-flex h-9 w-full shrink-0 items-center justify-center gap-1.5 rounded-lg bg-primary px-3 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50 sm:w-auto"
         >
           {loading ? (
             <><Loader2 className="h-3.5 w-3.5 animate-spin" /> {slow ? "Warming up…" : "Filling…"}</>
